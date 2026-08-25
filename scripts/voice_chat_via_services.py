@@ -25,15 +25,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import requests
 from services.llm.client import generate_reply
+from services.language_codes import LANGUAGE_CODE_TO_SHORT
 
 STT_URL = "http://127.0.0.1:8001/transcribe"
 TTS_URL = "http://127.0.0.1:8005/synthesize"
-
-LANGUAGE_CODE_TO_SHORT = {
-    "kn-IN": "kn",
-    "hi-IN": "hi",
-    "en-IN": "en",
-}
 
 
 def transcribe_via_service(file_path: str) -> dict:

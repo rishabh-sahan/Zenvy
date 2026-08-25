@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Zenvy Hospital Voice Assistant</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 480px;
+    margin: 60px auto;
+    text-align: center;
+    color: #1a1a1a;
+  }
+  h1 { font-size: 1.3rem; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; font-size: 0.9rem; }
+  #talkBtn {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: #2b6cb0;
+    color: white;
+    transition: background 0.15s ease;
+  }
+  #talkBtn.recording {
+    background: #c53030;
+  }
+  #talkBtn:disabled {
+    background: #a0aec0;
+    cursor: not-allowed;
+  }
+  #status { margin-top: 20px; min-height: 24px; color: #444; }
+  .turn {
+    text-align: left;
+    margin-top: 24px;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f9fafb;
+  }
+  .turn .label { font-size: 0.75rem; text-transform: uppercase; color: #888; }
+  .turn .text { margin: 4px 0 10px 0; }
+</style>
+</head>
+<body>
+
+<h1>Zenvy Hospital Voice Assistant</h1>
+<p class="sub">Kannada · Hindi · English &mdash; press and hold to speak</p>
+
+<button id="talkBtn">Hold to talk</button>
+<div id="status">Ready</div>
+
+<div id="log"></div>
+
+<script>
+const talkBtn = document.getElementById("talkBtn");
+const statusEl = document.getElementById("status");
+const logEl = document.getElementById("log");
+
+let mediaRecorder;
+let audioChunks = [];
+let recordingStartTime = 0;
+const MIN_RECORDING_MS = 600; // guard against near-instant taps producing near-empty clips
+
+async function startRecording() {
+  if (mediaRecorder && mediaRecorder.state === "recording") return; // already recording, ignore repeat triggers
+
+  talkBtn.classList.add("recording");
+  talkBtn.textContent = "Starting...";
+  statusEl.textContent = "Requesting mic...";
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  audioChunks = [];
+
+  mediaRecorder.addEventListener("dataavailable", (event) => {
+    audioChunks.push(event.data);
+  });
+
+  mediaRecorder.addEventListener("stop", async () => {
+    stream.getTracks().forEach((track) => track.stop());
+    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+    await sendToGateway(audioBlob);
+  });
+
+  mediaRecorder.start();
+  recordingStartTime = Date.now();
+  talkBtn.textContent = "Release to send";
+  statusEl.textContent = "Listening...";
+}
+
+function stopRecording() {
+  if (!mediaRecorder || mediaRecorder.state !== "recording") {
+    // stop() fired before start() finished (e.g. very fast tap) -- ignore,
+    // startRecording will just keep running and the user can try again.
+    return;
+  }
+
+  const elapsed = Date.now() - recordingStartTime;
+  const remaining = MIN_RECORDING_MS - elapsed;
+
+  talkBtn.classList.remove("recording");
+  talkBtn.textContent = "Hold to talk";
+
+  if (remaining > 0) {
+    // enforce a minimum hold time so quick taps don't produce near-empty clips
+    statusEl.textContent = "Hold a little longer next time...";
+    setTimeout(() => mediaRecorder.stop(), remaining);
+  } else {
+    mediaRecorder.stop();
+  }
+}
+
+async function sendToGateway(audioBlob) {
+  talkBtn.disabled = true;
+  statusEl.textContent = "Thinking...";
+
+  const formData = new FormData();
+  formData.append("file", audioBlob, "input.webm");
+
+  try {
+    const response = await fetch("/channels/web/chat", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let message = response.statusText;
+      try {
+        const errJson = await response.json();
+        message = errJson.detail || message;
+      } catch {
+        message = await response.text();
+      }
+      statusEl.textContent = "Error: " + message;
+      talkBtn.disabled = false;
+      return;
+    }
+
+    const transcript = decodeURIComponent(response.headers.get("X-Transcript") || "");
+    const replyText = decodeURIComponent(response.headers.get("X-Reply-Text") || "");
+    const language = response.headers.get("X-Language") || "";
+
+    const audioReplyBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioReplyBlob);
+    const audio = new Audio(audioUrl);
+
+    addTurn(transcript, replyText, language);
+
+    statusEl.textContent = "Playing reply...";
+    audio.play();
+    audio.onended = () => {
+      statusEl.textContent = "Ready";
+      talkBtn.disabled = false;
+    };
+  } catch (err) {
+    statusEl.textContent = "Request failed: " + err.message;
+    talkBtn.disabled = false;
+  }
+}
+
+function addTurn(heard, reply, lang) {
+  const div = document.createElement("div");
+  div.className = "turn";
+  div.innerHTML = `
+    <div class="label">You said (${lang})</div>
+    <div class="text">${heard}</div>
+    <div class="label">Reply</div>
+    <div class="text">${reply}</div>
+  `;
+  logEl.prepend(div);
+}
+
+// Push-to-talk: mouse and touch
+talkBtn.addEventListener("mousedown", startRecording);
+talkBtn.addEventListener("mouseup", stopRecording);
+talkBtn.addEventListener("mouseleave", () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") stopRecording();
+});
+talkBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startRecording(); });
+talkBtn.addEventListener("touchend", (e) => { e.preventDefault(); stopRecording(); });
+</script>
+
+</body>
+</html>
