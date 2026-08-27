@@ -63,6 +63,7 @@ const logEl = document.getElementById("log");
 let mediaRecorder;
 let audioChunks = [];
 let recordingStartTime = 0;
+let currentSessionId = null; // persists across turns for this page load, ties turns to one conversation
 const MIN_RECORDING_MS = 600; // guard against near-instant taps producing near-empty clips
 
 async function startRecording() {
@@ -120,6 +121,9 @@ async function sendToGateway(audioBlob) {
 
   const formData = new FormData();
   formData.append("file", audioBlob, "input.webm");
+  if (currentSessionId) {
+    formData.append("session_id", currentSessionId);
+  }
 
   try {
     const response = await fetch("/channels/web/chat", {
@@ -143,6 +147,10 @@ async function sendToGateway(audioBlob) {
     const transcript = decodeURIComponent(response.headers.get("X-Transcript") || "");
     const replyText = decodeURIComponent(response.headers.get("X-Reply-Text") || "");
     const language = response.headers.get("X-Language") || "";
+    const sessionId = response.headers.get("X-Session-Id");
+    if (sessionId) {
+      currentSessionId = sessionId;
+    }
 
     const audioReplyBlob = await response.blob();
     const audioUrl = URL.createObjectURL(audioReplyBlob);

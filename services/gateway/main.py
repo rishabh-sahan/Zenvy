@@ -17,17 +17,20 @@ wav, and the STT service only accepts wav/mp3). Check with:
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import requests
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response, FileResponse
 
-from services.llm.client import generate_reply
 from services.language_codes import LANGUAGE_CODE_TO_SHORT
+from services.conversation_client import create_session, add_turn
+from services.orchestrator.state_machine import handle_turn
+from services.llm.client import generate_reply
 
 app = FastAPI(title="Zenvy Channel Gateway")
 
@@ -82,15 +85,21 @@ def _convert_to_wav(input_bytes: bytes, input_suffix: str) -> bytes:
 
 
 @app.post("/channels/web/chat")
-async def web_chat(file: UploadFile = File(...)):
+async def web_chat(file: UploadFile = File(...), session_id: str | None = Form(None)):
     """
-    Single-turn web channel handler:
-    browser audio blob -> wav -> STT -> LLM reply -> TTS -> wav back.
+    Web channel handler, now session-aware:
+    browser audio blob -> wav -> STT -> LLM reply -> TTS -> wav back,
+    with the exchange persisted via Team C's Conversation Service.
 
-    Returns the reply audio directly as the response body (audio/wav),
-    with the transcript and reply text attached as headers (percent-
-    encoded, since HTTP headers can't carry raw Kannada/Hindi text) so
-    the browser can display them alongside playback.
+    If session_id is not provided, a new session is created and its id
+    returned in the X-Session-Id header so the browser can send it on
+    the next request, keeping a conversation as one continuous session.
+
+    Persistence failures (Team C's service unreachable) are logged and
+    swallowed rather than raised -- the voice pipeline itself should
+    keep working even if the DB-backed session service is temporarily
+    down, matching the HTTP-only, no-hard-dependency integration
+    boundary with Team C.
     """
     raw_bytes = await file.read()
     if not raw_bytes:
@@ -141,10 +150,40 @@ async def web_chat(file: UploadFile = File(...)):
             },
         )
 
+    # Session handling: create one if the browser didn't send an existing
+    # session_id yet. This must happen BEFORE generating the reply, since
+    # the orchestrator's booking state machine needs a session_id to track
+    # progress (which slots are filled) across turns. Persistence failures
+    # are logged, not raised -- the patient should still get a spoken reply
+    # even if Team C's service or Supabase is briefly unreachable (booking
+    # simply won't be trackable across turns in that case).
+    if not session_id:
+        try:
+            session = create_session(
+                user_id=str(uuid.uuid4()), channel="web", language=short_lang
+            )
+            session_id = session["session_id"]
+        except Exception as e:
+            print(f"[Gateway] Could not create session (continuing without persistence): {e}")
+            session_id = None
+
     try:
-        reply_text = generate_reply(transcript, short_lang)
+        if session_id:
+            reply_text = handle_turn(session_id, short_lang, transcript)
+        else:
+            # No session at all (Team C's service unreachable) -- fall back
+            # to plain Q&A; booking flows require a session, so they're
+            # unavailable in this degraded case.
+            reply_text = generate_reply(transcript, short_lang)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"LLM reply generation failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Reply generation failed: {e}")
+
+    if session_id:
+        try:
+            add_turn(session_id, "user", transcript, short_lang, input_text=transcript)
+            add_turn(session_id, "assistant", reply_text, short_lang, response_text=reply_text)
+        except Exception as e:
+            print(f"[Gateway] Could not log turn (continuing): {e}")
 
     try:
         tts_response = requests.post(
@@ -156,12 +195,16 @@ async def web_chat(file: UploadFile = File(...)):
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=502, detail=f"TTS service failed: {e}")
 
+    headers = {
+        "X-Transcript": quote(transcript),
+        "X-Reply-Text": quote(reply_text),
+        "X-Language": lang_code,
+    }
+    if session_id:
+        headers["X-Session-Id"] = str(session_id)
+
     return Response(
         content=tts_response.content,
         media_type="audio/wav",
-        headers={
-            "X-Transcript": quote(transcript),
-            "X-Reply-Text": quote(reply_text),
-            "X-Language": lang_code,
-        },
+        headers=headers,
     )
