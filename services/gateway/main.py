@@ -14,6 +14,7 @@ Requires ffmpeg installed and on PATH (browsers record webm/ogg, not
 wav, and the STT service only accepts wav/mp3). Check with:
     ffmpeg -version
 """
+import os
 import subprocess
 import sys
 import tempfile
@@ -34,8 +35,8 @@ from services.llm.client import generate_reply
 
 app = FastAPI(title="Zenvy Channel Gateway")
 
-STT_URL = "http://127.0.0.1:8001/transcribe"
-TTS_URL = "http://127.0.0.1:8005/synthesize"
+STT_URL = os.getenv("STT_URL", "http://127.0.0.1:8001/transcribe")
+TTS_URL = os.getenv("TTS_URL", "http://127.0.0.1:8005/synthesize")
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
