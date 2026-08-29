@@ -9,9 +9,11 @@ services:
     environment:
       - STT_URL=http://stt:8001/transcribe
       - TTS_URL=http://tts:8005/synthesize
+      - TEAM_C_BASE_URL=http://team-c:8002
     depends_on:
       - stt
       - tts
+      - team-c
 
   stt:
     build: .
@@ -28,3 +30,19 @@ services:
       - "8005:8005"
     env_file:
       - .env
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  team-c:
+    build: ./DB-Team-C
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./DB-Team-C/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
