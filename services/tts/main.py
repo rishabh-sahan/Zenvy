@@ -72,16 +72,18 @@ async def synthesize(req: SynthesizeRequest):
             json={
                 "text": req.text,
                 "target_language_code": lang_code,
-                "speaker": "anushka",
-                "model": "bulbul:v2",
+                "speaker": "priya",
+                "model": "bulbul:v3",
             },
             timeout=30,
         )
-        response.raise_for_status()
+        if response.status_code != 200:
+            print(f"[TTS] Sarvam API error {response.status_code}: {response.text}")
+            raise HTTPException(status_code=502, detail=f"TTS provider error: {response.text}")
     except requests.exceptions.RequestException as e:
         print(f"[TTS] Sarvam API error: {e}")
         raise HTTPException(status_code=502, detail="TTS provider request failed.")
-
+        
     audio_b64 = response.json()["audios"][0]
     audio_bytes = base64.b64decode(audio_b64)
 
