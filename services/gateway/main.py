@@ -39,6 +39,7 @@ TTS :8005
 Browser
 """
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -104,13 +105,8 @@ app = FastAPI(
 # SERVICE URLS
 # =========================================================
 
-STT_URL = (
-    "http://127.0.0.1:8001/transcribe"
-)
-
-TTS_URL = (
-    "http://127.0.0.1:8005/synthesize"
-)
+STT_URL = os.getenv("STT_URL", "http://127.0.0.1:8001/transcribe")
+TTS_URL = os.getenv("TTS_URL", "http://127.0.0.1:8005/synthesize")
 
 
 # =========================================================
@@ -368,9 +364,9 @@ def _call_tts(
         response = requests.post(
             TTS_URL,
 
-            data={
+            json={
                 "text": text,
-                "target_language_code": language_code,
+                "language": short_lang,
             },
 
             timeout=60,
