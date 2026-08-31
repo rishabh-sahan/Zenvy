@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Zenvy Voice Lab</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+<header class="navbar">
+    <div class="logo">
+        <span class="logo-dot"></span>
+        Zenvy
+    </div>
+
+    <div class="badge">
+        AI Voice Lab
+    </div>
+</header>
+
+<main>
+
+<section class="hero">
+
+    <div class="hero-tag">
+        ● LIVE VOICE INTELLIGENCE
+    </div>
+
+    <h1>
+        Speak naturally.<br>
+        <span>Be understood.</span>
+    </h1>
+
+    <p class="hero-text">
+        A multilingual voice interface powered by Sarvam AI —
+        designed for natural conversations across Indian languages.
+    </p>
+
+    <div class="voice-card">
+
+        <div class="record-area">
+
+            <div id="status" class="status">
+                Ready to listen
+            </div>
+
+            <button id="recordButton" class="record-button">
+                <span class="mic">🎙</span>
+            </button>
+
+            <p id="recordText">
+                Click to speak
+            </p>
+
+        </div>
+
+        <div class="transcript-box">
+
+            <div class="label">
+                TRANSCRIPT
+            </div>
+
+            <div id="transcript">
+                Your speech will appear here...
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="tts-section">
+
+    <div class="section-heading">
+        <div class="hero-tag">TEXT TO SPEECH</div>
+
+        <h2>
+            Give your voice<br>
+            <span>a response.</span>
+        </h2>
+
+        <p>
+            Type a message and let Zenvy speak it naturally.
+        </p>
+    </div>
+
+    <div class="tts-card">
+
+        <textarea
+            id="ttsText"
+            placeholder="Type something in Kannada, Hindi, English..."
+        ></textarea>
+
+        <div class="controls">
+
+            <select id="language">
+                <option value="kn-IN">Kannada</option>
+                <option value="hi-IN">Hindi</option>
+                <option value="en-IN">English</option>
+                <option value="ta-IN">Tamil</option>
+                <option value="te-IN">Telugu</option>
+            </select>
+
+            <button id="speakButton">
+                🔊 Speak
+            </button>
+
+        </div>
+
+        <audio id="audioPlayer" controls></audio>
+
+    </div>
+
+</section>
+
+
+<section class="pipeline">
+
+    <div class="hero-tag">
+        HOW IT WORKS
+    </div>
+
+    <h2>
+        From speech to understanding.
+    </h2>
+
+    <div class="steps">
+
+        <div class="step">
+            <div class="step-number">01</div>
+            <h3>Speak</h3>
+            <p>Your microphone captures natural speech.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-number">02</div>
+            <h3>Understand</h3>
+            <p>Sarvam converts speech into text.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-number">03</div>
+            <h3>Respond</h3>
+            <p>Text is converted back into natural speech.</p>
+        </div>
+
+    </div>
+
+</section>
+
+</main>
+
+<footer>
+    Zenvy Voice Lab · Team A
+</footer>
+
+<script src="/static/app.js"></script>
+
+</body>
+</html>

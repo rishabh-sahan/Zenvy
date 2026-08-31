@@ -1,8 +1,6 @@
-venv/
-.venv/
-__pycache__/
-**/__pycache__/
-*.pyc
 .env
-.git/
-.pytest_cache/
+__pycache__/
+*.pyc
+*.wav.venv/
+.venv/
+*.wav

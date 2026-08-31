@@ -1,196 +1,1590 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8" />
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+/>
+
 <title>Zenvy Hospital Voice Assistant</title>
+
+
 <style>
-  body {
-    font-family: system-ui, sans-serif;
-    max-width: 480px;
-    margin: 60px auto;
-    text-align: center;
-    color: #1a1a1a;
-  }
-  h1 { font-size: 1.3rem; margin-bottom: 4px; }
-  p.sub { color: #666; margin-top: 0; font-size: 0.9rem; }
-  #talkBtn {
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    border: none;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    background: #2b6cb0;
-    color: white;
-    transition: background 0.15s ease;
-  }
-  #talkBtn.recording {
-    background: #c53030;
-  }
-  #talkBtn:disabled {
-    background: #a0aec0;
-    cursor: not-allowed;
-  }
-  #status { margin-top: 20px; min-height: 24px; color: #444; }
-  .turn {
-    text-align: left;
-    margin-top: 24px;
-    padding: 12px 16px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background: #f9fafb;
-  }
-  .turn .label { font-size: 0.75rem; text-transform: uppercase; color: #888; }
-  .turn .text { margin: 4px 0 10px 0; }
+
+body {
+
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  max-width: 560px;
+
+  margin: 50px auto;
+
+  padding: 0 20px;
+
+  color: #1a1a1a;
+
+}
+
+
+h1 {
+
+  text-align: center;
+
+  font-size: 1.5rem;
+
+  margin-bottom: 5px;
+
+}
+
+
+.sub {
+
+  text-align: center;
+
+  color: #666;
+
+  font-size: 0.9rem;
+
+  margin-top: 0;
+
+}
+
+
+.card {
+
+  margin-top: 25px;
+
+  padding: 20px;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 12px;
+
+  background: #f9fafb;
+
+}
+
+
+.card h2 {
+
+  margin-top: 0;
+
+  font-size: 1.1rem;
+
+}
+
+
+#talkBtn {
+
+  display: block;
+
+  width: 140px;
+
+  height: 140px;
+
+  margin: 20px auto;
+
+  border-radius: 50%;
+
+  border: none;
+
+  font-size: 1rem;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  background: #2b6cb0;
+
+  color: white;
+
+}
+
+
+#talkBtn.recording {
+
+  background: #c53030;
+
+}
+
+
+#talkBtn:disabled {
+
+  background: #a0aec0;
+
+  cursor: not-allowed;
+
+}
+
+
+#status {
+
+  text-align: center;
+
+  margin-top: 15px;
+
+  min-height: 24px;
+
+  color: #444;
+
+}
+
+
+textarea {
+
+  width: 100%;
+
+  box-sizing: border-box;
+
+  min-height: 100px;
+
+  padding: 12px;
+
+  border: 1px solid #cbd5e0;
+
+  border-radius: 8px;
+
+  resize: vertical;
+
+  font-family: inherit;
+
+  font-size: 1rem;
+
+}
+
+
+.controls {
+
+  display: flex;
+
+  gap: 10px;
+
+  margin-top: 12px;
+
+}
+
+
+select,
+.button {
+
+  padding: 10px 12px;
+
+  border-radius: 8px;
+
+  border: 1px solid #cbd5e0;
+
+  font-size: 0.95rem;
+
+}
+
+
+select {
+
+  flex: 1;
+
+  background: white;
+
+}
+
+
+.button {
+
+  background: #2f855a;
+
+  color: white;
+
+  border: none;
+
+  cursor: pointer;
+
+  font-weight: 600;
+
+}
+
+
+.button:hover {
+
+  background: #276749;
+
+}
+
+
+.button:disabled {
+
+  background: #a0aec0;
+
+  cursor: not-allowed;
+
+}
+
+
+.turn {
+
+  text-align: left;
+
+  margin-top: 24px;
+
+  padding: 12px 16px;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 8px;
+
+  background: #f9fafb;
+
+}
+
+
+.turn .label {
+
+  font-size: 0.75rem;
+
+  text-transform: uppercase;
+
+  color: #888;
+
+}
+
+
+.turn .text {
+
+  margin: 4px 0 10px 0;
+
+}
+
+
+.status {
+
+  margin-top: 10px;
+
+  color: #666;
+
+  font-size: 0.9rem;
+
+}
+
+
+.assistant-answer {
+
+  margin-top: 15px;
+
+  padding: 15px;
+
+  border-radius: 8px;
+
+  background: #edf7ed;
+
+  border: 1px solid #c6e6c6;
+
+}
+
+
+.assistant-answer .label {
+
+  font-size: 0.75rem;
+
+  text-transform: uppercase;
+
+  color: #2f855a;
+
+  font-weight: 700;
+
+}
+
+
+.assistant-answer .answer-text {
+
+  margin-top: 8px;
+
+  line-height: 1.5;
+
+  white-space: pre-wrap;
+
+}
+
+
+.input-display {
+
+  margin-top: 15px;
+
+  padding: 12px;
+
+  border-radius: 8px;
+
+  background: #f1f5f9;
+
+  border: 1px solid #e2e8f0;
+
+}
+
+
+.input-display .label {
+
+  font-size: 0.75rem;
+
+  text-transform: uppercase;
+
+  color: #888;
+
+}
+
+
+.input-display .text {
+
+  margin-top: 5px;
+
+}
+
+
 </style>
+
 </head>
+
+
 <body>
 
-<h1>Zenvy Hospital Voice Assistant</h1>
-<p class="sub">Kannada · Hindi · English &mdash; press and hold to speak</p>
 
-<button id="talkBtn">Hold to talk</button>
-<div id="status">Ready</div>
+<h1>
+  🏥 Zenvy Hospital Voice Assistant
+</h1>
 
-<div id="log"></div>
+
+<p class="sub">
+  Kannada · Hindi · English
+</p>
+
+
+
+<!-- =====================================================
+     VOICE ASSISTANT
+     ===================================================== -->
+
+<div class="card">
+
+  <h2>
+    🎙️ Voice Assistant
+  </h2>
+
+  <p class="sub">
+    Press and hold to speak
+  </p>
+
+
+  <button id="talkBtn">
+    Hold to talk
+  </button>
+
+
+  <div id="status">
+    Ready
+  </div>
+
+
+  <div id="log"></div>
+
+</div>
+
+
+
+<!-- =====================================================
+     ASK ZENVY
+     ===================================================== -->
+
+<div class="card">
+
+  <h2>
+    🤖 Ask Zenvy
+  </h2>
+
+
+  <p class="sub">
+    Type your problem and Zenvy will generate an answer
+  </p>
+
+
+  <textarea
+    id="askText"
+    placeholder="Example: What are the OPD timings?"
+  ></textarea>
+
+
+  <div class="controls">
+
+
+    <select id="askLanguage">
+
+      <option value="en">
+        English
+      </option>
+
+      <option value="hi">
+        Hindi
+      </option>
+
+      <option value="kn">
+        Kannada
+      </option>
+
+    </select>
+
+
+    <button
+      class="button"
+      id="askButton"
+    >
+      Ask Zenvy
+    </button>
+
+
+  </div>
+
+
+  <div
+    id="askStatus"
+    class="status"
+  >
+    Ready
+  </div>
+
+
+
+  <!-- USER INPUT -->
+
+  <div
+    id="userQuestion"
+    class="input-display"
+    style="display:none;"
+  >
+
+    <div class="label">
+      Your Question
+    </div>
+
+    <div
+      id="userQuestionText"
+      class="text"
+    ></div>
+
+  </div>
+
+
+
+  <!-- ASSISTANT ANSWER -->
+
+  <div
+    id="assistantAnswer"
+    class="assistant-answer"
+    style="display:none;"
+  >
+
+    <div class="label">
+      Zenvy's Answer
+    </div>
+
+    <div
+      id="assistantAnswerText"
+      class="answer-text"
+    ></div>
+
+  </div>
+
+</div>
+
+
 
 <script>
-const talkBtn = document.getElementById("talkBtn");
-const statusEl = document.getElementById("status");
-const logEl = document.getElementById("log");
 
-let mediaRecorder;
+
+/* =========================================================
+   GLOBAL SESSION
+   ========================================================= */
+
+let currentSessionId = null;
+
+
+
+/* =========================================================
+   VOICE ASSISTANT
+   ========================================================= */
+
+const talkBtn =
+  document.getElementById(
+    "talkBtn"
+  );
+
+
+const statusEl =
+  document.getElementById(
+    "status"
+  );
+
+
+const logEl =
+  document.getElementById(
+    "log"
+  );
+
+
+let mediaRecorder = null;
+
 let audioChunks = [];
+
 let recordingStartTime = 0;
-let currentSessionId = null; // persists across turns for this page load, ties turns to one conversation
-const MIN_RECORDING_MS = 600; // guard against near-instant taps producing near-empty clips
+
+
+const MIN_RECORDING_MS = 600;
+
+
+
+/* =========================================================
+   START RECORDING
+   ========================================================= */
 
 async function startRecording() {
-  if (mediaRecorder && mediaRecorder.state === "recording") return; // already recording, ignore repeat triggers
 
-  talkBtn.classList.add("recording");
-  talkBtn.textContent = "Starting...";
-  statusEl.textContent = "Requesting mic...";
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks = [];
+  if (
+    mediaRecorder &&
+    mediaRecorder.state === "recording"
+  ) {
 
-  mediaRecorder.addEventListener("dataavailable", (event) => {
-    audioChunks.push(event.data);
-  });
-
-  mediaRecorder.addEventListener("stop", async () => {
-    stream.getTracks().forEach((track) => track.stop());
-    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-    await sendToGateway(audioBlob);
-  });
-
-  mediaRecorder.start();
-  recordingStartTime = Date.now();
-  talkBtn.textContent = "Release to send";
-  statusEl.textContent = "Listening...";
-}
-
-function stopRecording() {
-  if (!mediaRecorder || mediaRecorder.state !== "recording") {
-    // stop() fired before start() finished (e.g. very fast tap) -- ignore,
-    // startRecording will just keep running and the user can try again.
     return;
+
   }
 
-  const elapsed = Date.now() - recordingStartTime;
-  const remaining = MIN_RECORDING_MS - elapsed;
-
-  talkBtn.classList.remove("recording");
-  talkBtn.textContent = "Hold to talk";
-
-  if (remaining > 0) {
-    // enforce a minimum hold time so quick taps don't produce near-empty clips
-    statusEl.textContent = "Hold a little longer next time...";
-    setTimeout(() => mediaRecorder.stop(), remaining);
-  } else {
-    mediaRecorder.stop();
-  }
-}
-
-async function sendToGateway(audioBlob) {
-  talkBtn.disabled = true;
-  statusEl.textContent = "Thinking...";
-
-  const formData = new FormData();
-  formData.append("file", audioBlob, "input.webm");
-  if (currentSessionId) {
-    formData.append("session_id", currentSessionId);
-  }
 
   try {
-    const response = await fetch("/channels/web/chat", {
-      method: "POST",
-      body: formData,
-    });
+
+
+    talkBtn.classList.add(
+      "recording"
+    );
+
+
+    talkBtn.textContent =
+      "Starting...";
+
+
+    statusEl.textContent =
+      "Requesting microphone...";
+
+
+    const stream =
+      await navigator.mediaDevices
+        .getUserMedia({
+
+          audio: true
+
+        });
+
+
+    mediaRecorder =
+      new MediaRecorder(
+        stream
+      );
+
+
+    audioChunks = [];
+
+
+    mediaRecorder.addEventListener(
+      "dataavailable",
+      event => {
+
+
+        if (
+          event.data.size > 0
+        ) {
+
+          audioChunks.push(
+            event.data
+          );
+
+        }
+
+      }
+    );
+
+
+    mediaRecorder.addEventListener(
+      "stop",
+      async () => {
+
+
+        stream
+          .getTracks()
+          .forEach(
+            track =>
+              track.stop()
+          );
+
+
+        const audioBlob =
+          new Blob(
+
+            audioChunks,
+
+            {
+              type:
+                "audio/webm"
+            }
+
+          );
+
+
+        await sendVoiceToGateway(
+          audioBlob
+        );
+
+      }
+    );
+
+
+    mediaRecorder.start();
+
+
+    recordingStartTime =
+      Date.now();
+
+
+    talkBtn.textContent =
+      "Release to send";
+
+
+    statusEl.textContent =
+      "Listening...";
+
+
+  }
+
+  catch (err) {
+
+
+    talkBtn.classList.remove(
+      "recording"
+    );
+
+
+    talkBtn.textContent =
+      "Hold to talk";
+
+
+    statusEl.textContent =
+      "Microphone error: " +
+      err.message;
+
+  }
+
+}
+
+
+
+/* =========================================================
+   STOP RECORDING
+   ========================================================= */
+
+function stopRecording() {
+
+
+  if (
+
+    !mediaRecorder ||
+
+    mediaRecorder.state !==
+      "recording"
+
+  ) {
+
+    return;
+
+  }
+
+
+  const elapsed =
+    Date.now() -
+    recordingStartTime;
+
+
+  const remaining =
+    MIN_RECORDING_MS -
+    elapsed;
+
+
+  talkBtn.classList.remove(
+    "recording"
+  );
+
+
+  talkBtn.textContent =
+    "Hold to talk";
+
+
+  if (
+    remaining > 0
+  ) {
+
+
+    statusEl.textContent =
+      "Hold a little longer...";
+
+
+    setTimeout(() => {
+
+
+      if (
+
+        mediaRecorder &&
+
+        mediaRecorder.state ===
+          "recording"
+
+      ) {
+
+        mediaRecorder.stop();
+
+      }
+
+    }, remaining);
+
+
+  }
+
+  else {
+
+    mediaRecorder.stop();
+
+  }
+
+}
+
+
+
+/* =========================================================
+   SEND VOICE TO GATEWAY
+   ========================================================= */
+
+async function sendVoiceToGateway(
+  audioBlob
+) {
+
+
+  talkBtn.disabled = true;
+
+
+  statusEl.textContent =
+    "Thinking...";
+
+
+  const formData =
+    new FormData();
+
+
+  formData.append(
+    "file",
+    audioBlob,
+    "input.webm"
+  );
+
+
+  if (
+    currentSessionId
+  ) {
+
+    formData.append(
+      "session_id",
+      currentSessionId
+    );
+
+  }
+
+
+  try {
+
+
+    const response =
+      await fetch(
+
+        "/channels/web/chat",
+
+        {
+
+          method:
+            "POST",
+
+          body:
+            formData
+
+        }
+
+      );
+
 
     if (!response.ok) {
-      let message = response.statusText;
+
+
+      let message =
+        response.statusText;
+
+
       try {
-        const errJson = await response.json();
-        message = errJson.detail || message;
-      } catch {
-        message = await response.text();
+
+
+        const error =
+          await response.json();
+
+
+        message =
+          error.detail ||
+          message;
+
+
       }
-      statusEl.textContent = "Error: " + message;
-      talkBtn.disabled = false;
-      return;
+
+      catch {}
+
+
+      throw new Error(
+        message
+      );
+
     }
 
-    const transcript = decodeURIComponent(response.headers.get("X-Transcript") || "");
-    const replyText = decodeURIComponent(response.headers.get("X-Reply-Text") || "");
-    const language = response.headers.get("X-Language") || "";
-    const sessionId = response.headers.get("X-Session-Id");
-    if (sessionId) {
-      currentSessionId = sessionId;
+
+
+    /* -----------------------------------------
+       READ RESPONSE HEADERS
+       ----------------------------------------- */
+
+
+    const transcript =
+      decodeHeader(
+        response.headers.get(
+          "X-Transcript"
+        )
+      );
+
+
+    const replyText =
+      decodeHeader(
+        response.headers.get(
+          "X-Reply-Text"
+        )
+      );
+
+
+    const language =
+      response.headers.get(
+        "X-Language"
+      ) || "";
+
+
+
+    const sessionId =
+      response.headers.get(
+        "X-Session-Id"
+      );
+
+
+    if (
+      sessionId
+    ) {
+
+      currentSessionId =
+        sessionId;
+
     }
 
-    const audioReplyBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioReplyBlob);
-    const audio = new Audio(audioUrl);
 
-    addTurn(transcript, replyText, language);
 
-    statusEl.textContent = "Playing reply...";
-    audio.play();
+    /* -----------------------------------------
+       AUDIO
+       ----------------------------------------- */
+
+    const audioBlobReply =
+      await response.blob();
+
+
+    const audioUrl =
+      URL.createObjectURL(
+        audioBlobReply
+      );
+
+
+    const audio =
+      new Audio(
+        audioUrl
+      );
+
+
+    addVoiceTurn(
+
+      transcript,
+
+      replyText,
+
+      language
+
+    );
+
+
+    statusEl.textContent =
+      "Playing reply...";
+
+
+    await audio.play();
+
+
     audio.onended = () => {
-      statusEl.textContent = "Ready";
-      talkBtn.disabled = false;
+
+
+      statusEl.textContent =
+        "Ready";
+
+
+      talkBtn.disabled =
+        false;
+
+
+      URL.revokeObjectURL(
+        audioUrl
+      );
+
     };
-  } catch (err) {
-    statusEl.textContent = "Request failed: " + err.message;
-    talkBtn.disabled = false;
+
+
   }
+
+  catch (err) {
+
+
+    statusEl.textContent =
+      "Request failed: " +
+      err.message;
+
+
+    talkBtn.disabled =
+      false;
+
+  }
+
 }
 
-function addTurn(heard, reply, lang) {
-  const div = document.createElement("div");
-  div.className = "turn";
-  div.innerHTML = `
-    <div class="label">You said (${lang})</div>
-    <div class="text">${heard}</div>
-    <div class="label">Reply</div>
-    <div class="text">${reply}</div>
-  `;
-  logEl.prepend(div);
+
+
+/* =========================================================
+   HEADER DECODER
+   ========================================================= */
+
+function decodeHeader(
+  value
+) {
+
+
+  if (!value) {
+
+    return "";
+
+  }
+
+
+  try {
+
+    return decodeURIComponent(
+      value
+    );
+
+  }
+
+  catch {
+
+    return value;
+
+  }
+
 }
 
-// Push-to-talk: mouse and touch
-talkBtn.addEventListener("mousedown", startRecording);
-talkBtn.addEventListener("mouseup", stopRecording);
-talkBtn.addEventListener("mouseleave", () => {
-  if (mediaRecorder && mediaRecorder.state === "recording") stopRecording();
-});
-talkBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startRecording(); });
-talkBtn.addEventListener("touchend", (e) => { e.preventDefault(); stopRecording(); });
+
+
+/* =========================================================
+   ADD VOICE TURN
+   ========================================================= */
+
+function addVoiceTurn(
+
+  heard,
+
+  reply,
+
+  lang
+
+) {
+
+
+  const div =
+    document.createElement(
+      "div"
+    );
+
+
+  div.className =
+    "turn";
+
+
+  const heardLabel =
+    document.createElement(
+      "div"
+    );
+
+
+  heardLabel.className =
+    "label";
+
+
+  heardLabel.textContent =
+    "You said (" +
+    lang +
+    ")";
+
+
+  const heardDiv =
+    document.createElement(
+      "div"
+    );
+
+
+  heardDiv.className =
+    "text";
+
+
+  heardDiv.textContent =
+    heard;
+
+
+  const replyLabel =
+    document.createElement(
+      "div"
+    );
+
+
+  replyLabel.className =
+    "label";
+
+
+  replyLabel.textContent =
+    "Zenvy";
+
+
+  const replyDiv =
+    document.createElement(
+      "div"
+    );
+
+
+  replyDiv.className =
+    "text";
+
+
+  replyDiv.textContent =
+    reply;
+
+
+  div.appendChild(
+    heardLabel
+  );
+
+
+  div.appendChild(
+    heardDiv
+  );
+
+
+  div.appendChild(
+    replyLabel
+  );
+
+
+  div.appendChild(
+    replyDiv
+  );
+
+
+  logEl.prepend(
+    div
+  );
+
+}
+
+
+
+/* =========================================================
+   MOUSE CONTROLS
+   ========================================================= */
+
+talkBtn.addEventListener(
+  "mousedown",
+  startRecording
+);
+
+
+talkBtn.addEventListener(
+  "mouseup",
+  stopRecording
+);
+
+
+talkBtn.addEventListener(
+  "mouseleave",
+  () => {
+
+
+    if (
+
+      mediaRecorder &&
+
+      mediaRecorder.state ===
+        "recording"
+
+    ) {
+
+      stopRecording();
+
+    }
+
+  }
+);
+
+
+
+/* =========================================================
+   TOUCH CONTROLS
+   ========================================================= */
+
+talkBtn.addEventListener(
+  "touchstart",
+  event => {
+
+
+    event.preventDefault();
+
+
+    startRecording();
+
+  }
+);
+
+
+talkBtn.addEventListener(
+  "touchend",
+  event => {
+
+
+    event.preventDefault();
+
+
+    stopRecording();
+
+  }
+);
+
+
+
+/* =========================================================
+   ASK ZENVY
+   ========================================================= */
+
+const askText =
+  document.getElementById(
+    "askText"
+  );
+
+
+const askLanguage =
+  document.getElementById(
+    "askLanguage"
+  );
+
+
+const askButton =
+  document.getElementById(
+    "askButton"
+  );
+
+
+const askStatus =
+  document.getElementById(
+    "askStatus"
+  );
+
+
+const userQuestion =
+  document.getElementById(
+    "userQuestion"
+  );
+
+
+const userQuestionText =
+  document.getElementById(
+    "userQuestionText"
+  );
+
+
+const assistantAnswer =
+  document.getElementById(
+    "assistantAnswer"
+  );
+
+
+const assistantAnswerText =
+  document.getElementById(
+    "assistantAnswerText"
+  );
+
+
+
+/* =========================================================
+   ASK ZENVY BUTTON
+   ========================================================= */
+
+askButton.addEventListener(
+  "click",
+  askZenvy
+);
+
+
+
+/* =========================================================
+   ASK ZENVY FUNCTION
+   ========================================================= */
+
+async function askZenvy() {
+
+
+  const text =
+    askText.value.trim();
+
+
+  const language =
+    askLanguage.value;
+
+
+  if (!text) {
+
+
+    askStatus.textContent =
+      "Please enter your question.";
+
+
+    askText.focus();
+
+
+    return;
+
+  }
+
+
+  askButton.disabled =
+    true;
+
+
+  askStatus.textContent =
+    "Zenvy is thinking...";
+
+
+  assistantAnswer.style.display =
+    "none";
+
+
+  userQuestion.style.display =
+    "none";
+
+
+
+  try {
+
+
+    /* -----------------------------------------
+       CREATE FORM DATA
+       ----------------------------------------- */
+
+    const formData =
+      new FormData();
+
+
+    formData.append(
+      "text",
+      text
+    );
+
+
+    formData.append(
+      "language",
+      language
+    );
+
+
+    /*
+     * Send the existing session if available.
+     */
+
+    if (
+      currentSessionId
+    ) {
+
+      formData.append(
+        "session_id",
+        currentSessionId
+      );
+
+    }
+
+
+
+    /* -----------------------------------------
+       CALL THE CORRECT ENDPOINT
+       -----------------------------------------
+
+       IMPORTANT:
+
+       This is /channels/web/ask
+
+       NOT:
+
+       /channels/web/tts
+
+       NOT:
+
+       /channels/web/text-chat
+
+    ----------------------------------------- */
+
+
+    const response =
+      await fetch(
+
+        "/channels/web/ask",
+
+        {
+
+          method:
+            "POST",
+
+          body:
+            formData
+
+        }
+
+      );
+
+
+
+    /* -----------------------------------------
+       HANDLE HTTP ERROR
+       ----------------------------------------- */
+
+    if (!response.ok) {
+
+
+      let message =
+        response.statusText;
+
+
+      try {
+
+
+        const error =
+          await response.json();
+
+
+        message =
+          error.detail ||
+          error.message ||
+          message;
+
+
+      }
+
+      catch {}
+
+
+      throw new Error(
+        message
+      );
+
+    }
+
+
+
+    /* -----------------------------------------
+       READ JSON RESPONSE
+       ----------------------------------------- */
+
+    const data =
+      await response.json();
+
+
+    console.log(
+      "[Ask Zenvy] Response:",
+      data
+    );
+
+
+
+    /* -----------------------------------------
+       CHECK SUCCESS
+       ----------------------------------------- */
+
+    if (
+      data.success === false
+    ) {
+
+      throw new Error(
+        data.message ||
+        "Zenvy could not generate a response."
+      );
+
+    }
+
+
+
+    /* -----------------------------------------
+       GET ACTUAL ASSISTANT REPLY
+       ----------------------------------------- */
+
+    const reply =
+      data.reply || "";
+
+
+    if (!reply) {
+
+      throw new Error(
+        "Zenvy returned an empty answer."
+      );
+
+    }
+
+
+
+    /* -----------------------------------------
+       UPDATE SESSION
+       ----------------------------------------- */
+
+    if (
+      data.session_id
+    ) {
+
+      currentSessionId =
+        data.session_id;
+
+    }
+
+
+
+    /* -----------------------------------------
+       SHOW QUESTION
+       ----------------------------------------- */
+
+    userQuestionText.textContent =
+      data.input || text;
+
+
+    userQuestion.style.display =
+      "block";
+
+
+
+    /* -----------------------------------------
+       SHOW ZENVY ANSWER
+       ----------------------------------------- */
+
+    assistantAnswerText.textContent =
+      reply;
+
+
+    assistantAnswer.style.display =
+      "block";
+
+
+    askStatus.textContent =
+      "Zenvy answered ✓";
+
+
+  }
+
+  catch (err) {
+
+
+    console.error(
+      "[Ask Zenvy] Error:",
+      err
+    );
+
+
+    askStatus.textContent =
+      "Error: " +
+      err.message;
+
+  }
+
+
+  finally {
+
+
+    askButton.disabled =
+      false;
+
+  }
+
+}
+
+
+
+/* =========================================================
+   ENTER KEY SUPPORT
+   ========================================================= */
+
+askText.addEventListener(
+  "keydown",
+  event => {
+
+
+    /*
+     * Ctrl + Enter
+     * or
+     * Enter without Shift
+     */
+
+    if (
+
+      event.key ===
+        "Enter" &&
+
+      !event.shiftKey
+
+    ) {
+
+
+      event.preventDefault();
+
+
+      askZenvy();
+
+    }
+
+  }
+);
+
+
 </script>
 
 </body>
+
 </html>
