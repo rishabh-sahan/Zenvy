@@ -35,6 +35,11 @@ class SynthesizeRequest(BaseModel):
     language: str  # one of: kn, hi, en
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.post("/synthesize")
 async def synthesize(req: SynthesizeRequest):
     """

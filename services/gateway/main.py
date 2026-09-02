@@ -133,6 +133,11 @@ async def serve_ui():
     )
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 # =========================================================
 # LANGUAGE NORMALIZATION
 # =========================================================
