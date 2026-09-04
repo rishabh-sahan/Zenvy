@@ -83,6 +83,12 @@ from services.conversation_client import (
     add_turn,
 )
 
+from services.auth_client import (
+    login as auth_login,
+    PhoneNotRegistered,
+    InvalidPhoneNumber,
+)
+
 from services.orchestrator.state_machine import (
     handle_turn,
 )
@@ -136,6 +142,110 @@ async def serve_ui():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+@app.post("/channels/web/login")
+async def web_login(
+    # Defaulted rather than required: Starlette reports an empty form field as
+    # "missing", which would return FastAPI's 422 validation blob instead of
+    # the clean message below.
+    phone_no: str = Form(""),
+):
+    """
+    Phone-number-only patient login.
+
+    A number Team C has not seen before is registered on the spot rather than
+    rejected, so there is no separate signup step. Team C owns the table; the
+    gateway just proxies so the browser talks to one origin.
+    """
+
+    phone_no = phone_no.strip()
+
+    if not phone_no:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Phone number cannot be empty.",
+        )
+
+    print(
+        "\n========================================"
+    )
+
+    print(
+        "[Gateway] LOGIN ATTEMPT"
+    )
+
+    try:
+
+        account = auth_login(
+            phone_no
+        )
+
+    except PhoneNotRegistered as e:
+
+        print(
+            "[Gateway] LOGIN REJECTED: number not registered"
+        )
+
+        raise HTTPException(
+            status_code=401,
+            detail=str(e),
+        )
+
+    except InvalidPhoneNumber as e:
+
+        print(
+            "[Gateway] LOGIN REJECTED: malformed number"
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+
+    except requests.exceptions.RequestException as e:
+
+        print(
+            "[Gateway] LOGIN ERROR (Team C unreachable):",
+            e,
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Login service unavailable. "
+                "Please try again."
+            ),
+        )
+
+    is_new = bool(
+        account.get("is_new")
+    )
+
+    print(
+        "[Gateway] LOGIN OK"
+        + (
+            " (new account registered)"
+            if is_new
+            else ""
+        )
+    )
+
+    print(
+        "========================================\n"
+    )
+
+    return {
+        "success": True,
+        "auth_id": account["auth_id"],
+        "phone_no": account["phone_no"],
+        "is_new": is_new,
+    }
 
 
 # =========================================================

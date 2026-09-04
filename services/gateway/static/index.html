@@ -345,6 +345,88 @@ select {
 }
 
 
+/* =========================================================
+   LOGIN
+   ========================================================= */
+
+input[type="tel"] {
+
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 12px;
+
+  border: 1px solid #cbd5e0;
+
+  border-radius: 8px;
+
+  font-family: inherit;
+
+  font-size: 1rem;
+
+  letter-spacing: 1px;
+
+}
+
+
+#loginButton {
+
+  width: 100%;
+
+  margin-top: 12px;
+
+}
+
+
+.signed-in-bar {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 10px;
+
+  margin-top: 25px;
+
+  padding: 10px 14px;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 8px;
+
+  background: #f9fafb;
+
+  font-size: 0.85rem;
+
+  color: #444;
+
+}
+
+
+.link-button {
+
+  background: none;
+
+  border: none;
+
+  padding: 0;
+
+  color: #2b6cb0;
+
+  font-family: inherit;
+
+  font-size: 0.85rem;
+
+  text-decoration: underline;
+
+  cursor: pointer;
+
+}
+
+
 </style>
 
 </head>
@@ -361,6 +443,86 @@ select {
 <p class="sub">
   Kannada · Hindi · English
 </p>
+
+
+
+<!-- =====================================================
+     LOGIN
+     ===================================================== -->
+
+<div
+  class="card"
+  id="loginView"
+  style="display:none;"
+>
+
+  <h2>
+    🔐 Patient Login
+  </h2>
+
+
+  <p class="sub">
+    Enter your phone number to continue
+  </p>
+
+
+  <form id="loginForm">
+
+    <input
+      type="tel"
+      id="loginPhone"
+      inputmode="numeric"
+      autocomplete="tel"
+      placeholder="10-digit mobile number"
+    />
+
+
+    <button
+      class="button"
+      id="loginButton"
+      type="submit"
+    >
+      Continue
+    </button>
+
+  </form>
+
+
+  <div
+    id="loginStatus"
+    class="status"
+  ></div>
+
+</div>
+
+
+
+<!-- =====================================================
+     ASSISTANT (hidden until signed in)
+     ===================================================== -->
+
+<div
+  id="appView"
+  style="display:none;"
+>
+
+
+  <div class="signed-in-bar">
+
+    <span>
+      Signed in as
+      <strong id="signedInPhone"></strong>
+    </span>
+
+    <button
+      class="link-button"
+      id="logoutButton"
+      type="button"
+    >
+      Log out
+    </button>
+
+  </div>
 
 
 
@@ -500,6 +662,10 @@ select {
 </div>
 
 
+</div>
+<!-- end #appView -->
+
+
 
 <script>
 
@@ -509,6 +675,416 @@ select {
    ========================================================= */
 
 let currentSessionId = null;
+
+
+
+/* =========================================================
+   LOGIN
+
+   Phone-number-only gate. A number Team C has not seen
+   before is registered on first use, so there is no separate
+   signup screen and no password anywhere.
+
+   NOTE: this hides the UI, it does not secure the API. The
+   /channels/web/* endpoints remain callable directly.
+   ========================================================= */
+
+const AUTH_STORAGE_KEY = "zenvy_auth";
+
+
+const loginView =
+  document.getElementById(
+    "loginView"
+  );
+
+
+const appView =
+  document.getElementById(
+    "appView"
+  );
+
+
+const loginForm =
+  document.getElementById(
+    "loginForm"
+  );
+
+
+const loginPhone =
+  document.getElementById(
+    "loginPhone"
+  );
+
+
+const loginButton =
+  document.getElementById(
+    "loginButton"
+  );
+
+
+const loginStatus =
+  document.getElementById(
+    "loginStatus"
+  );
+
+
+const signedInPhone =
+  document.getElementById(
+    "signedInPhone"
+  );
+
+
+const logoutButton =
+  document.getElementById(
+    "logoutButton"
+  );
+
+
+
+/* ---------------------------------------------------------
+   READ STORED LOGIN
+   --------------------------------------------------------- */
+
+function getStoredAuth() {
+
+
+  try {
+
+
+    const raw =
+      localStorage.getItem(
+        AUTH_STORAGE_KEY
+      );
+
+
+    if (!raw) {
+      return null;
+    }
+
+
+    const parsed =
+      JSON.parse(raw);
+
+
+    if (
+      parsed &&
+      parsed.phone_no
+    ) {
+      return parsed;
+    }
+
+
+    return null;
+
+
+  }
+
+  catch {
+
+    return null;
+
+  }
+
+}
+
+
+
+/* ---------------------------------------------------------
+   SHOW LOGIN / SHOW ASSISTANT
+   --------------------------------------------------------- */
+
+function showLogin() {
+
+
+  loginView.style.display =
+    "block";
+
+
+  appView.style.display =
+    "none";
+
+}
+
+
+
+function showApp(auth) {
+
+
+  signedInPhone.textContent =
+    auth.phone_no;
+
+
+  loginView.style.display =
+    "none";
+
+
+  appView.style.display =
+    "block";
+
+}
+
+
+
+function applyAuthState() {
+
+
+  const auth =
+    getStoredAuth();
+
+
+  if (auth) {
+
+    showApp(auth);
+
+  }
+
+  else {
+
+    showLogin();
+
+  }
+
+}
+
+
+
+/* ---------------------------------------------------------
+   LOGIN SUBMIT
+   --------------------------------------------------------- */
+
+loginForm.addEventListener(
+
+  "submit",
+
+  async function (event) {
+
+
+    event.preventDefault();
+
+
+    const phone =
+      loginPhone.value.trim();
+
+
+    if (!phone) {
+
+
+      loginStatus.textContent =
+        "Please enter your phone number.";
+
+
+      loginPhone.focus();
+
+
+      return;
+
+    }
+
+
+    loginButton.disabled =
+      true;
+
+
+    loginStatus.textContent =
+      "Checking...";
+
+
+    try {
+
+
+      const formData =
+        new FormData();
+
+
+      formData.append(
+        "phone_no",
+        phone
+      );
+
+
+      const response =
+        await fetch(
+
+          "/channels/web/login",
+
+          {
+
+            method:
+              "POST",
+
+            body:
+              formData
+
+          }
+
+        );
+
+
+      if (!response.ok) {
+
+
+        let message =
+          response.statusText;
+
+
+        try {
+
+
+          const error =
+            await response.json();
+
+
+          /*
+           * FastAPI validation errors put an ARRAY in
+           * detail, which would render as [object Object].
+           */
+
+          if (
+            typeof error.detail === "string"
+          ) {
+
+            message =
+              error.detail;
+
+          }
+
+          else if (
+            Array.isArray(error.detail)
+          ) {
+
+            message =
+              "Please enter a valid 10-digit phone number.";
+
+          }
+
+
+        }
+
+        catch {}
+
+
+        throw new Error(
+          message
+        );
+
+      }
+
+
+      const data =
+        await response.json();
+
+
+      /*
+       * Fresh login starts a fresh conversation.
+       */
+
+      currentSessionId = null;
+
+
+      try {
+
+        localStorage.setItem(
+
+          AUTH_STORAGE_KEY,
+
+          JSON.stringify({
+            auth_id: data.auth_id,
+            phone_no: data.phone_no,
+          })
+
+        );
+
+      }
+
+      catch {}
+
+
+      loginStatus.textContent =
+        "";
+
+
+      loginPhone.value =
+        "";
+
+
+      showApp(data);
+
+
+    }
+
+    catch (err) {
+
+
+      console.error(
+        "[Login] Error:",
+        err
+      );
+
+
+      loginStatus.textContent =
+        err.message;
+
+
+    }
+
+
+    finally {
+
+
+      loginButton.disabled =
+        false;
+
+    }
+
+  }
+
+);
+
+
+
+/* ---------------------------------------------------------
+   LOGOUT
+   --------------------------------------------------------- */
+
+logoutButton.addEventListener(
+
+  "click",
+
+  function () {
+
+
+    try {
+
+      localStorage.removeItem(
+        AUTH_STORAGE_KEY
+      );
+
+    }
+
+    catch {}
+
+
+    /*
+     * Drop the conversation so the next patient
+     * does not inherit it.
+     */
+
+    currentSessionId = null;
+
+
+    loginStatus.textContent =
+      "";
+
+
+    showLogin();
+
+  }
+
+);
+
+
+
+applyAuthState();
 
 
 
@@ -1498,6 +2074,10 @@ async function askZenvy() {
 
     userQuestion.style.display =
       "block";
+
+
+    askText.value =
+      "";
 
 
 
