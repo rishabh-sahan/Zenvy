@@ -12,3 +12,4 @@ __pycache__/
 .env
 .git/
 .pytest_cache/
+Notes.txt
