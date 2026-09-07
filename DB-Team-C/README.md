@@ -13,6 +13,7 @@ This is a FastAPI conversation service. **Redis** holds active runtime session s
 - `GET /api/v1/sessions/{session_id}/turns`
 - `POST /api/v1/appointments`
 - `GET /api/v1/appointments/session/{session_id}`
+- `POST /api/v1/auth/login`
 
 ## Run locally
 
@@ -45,6 +46,29 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - PostgreSQL is the durable store. `POST /api/v1/sessions/{session_id}/handoff` flushes Redis into Postgres, marks the session completed, and deletes the runtime key.
 - Schema is defined and versioned in `db/migrations/`. Run `app/db/init_db.py` before starting the service; the server does not modify the database at startup.
 - `/healthz` returns HTTP 200 only when Redis responds to `PING`; Redis outages return HTTP 503 with `{"status":"degraded","redis":false}`.
+
+## WhatsApp notifications
+
+Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, and
+`TWILIO_CONTENT_SID` in `.env` to send appointment confirmations to the
+patient's registered `phone_no` when an appointment is booked via
+`POST /api/v1/appointments`. Keep the Twilio token out of source control
+and rotate any credential that has been shared publicly.
+
+`POST /api/v1/auth/login` also sends a one-time welcome WhatsApp message on
+first-time (self-registering) login, using a separate approved Twilio
+template SID: `TWILIO_WELCOME_CONTENT_SID`. Unlike the appointment
+notification, a failed welcome message is logged but never blocks login --
+losing a welcome message is minor, but blocking a patient's first login on a
+third-party outage is not acceptable.
+
+Meta WhatsApp Cloud API settings are included as commented placeholders in
+`.env`, but Meta is not enabled. The current notification provider is
+Twilio.
+
+For the WhatsApp proof of concept without templates, set
+`TWILIO_USE_CONTENT_TEMPLATE=false`, enter `TWILIO_AUTH_TOKEN` locally, and
+use the Twilio Sandbox sender configured in `TWILIO_WHATSAPP_FROM`.
 
 ## Manual Redis test
 

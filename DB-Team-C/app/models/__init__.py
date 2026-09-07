@@ -3,6 +3,7 @@ from app.models.conversation_turn import ConversationTurn
 from app.models.ai_appointment import AIAppointment
 from app.models.escalation import Escalation
 from app.models.audit_log import AuditLog
+from app.models.authentication import Authentication
 
 __all__ = [
     "Session",
@@ -11,4 +12,5 @@ __all__ = [
     "AIAppointment",
     "Escalation",
     "AuditLog",
-]
+    "Authentication",
+]

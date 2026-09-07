@@ -6,7 +6,7 @@ from app.models.ai_appointment import AIAppointment, AppointmentStatus
 from app.schemas.ai_appointment import AIAppointmentCreate
 
 
-def create_appointment(db: Session, payload: AIAppointmentCreate):
+def create_appointment(db: Session, payload: AIAppointmentCreate, patient_phone_no: str | None = None):
     status = payload.status if isinstance(payload.status, AppointmentStatus) else AppointmentStatus(payload.status)
     appointment = AIAppointment(
         appointment_id=str(uuid.uuid4()),
@@ -17,6 +17,7 @@ def create_appointment(db: Session, payload: AIAppointmentCreate):
         status=status,
         booking_info=payload.booking_info,
         appointment_metadata=payload.appointment_metadata,
+        patient_phone_no=patient_phone_no,
     )
     db.add(appointment)
     db.commit()

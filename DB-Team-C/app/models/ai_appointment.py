@@ -26,5 +26,7 @@ class AIAppointment(Base):
     booking_info = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     appointment_metadata = Column(JSON, nullable=True)
+    patient_phone_no = Column(String, ForeignKey("authentication.phone_no"), nullable=True, index=True)
 
     session = relationship("Session", back_populates="appointments")
+    authentication = relationship("Authentication", back_populates="appointments")

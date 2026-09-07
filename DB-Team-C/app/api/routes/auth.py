@@ -3,10 +3,12 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from twilio.base.exceptions import TwilioRestException
 
 from app.db.deps import get_db
 from app.models.authentication import Authentication, UNUSABLE_PASSWORD_HASH
 from app.schemas.authentication import LoginRequest, LoginResponse
+from app.services.whatsapp_service import send_welcome_notification
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -62,6 +64,16 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         )
 
     db.refresh(account)
+
+    # Best-effort only: a Twilio hiccup should never block a patient's first
+    # login, so failures here are logged, not raised. (Contrast with the
+    # appointment-booking notification, which does fail loudly -- a missed
+    # appointment reminder is consequential enough that staff need to know.)
+    try:
+        send_welcome_notification(account.phone_no)
+    except (RuntimeError, TwilioRestException) as exc:
+        print(f"[auth] Welcome WhatsApp notification failed for new account: {exc}")
+
     return LoginResponse(
         auth_id=account.auth_id,
         phone_no=account.phone_no,

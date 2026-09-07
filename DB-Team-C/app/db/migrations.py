@@ -31,4 +31,4 @@ def run_migrations() -> None:
             connection.execute(
                 text("INSERT INTO schema_migrations (version) VALUES (:version)"),
                 {"version": version},
-            )
+            )

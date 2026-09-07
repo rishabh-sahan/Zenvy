@@ -39,3 +39,24 @@ def fake_redis_store():
     yield store
     reset_session_store(None)
     client.flushall()
+
+
+@pytest.fixture(autouse=True)
+def disable_external_whatsapp_sends(monkeypatch):
+    """
+    Prevent any test from accidentally placing a real Twilio call.
+
+    Both WhatsApp call sites (welcome message on first login, appointment
+    confirmation on booking) are patched here so no individual test has to
+    remember to do it. A test that wants to assert on notification content
+    overrides this patch locally with monkeypatch, same as
+    test_create_appointment_notifies_authenticated_phone does below.
+    """
+    monkeypatch.setattr(
+        "app.api.routes.auth.send_welcome_notification",
+        lambda phone_no: "SM-test-welcome",
+    )
+    monkeypatch.setattr(
+        "app.api.routes.appointments.send_appointment_notification",
+        lambda phone_no, appointment: "SM-test-appointment",
+    )

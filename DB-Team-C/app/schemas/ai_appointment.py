@@ -19,6 +19,7 @@ class AIAppointmentCreate(BaseModel):
 class AIAppointmentResponse(BaseModel):
     appointment_id: str
     session_id: str
+    patient_phone_no: Optional[str] = None
     patient_uhid: str
     doctor_name: str
     appointment_datetime: datetime

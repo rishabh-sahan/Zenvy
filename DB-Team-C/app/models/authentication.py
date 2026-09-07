@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, DateTime
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.database import Base
@@ -26,3 +27,5 @@ class Authentication(Base):
     phone_no = Column(String, nullable=False, unique=True, index=True)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    appointments = relationship("AIAppointment", back_populates="authentication")

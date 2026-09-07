@@ -38,4 +38,4 @@ ALTER TABLE escalations
     FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE;
 ALTER TABLE audit_log
     ADD CONSTRAINT audit_log_session_id_fkey
-    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE SET NULL;
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE SET NULL;
