@@ -40,15 +40,30 @@ def create_appointment_endpoint(payload: AIAppointmentCreate, db: Session = Depe
         payload,
         patient_phone_no=authentication.phone_no if authentication is not None else None,
     )
-    if authentication is not None:
+
+    # The appointment is already committed by this point, so a failed WhatsApp
+    # send must NOT turn into an error status: the gateway's orchestrator
+    # treats any non-2xx from here as "booking failed", tells the patient to
+    # try again, and they end up double-booked while the first appointment sits
+    # in the database. Report the booking as created and surface the
+    # notification outcome in the body instead, loudly logged for staff.
+    if authentication is None:
+        notification_status = "skipped"
+    else:
         try:
             send_appointment_notification(authentication.phone_no, appointment)
+            notification_status = "sent"
         except (RuntimeError, TwilioRestException) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Appointment saved, but WhatsApp notification failed",
-            ) from exc
-    return appointment
+            notification_status = "failed"
+            print(
+                "[appointments] WhatsApp confirmation FAILED for appointment "
+                f"{appointment.appointment_id}: {exc}. The appointment IS "
+                "booked -- the patient has not been notified."
+            )
+
+    response = AIAppointmentResponse.model_validate(appointment)
+    response.notification_status = notification_status
+    return response
 
 
 @router.get("/session/{session_id}", response_model=list[AIAppointmentResponse])

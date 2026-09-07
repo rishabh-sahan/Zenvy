@@ -1,0 +1,16 @@
+# Normalize line endings in the repository to LF.
+#
+# Without this, files rewritten by PowerShell here-strings / Out-File come back
+# as CRLF and show up as fully-rewritten in diffs even when nothing changed --
+# app/db/migrations.py and 002_repair_existing_schema.sql each showed ~70 lines
+# of churn with zero real edits, which hides genuine changes during review.
+#
+# Existing files are only renormalized when they are next touched. To convert
+# the whole tree in one deliberate commit, run:  git add --renormalize .
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.wav binary
+*.png binary
+*.jpg binary
+*.ico binary

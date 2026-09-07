@@ -790,6 +790,39 @@ function getStoredAuth() {
 
 
 /* ---------------------------------------------------------
+   ATTACH THE LOGGED-IN PATIENT TO A REQUEST
+
+   The gateway uses auth_id as the session's user_id, which is
+   what lets Team C join the session back to the patient's
+   phone number and send their WhatsApp appointment
+   confirmation. Without it the booking still works, it just
+   goes out unlinked and silently unconfirmed.
+   --------------------------------------------------------- */
+
+function appendAuthId(formData) {
+
+
+  const auth =
+    getStoredAuth();
+
+
+  if (
+    auth &&
+    auth.auth_id
+  ) {
+
+    formData.append(
+      "auth_id",
+      auth.auth_id
+    );
+
+  }
+
+}
+
+
+
+/* ---------------------------------------------------------
    SHOW LOGIN / SHOW ASSISTANT
    --------------------------------------------------------- */
 
@@ -1383,6 +1416,9 @@ async function sendVoiceToGateway(
   }
 
 
+  appendAuthId(formData);
+
+
   try {
 
 
@@ -1921,6 +1957,9 @@ async function askZenvy() {
       );
 
     }
+
+
+    appendAuthId(formData);
 
 
 

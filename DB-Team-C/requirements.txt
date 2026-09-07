@@ -9,3 +9,8 @@ httpx==0.28.1
 redis==5.2.1
 fakeredis==2.26.2
 twilio==9.8.4
+# zoneinfo.ZoneInfo("Asia/Kolkata") has no system tz database to fall back on
+# for Windows developers running the tests. It resolves today only as a
+# transitive dependency; declared so appointment times cannot start failing to
+# render if that chain changes.
+tzdata==2026.3

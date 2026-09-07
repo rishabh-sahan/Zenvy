@@ -33,6 +33,10 @@ redis_client = redis.Redis.from_url(
 # Keep an unfinished appointment conversation for 1 hour.
 SESSION_TTL = 3600
 
+# The hospital runs on IST. Appointment times a patient gives are in IST, and
+# must be sent to Team C with this offset attached -- see _confirm_booking.
+IST_UTC_OFFSET = "+05:30"
+
 
 SLOT_ORDER = [
     "doctor_name",
@@ -322,9 +326,14 @@ def _complete_booking(
 
     slots = entry["slots"]
 
+    # Patients state times in IST, so stamp the offset explicitly. Sending a
+    # naive timestamp let Postgres store it as UTC in the TIMESTAMPTZ column,
+    # which then read back 5h30m off -- a 3:00 PM booking was saved (and
+    # confirmed over WhatsApp) as 8:30 PM.
     appointment_datetime = (
         f"{slots['appointment_date']}"
         f"T{slots['appointment_time']}:00"
+        f"{IST_UTC_OFFSET}"
     )
 
     print(

@@ -530,11 +530,18 @@ def _get_or_create_session(
     session_id: str | None,
     short_lang: str,
     channel: str = "web",
+    auth_id: str | None = None,
 ) -> str | None:
     """
     Reuse an existing conversation session.
 
     If no session exists, create one.
+
+    auth_id is the logged-in patient's id from /channels/web/login. It becomes
+    the session's user_id so Team C can join the session back to the
+    authentication row -- that link is what lets an appointment booked in this
+    session send its WhatsApp confirmation. Without it we fall back to a random
+    id, the join finds nothing, and the patient silently gets no confirmation.
     """
 
     short_lang = _normalize_language(
@@ -553,7 +560,7 @@ def _get_or_create_session(
     try:
 
         session = create_session(
-            user_id=str(uuid.uuid4()),
+            user_id=auth_id or str(uuid.uuid4()),
             channel=channel,
             language=short_lang,
         )
@@ -593,6 +600,8 @@ async def web_tts(
     language_code: str | None = Form(None),
 
     session_id: str | None = Form(None),
+
+    auth_id: str | None = Form(None),
 ):
     """
     Conversational Text-to-Speech.
@@ -667,6 +676,7 @@ async def web_tts(
     session_id = _get_or_create_session(
         session_id,
         short_lang,
+        auth_id=auth_id,
     )
 
     # =====================================================
@@ -838,6 +848,7 @@ async def web_tts(
 async def web_chat(
     file: UploadFile = File(...),
     session_id: str | None = Form(None),
+    auth_id: str | None = Form(None),
 ):
     """
     Complete voice assistant pipeline.
@@ -1015,6 +1026,7 @@ async def web_chat(
     session_id = _get_or_create_session(
         session_id,
         short_lang,
+        auth_id=auth_id,
     )
 
     # =====================================================
@@ -1192,6 +1204,7 @@ async def ask_zenvy(
     text: str = Form(...),
     language: str = Form("en"),
     session_id: str | None = Form(None),
+    auth_id: str | None = Form(None),
 ):
     """
     Text chat endpoint.
@@ -1222,6 +1235,7 @@ async def ask_zenvy(
     session_id = _get_or_create_session(
         session_id,
         short_lang,
+        auth_id=auth_id,
     )
 
     # Generate assistant reply
@@ -1323,6 +1337,8 @@ class ChannelMessageRequest(BaseModel):
     text: str
     language: str = "en"
     session_id: str | None = None
+    # Logged-in patient id from /channels/web/login; see _get_or_create_session.
+    auth_id: str | None = None
 
 
 @app.post("/channels/{channel}/message")
@@ -1376,6 +1392,7 @@ async def channel_message(
         payload.session_id,
         short_lang,
         channel,
+        auth_id=payload.auth_id,
     )
 
     print(
