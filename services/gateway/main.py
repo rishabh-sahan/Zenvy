@@ -518,6 +518,7 @@ def _call_tts(
 def _get_or_create_session(
     session_id: str | None,
     short_lang: str,
+    channel: str = "web",
 ) -> str | None:
     """
     Reuse an existing conversation session.
@@ -542,7 +543,7 @@ def _get_or_create_session(
 
         session = create_session(
             user_id=str(uuid.uuid4()),
-            channel="web",
+            channel=channel,
             language=short_lang,
         )
 
@@ -1292,4 +1293,90 @@ async def ask_zenvy(
         "reply": reply_text,
         "language": short_lang,
         "session_id": session_id,
+    }
+@app.post("/channels/{channel}/message")
+async def channel_message(
+    channel: str,
+    payload: dict,
+):
+    channel = channel.strip().lower()
+
+    if channel not in {"web", "whatsapp", "phone"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported channel.",
+        )
+
+    text = str(
+        payload.get("text", "")
+    ).strip()
+
+    if not text:
+        raise HTTPException(
+            status_code=400,
+            detail="Text cannot be empty.",
+        )
+
+    short_lang = _normalize_language(
+        payload.get("language", "en")
+    )
+
+    session_id = payload.get(
+        "session_id"
+    )
+
+    session_id = _get_or_create_session(
+        session_id,
+        short_lang,
+        channel,
+    )
+
+    try:
+        if session_id:
+            reply_text = handle_turn(
+                session_id,
+                short_lang,
+                text,
+            )
+        else:
+            reply_text = generate_reply(
+                text,
+                short_lang,
+            )
+    except Exception as e:
+        print(
+            "[Gateway] CHANNEL MESSAGE ERROR:",
+            e,
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail="Reply generation failed.",
+        )
+
+    if not reply_text:
+        reply_text = (
+            "Sorry, I was unable to generate "
+            "a response."
+        )
+
+    reply_text = str(
+        reply_text
+    ).strip()
+
+    print(
+        f"[Gateway] CHANNEL: {channel}"
+    )
+    print(
+        f"[Gateway] USER: {text}"
+    )
+    print(
+        f"[Gateway] ASSISTANT: {reply_text}"
+    )
+
+    return {
+        "channel": channel,
+        "session_id": session_id,
+        "reply": reply_text,
+        "language": short_lang,
     }
