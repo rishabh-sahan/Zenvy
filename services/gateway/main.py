@@ -59,6 +59,8 @@ from fastapi import (
 
 from fastapi.responses import Response, FileResponse
 
+from pydantic import BaseModel
+
 
 # =========================================================
 # PROJECT PATH
@@ -113,6 +115,15 @@ app = FastAPI(
 
 STT_URL = os.getenv("STT_URL", "http://127.0.0.1:8001/transcribe")
 TTS_URL = os.getenv("TTS_URL", "http://127.0.0.1:8005/synthesize")
+
+
+# =========================================================
+# LIMITS
+# =========================================================
+
+# Kept in line with the existing TTS/text length validation pattern
+# used elsewhere in this service (see Day 9 hardening).
+MAX_CHANNEL_MESSAGE_LENGTH = 2000
 
 
 # =========================================================
@@ -1294,56 +1305,118 @@ async def ask_zenvy(
         "language": short_lang,
         "session_id": session_id,
     }
+
+
+# =========================================================
+# GENERIC CHANNEL MESSAGE (WhatsApp / Phone / Web JSON clients)
+# =========================================================
+
+class ChannelMessageRequest(BaseModel):
+    """
+    Request body for the generic /channels/{channel}/message endpoint.
+
+    Using a real model instead of a bare dict means FastAPI validates the
+    body automatically and returns a clean 422 on malformed input, instead
+    of the handler failing partway through on a missing/wrong-typed field.
+    """
+
+    text: str
+    language: str = "en"
+    session_id: str | None = None
+
+
 @app.post("/channels/{channel}/message")
 async def channel_message(
     channel: str,
-    payload: dict,
+    payload: ChannelMessageRequest,
 ):
+    """
+    Generic JSON message endpoint shared by non-web channels
+    (WhatsApp, phone) and any client that prefers JSON over form-encoded
+    requests.
+
+    Same user text -> orchestrator/LLM -> assistant reply pattern as
+    /channels/web/ask, just channel-parameterized and JSON in/out
+    (no TTS step here).
+    """
+
     channel = channel.strip().lower()
 
     if channel not in {"web", "whatsapp", "phone"}:
+
         raise HTTPException(
             status_code=400,
             detail="Unsupported channel.",
         )
 
-    text = str(
-        payload.get("text", "")
-    ).strip()
+    text = payload.text.strip()
 
     if not text:
+
         raise HTTPException(
             status_code=400,
             detail="Text cannot be empty.",
         )
 
-    short_lang = _normalize_language(
-        payload.get("language", "en")
-    )
+    if len(text) > MAX_CHANNEL_MESSAGE_LENGTH:
 
-    session_id = payload.get(
-        "session_id"
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Text exceeds maximum length of "
+                f"{MAX_CHANNEL_MESSAGE_LENGTH} characters."
+            ),
+        )
+
+    short_lang = _normalize_language(
+        payload.language
     )
 
     session_id = _get_or_create_session(
-        session_id,
+        payload.session_id,
         short_lang,
         channel,
     )
 
+    print(
+        "\n========================================"
+    )
+
+    print(
+        "[Gateway] NEW CHANNEL MESSAGE"
+    )
+
+    print(
+        f"[Gateway] CHANNEL: {channel}"
+    )
+
+    print(
+        f"[Gateway] USER TEXT: {text}"
+    )
+
+    print(
+        f"[Gateway] LANGUAGE: {short_lang}"
+    )
+
     try:
+
         if session_id:
+
             reply_text = handle_turn(
                 session_id,
                 short_lang,
                 text,
             )
+
         else:
+
             reply_text = generate_reply(
                 text,
                 short_lang,
             )
+
     except Exception as e:
+
         print(
             "[Gateway] CHANNEL MESSAGE ERROR:",
             e,
@@ -1351,10 +1424,11 @@ async def channel_message(
 
         raise HTTPException(
             status_code=502,
-            detail="Reply generation failed.",
+            detail=f"Reply generation failed: {e}",
         )
 
     if not reply_text:
+
         reply_text = (
             "Sorry, I was unable to generate "
             "a response."
@@ -1364,14 +1438,40 @@ async def channel_message(
         reply_text
     ).strip()
 
+    # Save conversation, same as the other channel endpoints.
+    if session_id:
+
+        try:
+
+            add_turn(
+                session_id,
+                "user",
+                text,
+                short_lang,
+                input_text=text,
+            )
+
+            add_turn(
+                session_id,
+                "assistant",
+                reply_text,
+                short_lang,
+                response_text=reply_text,
+            )
+
+        except Exception as e:
+
+            print(
+                "[Gateway] Conversation logging failed:",
+                e,
+            )
+
     print(
-        f"[Gateway] CHANNEL: {channel}"
+        f"[Gateway] ASSISTANT REPLY: {reply_text}"
     )
+
     print(
-        f"[Gateway] USER: {text}"
-    )
-    print(
-        f"[Gateway] ASSISTANT: {reply_text}"
+        "========================================\n"
     )
 
     return {
