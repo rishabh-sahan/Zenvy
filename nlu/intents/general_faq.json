@@ -1,0 +1,25 @@
+{
+  "intent": "General FAQ",
+  "examples": [
+    "Do you have parking?",
+    "Where is the hospital located?",
+    "What facilities does the hospital provide?",
+    "Do you have a pharmacy?",
+    "Is there a cafeteria in the hospital?",
+    "Where is the reception desk?",
+    "How can I contact the hospital?",
+    "Do you provide ambulance services?",
+    "Is there a waiting area for patients?",
+    "What services does the hospital offer?",
+    "क्या अस्पताल में parking की सुविधा है?",
+    "अस्पताल कहाँ स्थित है?",
+    "अस्पताल में कौन कौन सी सुविधाएँ हैं?",
+    "क्या अस्पताल में pharmacy है?",
+    "अस्पताल से संपर्क कैसे कर सकते हैं?",
+    "ಆಸ್ಪತ್ರೆಯಲ್ಲಿ parking ಇದೆಯಾ?",
+    "ಆಸ್ಪತ್ರೆ ಎಲ್ಲಿದೆ?",
+    "ಆಸ್ಪತ್ರೆಯಲ್ಲಿ ಯಾವ facilities ಇವೆ?",
+    "ಆಸ್ಪತ್ರೆಯಲ್ಲಿ pharmacy ಇದೆಯಾ?",
+    "ಆಸ್ಪತ್ರೆಯನ್ನು ಹೇಗೆ contact ಮಾಡಬಹುದು?"
+  ]
+}

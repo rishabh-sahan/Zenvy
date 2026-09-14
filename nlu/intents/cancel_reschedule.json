@@ -1,0 +1,25 @@
+{
+  "intent": "Cancel/Reschedule",
+  "examples": [
+    "I want to cancel my appointment",
+    "Please cancel my appointment",
+    "I need to cancel my doctor's appointment",
+    "Can I cancel my appointment for tomorrow?",
+    "I want to reschedule my appointment",
+    "Please change my appointment to another day",
+    "Can I move my appointment to Monday?",
+    "I need to change my appointment time",
+    "I want to reschedule my appointment to 3 PM",
+    "Can you cancel and reschedule my appointment?",
+    "मुझे अपना अपॉइंटमेंट कैंसल करना है",
+    "मेरा अपॉइंटमेंट रद्द कर दीजिए",
+    "मुझे अपना appointment reschedule करना है",
+    "क्या मैं अपना appointment किसी और दिन कर सकता हूँ?",
+    "मुझे appointment का समय बदलना है",
+    "ನನ್ನ ಅಪಾಯಿಂಟ್ಮೆಂಟ್ ಕ್ಯಾನ್ಸಲ್ ಮಾಡಬೇಕು",
+    "ನನ್ನ appointment ರದ್ದು ಮಾಡಬೇಕು",
+    "ನನ್ನ appointment reschedule ಮಾಡಬೇಕು",
+    "ನನ್ನ appointment ದಿನಾಂಕ ಬದಲಾಯಿಸಬೇಕು",
+    "ನನ್ನ appointment time change ಮಾಡಬೇಕು"
+  ]
+}

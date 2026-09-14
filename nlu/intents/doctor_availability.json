@@ -1,0 +1,25 @@
+{
+  "intent": "Doctor Availability",
+  "examples": [
+    "Is Dr Kumar available tomorrow?",
+    "Is the cardiologist available today?",
+    "Can I check if Dr Sharma is available?",
+    "Which doctors are available today?",
+    "Is there a doctor available at 10 AM?",
+    "Can I see which doctors are available tomorrow?",
+    "Is Dr Rao available on Monday?",
+    "I want to know the doctor's availability",
+    "When is Dr Kumar available?",
+    "Are any cardiologists available this afternoon?",
+    "क्या डॉक्टर कुमार कल उपलब्ध हैं?",
+    "क्या आज कोई डॉक्टर उपलब्ध है?",
+    "क्या आप डॉक्टर की availability check कर सकते हैं?",
+    "डॉक्टर शर्मा कब available हैं?",
+    "क्या cardiologist आज available हैं?",
+    "ಡಾಕ್ಟರ್ ಕುಮಾರ್ ನಾಳೆ ಲಭ್ಯವಿದ್ದಾರಾ?",
+    "ಇಂದು ಯಾವ ಡಾಕ್ಟರ್ available ಇದ್ದಾರೆ?",
+    "ಡಾಕ್ಟರ್ availability check ಮಾಡಬೇಕು",
+    "ಡಾಕ್ಟರ್ ಶರ್ಮಾ ಯಾವಾಗ available ಇದ್ದಾರೆ?",
+    "ಇಂದು cardiologist available ಇದ್ದಾರಾ?"
+  ]
+}

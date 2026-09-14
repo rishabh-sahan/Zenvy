@@ -1,0 +1,25 @@
+{
+  "intent": "Visiting Hours",
+  "examples": [
+    "What are the visiting hours for patients?",
+    "When can I visit a patient?",
+    "What time can visitors come to the hospital?",
+    "Are there specific visiting hours?",
+    "Can I visit my family member today?",
+    "What are the hospital visiting timings?",
+    "When are visitors allowed?",
+    "Can I visit a patient in the evening?",
+    "What time does patient visiting start?",
+    "Are visitors allowed on weekends?",
+    "मरीजों से मिलने का समय क्या है?",
+    "मैं मरीज से कब मिल सकता हूँ?",
+    "अस्पताल में visiting hours क्या हैं?",
+    "क्या मैं आज मरीज से मिल सकता हूँ?",
+    "मरीज से मिलने का समय बताइए",
+    "ರೋಗಿಗಳನ್ನು ಭೇಟಿ ಮಾಡುವ ಸಮಯ ಯಾವುದು?",
+    "ನಾನು ರೋಗಿಯನ್ನು ಯಾವಾಗ ಭೇಟಿ ಮಾಡಬಹುದು?",
+    "ಆಸ್ಪತ್ರೆಯ visiting hours ಏನು?",
+    "ನಾನು ಇಂದು patient ಅನ್ನು ಭೇಟಿ ಮಾಡಬಹುದಾ?",
+    "patient ಭೇಟಿ ಮಾಡುವ ಸಮಯ ಹೇಳಿ"
+  ]
+}

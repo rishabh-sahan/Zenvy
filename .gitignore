@@ -12,4 +12,6 @@ __pycache__/
 .env
 .git/
 .pytest_cache/
-Notes.txt
+Notes.txtvenv312/
+
+/venv312/

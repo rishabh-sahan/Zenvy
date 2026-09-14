@@ -1,0 +1,25 @@
+{
+  "intent": "Unclear",
+  "examples": [
+    "asdfgh",
+    "I don't know",
+    "Help",
+    "What?",
+    "Can you help me?",
+    "I need some information",
+    "I have a question",
+    "Tell me something",
+    "I am not sure what I need",
+    "Can you understand me?",
+    "मुझे समझ नहीं आ रहा",
+    "मुझे नहीं पता",
+    "क्या?",
+    "मुझे कुछ मदद चाहिए",
+    "मैं क्या करूँ?",
+    "ನನಗೆ ಅರ್ಥವಾಗುತ್ತಿಲ್ಲ",
+    "ನನಗೆ ಗೊತ್ತಿಲ್ಲ",
+    "ಏನು?",
+    "ನನಗೆ ಸ್ವಲ್ಪ help ಬೇಕು",
+    "ನೀವು ನನ್ನನ್ನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳುತ್ತೀರಾ?"
+  ]
+}
