@@ -61,6 +61,11 @@ templates = Jinja2Templates(
 )
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse(

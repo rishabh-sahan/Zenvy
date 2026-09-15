@@ -7,3 +7,4 @@ redis
 python-multipart
 pytest
 httpx
+jinja2
