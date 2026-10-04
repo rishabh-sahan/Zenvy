@@ -70,6 +70,21 @@ services:
       retries: 5
       start_period: 3s
 
+  team-b-nlu-tester:
+    build: .
+    command: python -m uvicorn app:app --app-dir Team-B --host 0.0.0.0 --port 8090
+    ports:
+      - "8090:8090"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   team-c:
     build: ./DB-Team-C
     ports:

@@ -1,0 +1,25 @@
+{
+  "intent": "Bill Enquiry",
+  "examples": [
+    "How much is my hospital bill?",
+    "Can you tell me my bill amount?",
+    "I want to check my hospital bill",
+    "How much do I have to pay?",
+    "Can I see my billing details?",
+    "What is the total amount on my bill?",
+    "Why is my hospital bill so high?",
+    "I need a copy of my bill",
+    "Can you explain the charges on my bill?",
+    "Where can I check my payment details?",
+    "मेरा अस्पताल का बिल कितना है?",
+    "क्या आप मेरे बिल की जानकारी दे सकते हैं?",
+    "मुझे अपना hospital bill check करना है",
+    "मुझे कितना भुगतान करना है?",
+    "मेरे बिल में कितनी राशि है?",
+    "ನನ್ನ ಆಸ್ಪತ್ರೆ ಬಿಲ್ ಎಷ್ಟು ಇದೆ?",
+    "ನನ್ನ bill amount ಹೇಳಬಹುದಾ?",
+    "ನನ್ನ hospital bill check ಮಾಡಬೇಕು",
+    "ನಾನು ಎಷ್ಟು payment ಮಾಡಬೇಕು?",
+    "ನನ್ನ ಬಿಲ್‌ನ charges ವಿವರಿಸಬಹುದಾ?"
+  ]
+}

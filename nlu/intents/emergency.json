@@ -1,0 +1,25 @@
+{
+  "intent": "Emergency",
+  "examples": [
+    "I have severe chest pain",
+    "I am struggling to breathe",
+    "I need emergency medical help",
+    "This is a medical emergency",
+    "I have severe bleeding",
+    "I am unconscious and need help",
+    "Someone is having a seizure",
+    "I have suddenly collapsed",
+    "Please send emergency help immediately",
+    "I am having severe difficulty breathing",
+    "मुझे बहुत तेज सीने में दर्द हो रहा है",
+    "मुझे सांस लेने में बहुत दिक्कत हो रही है",
+    "यह एक मेडिकल इमरजेंसी है",
+    "मुझे तुरंत emergency help चाहिए",
+    "बहुत ज्यादा खून बह रहा है",
+    "ನನಗೆ ತೀವ್ರವಾದ ಎದೆ ನೋವು ಇದೆ",
+    "ನನಗೆ ಉಸಿರಾಡಲು ತುಂಬಾ ಕಷ್ಟವಾಗುತ್ತಿದೆ",
+    "ಇದು medical emergency ಆಗಿದೆ",
+    "ನನಗೆ ತಕ್ಷಣ emergency help ಬೇಕು",
+    "ತುಂಬಾ ರಕ್ತಸ್ರಾವವಾಗುತ್ತಿದೆ"
+  ]
+}

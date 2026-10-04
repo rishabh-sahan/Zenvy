@@ -1,0 +1,34 @@
+Test Number,Sentence,Booking Intent,Doctor/Department,Appointment Date,Appointment Time,Confirmation,Is Emergency,Emergency Symptoms,Urgency,LLM Response
+0,I want to book an appointment with a cardiologist tomorrow at 10 AM,True,Cardiology,2026-09-14,10:00,,False,,normal,You can book that at the front desk or through our patient portal. Please arrive 15 minutes early to complete the registration.
+2,What are the visiting hours for patients?,False,,,,,False,,,"Visiting hours at Zenvy Hospital are generally from 11 AM to 8 PM. For ward-specific timings, please check at the main reception or nursing desk."
+3,What are the visiting hours for patients?,False,,,,,False,,normal,"Visiting hours at Zenvy Hospital are from 10 AM to 8 PM daily. For specific ward or ICU rules, please check with the nursing station."
+4,I want to book an appointment with a cardiologist tomorrow at 10 AM,True,Cardiology,2026-09-15,10:00,,False,,normal,I can help you with that. Please call our front desk or use the patient portal to book your cardiology appointment for tomorrow at 10 AM.
+5,मुझे डॉक्टर से मिलने का समय चाहिए,True,,,,,False,,normal,You can book an appointment by calling our front desk or using the Zenvy Hospital app. What department do you need to visit?
+6,मुझे डॉक्टर से मिलने का समय चाहिए,True,,,,,False,,normal,You can book an appointment at the reception desk or through our hospital portal. What is your name so I can guide you?
+7,मुझे डॉक्टर से मिलने का समय चाहिए,True,,,,,False,,normal,You can book an appointment at our front desk or through the hospital portal. Please let me know which department you need to visit.
+8,When is my appointment?,False,,,,,False,,normal,Please check your confirmation message or call our reception desk for your exact appointment time. How else can I help you today?
+9,I want to reschedule my appointment to tomorrow at 3 PM,False,,2026-09-15,15:00,,False,,normal,"I can help you with that. Please visit the front desk or call our reception line, and we will reschedule your appointment to tomorrow at 3 PM."
+10,Is Dr Kumar available tomorrow?,False,Dr Kumar,2026-09-15,,,False,,normal,"I'm sorry, but I don't have access to individual doctor schedules. Please contact the reception desk or your department directly to check Dr Kumar's availability for tomorrow."
+11,Which department treats skin problems?,False,,,,,False,,normal,"You can visit our Dermatology department for skin concerns. If you need directions, just let me know."
+12,I have severe chest pain and I am struggling to breathe,False,,,,,True,severe chest pain and difficulty breathing,high,"Please go to the nearest emergency department or call our emergency line right away. I am not able to help with this over chat, so please speak with a doctor or nurse immediately."
+13,How much is my hospital bill?,False,,,,,False,,normal,"I’m sorry, I can’t access billing details here. Please contact the hospital billing desk or your assigned nurse for an exact amount."
+14,What are the visiting hours for patients?,False,,,,,False,,normal,Visiting hours are from 11 AM to 8 PM daily. Please check with the specific ward desk for any special instructions.
+15,Do you have parking?,False,,,,,False,,normal,"Yes, we have parking available for patients and visitors. Please follow the signs at the main entrance to locate the designated parking area."
+16,I want to talk to a human,False,,,,,False,,normal,"Of course, I can connect you with a human receptionist. Please let me know what you need help with."
+17,I want to talk to a human i have chest pain,False,,,,,True,chest pain,high,Please speak with a doctor or nurse right away; I cannot assist with chest pain. You can head to our emergency department or call the front desk for immediate help.
+18,asfhjdkhgfghjk,False,,,,,False,,,"I'm sorry, I didn't quite catch that. How can I help you with appointments, timings, or hospital directions?"
+"19","I want to book an appointment with a cardiologist","True","Cardiology",,,,"False",,,
+"20","I need to see Dr Kumar tomorrow","True","Dr Kumar","2026-09-15",,,"False",,,
+"21","Can I schedule an appointment for Monday?","True",,"2026-09-21",,,"False",,,
+"22","I want to meet a doctor at 10 AM","True",,,"10:00",,"False",,,
+"23","मुझे डॉक्टर से अपॉइंटमेंट बुक करना है","True",,,,,"False",,,
+"24","मुझे कल डॉक्टर से मिलना है","True",,"2026-09-15",,,"False",,,
+"25","डॉक्टर के साथ appointment चाहिए","True",,,,,"False",,,
+"26","मुझे cardiologist के लिए appointment चाहिए","True","Cardiology",,,,"False",,,
+"27","ನನಗೆ ಡಾಕ್ಟರ್ ಅಪಾಯಿಂಟ್ಮೆಂಟ್ ಬೇಕು","True",,,,,"False",,,
+"28","ನನಗೆ ನಾಳೆ ಡಾಕ್ಟರ್ ಭೇಟಿ ಬೇಕು","True",,"2026-09-15",,,"False",,,
+"29","ನನಗೆ cardiologist ಜೊತೆ appointment ಬೇಕು","True","Cardiology",,,,"False",,,
+"30","ಡಾಕ್ಟರ್ ಜೊತೆ appointment book ಮಾಡಬೇಕು","True",,,,,"False",,,
+"31","Can you book me an appointment tomorrow?","True",,"2026-09-15",,,"False",,,
+"32","I need an appointment with Dr Sharma at 3 PM","True","Dr Sharma",,"15:00",,"False",,,
+"33","ನಾಳೆ 10 AM ಗೆ doctor appointment ಬೇಕು","True",,"2026-09-15","10:00",,"False",,,

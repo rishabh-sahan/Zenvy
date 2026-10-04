@@ -1,0 +1,25 @@
+{
+  "intent": "Book Appointment",
+  "examples": [
+    "I want to book an appointment with a cardiologist",
+    "I need to see Dr Kumar tomorrow",
+    "Can I schedule an appointment for Monday?",
+    "I want to meet a doctor at 10 AM",
+    "Can you book me an appointment tomorrow?",
+    "I need an appointment with Dr Sharma at 3 PM",
+    "I would like to book a doctor's appointment",
+    "Please schedule an appointment with a doctor",
+    "I want to consult a cardiologist",
+    "Can I get an appointment with Dr Rao?",
+    "मुझे डॉक्टर से अपॉइंटमेंट बुक करना है",
+    "मुझे कल डॉक्टर से मिलना है",
+    "डॉक्टर के साथ appointment चाहिए",
+    "मुझे cardiologist के लिए appointment चाहिए",
+    "मैं डॉक्टर से मिलने का समय लेना चाहता हूँ",
+    "ನನಗೆ ಡಾಕ್ಟರ್ ಅಪಾಯಿಂಟ್ಮೆಂಟ್ ಬೇಕು",
+    "ನನಗೆ ನಾಳೆ ಡಾಕ್ಟರ್ ಭೇಟಿ ಬೇಕು",
+    "ನನಗೆ cardiologist ಜೊತೆ appointment ಬೇಕು",
+    "ಡಾಕ್ಟರ್ ಜೊತೆ appointment book ಮಾಡಬೇಕು",
+    "ನಾಳೆ 10 AM ಗೆ doctor appointment ಬೇಕು"
+  ]
+}

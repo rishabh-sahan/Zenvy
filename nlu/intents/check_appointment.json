@@ -1,0 +1,25 @@
+{
+  "intent": "Check Appointment",
+  "examples": [
+    "When is my appointment?",
+    "Can you tell me when my appointment is?",
+    "I want to check my appointment details",
+    "What time is my appointment?",
+    "Do I have an appointment scheduled?",
+    "Can you check my upcoming appointment?",
+    "When do I need to come to the hospital?",
+    "Please tell me my appointment date",
+    "I forgot my appointment time",
+    "Show me my appointment details",
+    "मेरा अपॉइंटमेंट कब है?",
+    "क्या आप मेरा अपॉइंटमेंट चेक कर सकते हैं?",
+    "मुझे अपने अपॉइंटमेंट की जानकारी चाहिए",
+    "मेरा appointment किस समय है?",
+    "क्या मेरा appointment scheduled है?",
+    "ನನ್ನ ಅಪಾಯಿಂಟ್ಮೆಂಟ್ ಯಾವಾಗ ಇದೆ?",
+    "ನನ್ನ appointment details check ಮಾಡಬೇಕು",
+    "ನನ್ನ appointment ಯಾವ ಸಮಯಕ್ಕೆ ಇದೆ?",
+    "ನನ್ನ appointment date ಹೇಳಿ",
+    "ನನ್ನ upcoming appointment check ಮಾಡಬೇಕು"
+  ]
+}

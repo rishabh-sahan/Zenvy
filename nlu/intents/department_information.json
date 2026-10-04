@@ -1,0 +1,25 @@
+{
+  "intent": "Department Information",
+  "examples": [
+    "Which department treats skin problems?",
+    "Which department should I visit for heart problems?",
+    "What department handles bone and joint problems?",
+    "Where should I go for an eye problem?",
+    "Which department treats children's health problems?",
+    "Which department should I visit for ear problems?",
+    "Do you have a dermatology department?",
+    "Which department has a cardiologist?",
+    "Where can I find the orthopaedics department?",
+    "Which department treats dental problems?",
+    "त्वचा की समस्या के लिए कौन सा विभाग है?",
+    "दिल की समस्या के लिए मुझे किस विभाग में जाना चाहिए?",
+    "हड्डियों की समस्या के लिए कौन सा विभाग है?",
+    "आंखों की समस्या के लिए कौन सा department है?",
+    "बच्चों के इलाज के लिए कौन सा विभाग है?",
+    "ಚರ್ಮದ ಸಮಸ್ಯೆಗೆ ಯಾವ department ಗೆ ಹೋಗಬೇಕು?",
+    "ಹೃದಯದ ಸಮಸ್ಯೆಗೆ ಯಾವ ವಿಭಾಗಕ್ಕೆ ಹೋಗಬೇಕು?",
+    "ಮೂಳೆ ಮತ್ತು ಕೀಲು ಸಮಸ್ಯೆಗೆ ಯಾವ department?",
+    "ಕಣ್ಣಿನ ಸಮಸ್ಯೆಗೆ ಯಾವ ವಿಭಾಗಕ್ಕೆ ಹೋಗಬೇಕು?",
+    "ಹಲ್ಲಿನ ಸಮಸ್ಯೆಗೆ ಯಾವ department ಇದೆ?"
+  ]
+}

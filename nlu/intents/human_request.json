@@ -1,0 +1,25 @@
+{
+  "intent": "Human Request",
+  "examples": [
+    "I want to talk to a human",
+    "Can I speak to a real person?",
+    "I need to talk to a staff member",
+    "Connect me to a human agent",
+    "I want to speak with someone",
+    "Can you transfer me to a person?",
+    "I need help from a hospital representative",
+    "Please connect me to the receptionist",
+    "I don't want to talk to a bot",
+    "Can a staff member help me?",
+    "मुझे किसी इंसान से बात करनी है",
+    "क्या मैं किसी असली व्यक्ति से बात कर सकता हूँ?",
+    "मुझे staff member से बात करनी है",
+    "मुझे किसी व्यक्ति से connect कर दीजिए",
+    "मैं bot से बात नहीं करना चाहता",
+    "ನನಗೆ ಒಬ್ಬ ವ್ಯಕ್ತಿಯ ಜೊತೆ ಮಾತನಾಡಬೇಕು",
+    "ನಾನು real person ಜೊತೆ ಮಾತನಾಡಬಹುದಾ?",
+    "ನನಗೆ staff member ಜೊತೆ ಮಾತನಾಡಬೇಕು",
+    "ನನ್ನನ್ನು human agent ಗೆ connect ಮಾಡಿ",
+    "ನಾನು bot ಜೊತೆ ಮಾತನಾಡಲು ಬಯಸುವುದಿಲ್ಲ"
+  ]
+}

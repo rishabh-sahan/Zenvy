@@ -2,9 +2,6 @@ fastapi
 uvicorn
 requests
 python-dotenv
-psycopg2-binary
-redis
 python-multipart
 pytest
-httpx
 jinja2
