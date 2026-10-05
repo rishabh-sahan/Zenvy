@@ -19,6 +19,7 @@ class AIAppointment(Base):
 
     appointment_id = Column(String, primary_key=True, index=True)
     session_id = Column(String, ForeignKey("sessions.session_id"), nullable=False, index=True)
+    patient_phone_no = Column(String, ForeignKey("authentication.phone_no"), nullable=True, index=True)
     patient_uhid = Column(String, nullable=False, index=True)
     doctor_name = Column(String, nullable=False)
     appointment_datetime = Column(DateTime(timezone=True), nullable=False)
@@ -26,7 +27,6 @@ class AIAppointment(Base):
     booking_info = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     appointment_metadata = Column(JSON, nullable=True)
-    patient_phone_no = Column(String, ForeignKey("authentication.phone_no"), nullable=True, index=True)
 
     session = relationship("Session", back_populates="appointments")
     authentication = relationship("Authentication", back_populates="appointments")

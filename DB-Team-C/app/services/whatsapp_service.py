@@ -1,122 +1,114 @@
-import json
-from datetime import datetime
+import re
 from zoneinfo import ZoneInfo
 
-from twilio.rest import Client
+import httpx
 
 from app.core.config import settings
 
 
-HOSPITAL_TIMEZONE = ZoneInfo("Asia/Kolkata")
-
-
-def _in_hospital_time(value: datetime) -> datetime:
-    """
-    Render an appointment time in IST.
-
-    A naive value is treated as IST rather than handed to astimezone(), which
-    would assume the server's local zone (UTC in the container) and shift the
-    time the patient is told by 5h30m.
-    """
-    if value.tzinfo is None:
-        return value.replace(tzinfo=HOSPITAL_TIMEZONE)
-    return value.astimezone(HOSPITAL_TIMEZONE)
-
-
 def _whatsapp_number(phone_no: str) -> str:
-    normalized = phone_no.strip()
-    if normalized.isdigit() and not normalized.startswith("+"):
-        normalized = f"{settings.TWILIO_WHATSAPP_COUNTRY_CODE}{normalized}"
-    return normalized if normalized.startswith("whatsapp:") else f"whatsapp:{normalized}"
+    digits = re.sub(r"\D", "", phone_no)
+    if not digits:
+        return ""
+    if len(digits) == 10:
+        return f"+91{digits}"
+    if digits.startswith("91") and len(digits) == 12:
+        return f"+{digits}"
+    if not digits.startswith("+"):
+        return f"+{digits}"
+    return digits
 
 
-def _twilio_client() -> Client:
-    return Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-
-
-def _twilio_configuration_error() -> str | None:
+def _meta_configuration_error(template_name: str) -> str | None:
     missing = []
-    if not settings.TWILIO_ACCOUNT_SID:
-        missing.append("TWILIO_ACCOUNT_SID")
-    if not settings.TWILIO_AUTH_TOKEN:
-        missing.append("TWILIO_AUTH_TOKEN")
-    if not settings.TWILIO_WHATSAPP_FROM:
-        missing.append("TWILIO_WHATSAPP_FROM")
+    if not settings.META_WHATSAPP_ACCESS_TOKEN:
+        missing.append("META_WHATSAPP_ACCESS_TOKEN")
+    if not settings.META_WHATSAPP_PHONE_NUMBER_ID:
+        missing.append("META_WHATSAPP_PHONE_NUMBER_ID")
+    if not settings.META_WHATSAPP_API_VERSION:
+        missing.append("META_WHATSAPP_API_VERSION")
+    if not template_name:
+        missing.append("WhatsApp template name")
     return ", ".join(missing) if missing else None
 
 
-def send_appointment_notification(phone_no: str, appointment) -> str:
-    missing = _twilio_configuration_error()
+def _send_template_message(phone_no: str, template_name: str, parameters: list[tuple[str, str]]) -> str:
+    missing = _meta_configuration_error(template_name)
     if missing:
-        raise RuntimeError(f"Missing Twilio configuration: {missing}")
+        raise RuntimeError(f"Missing Meta WhatsApp configuration: {missing}")
 
-    client = _twilio_client()
+    if not re.fullmatch(r"\d+", settings.META_WHATSAPP_PHONE_NUMBER_ID):
+        raise RuntimeError("META_WHATSAPP_PHONE_NUMBER_ID must contain only digits")
+    recipient = _whatsapp_number(phone_no)
+    if not recipient:
+        raise RuntimeError("Recipient phone number must contain digits")
+
+    url = (
+        f"https://graph.facebook.com/{settings.META_WHATSAPP_API_VERSION}/"
+        f"{settings.META_WHATSAPP_PHONE_NUMBER_ID}/messages"
+    )
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": recipient,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": settings.META_WHATSAPP_TEMPLATE_LANGUAGE},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "parameter_name": name, "text": value}
+                        for name, value in parameters
+                    ],
+                }
+            ],
+        },
+    }
+    try:
+        response = httpx.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {settings.META_WHATSAPP_ACCESS_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=15.0,
+        )
+        if hasattr(response, "raise_for_status"):
+            response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise RuntimeError("Meta WhatsApp API request failed") from exc
+
+    try:
+        return response.json()["messages"][0]["id"]
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise RuntimeError("Meta WhatsApp API returned no message ID") from exc
+
+
+def send_appointment_notification(phone_no: str, appointment, patient_name: str = "there") -> str:
     booking_info = appointment.booking_info or {}
     location = booking_info.get("location") or booking_info.get("clinic") or "To be confirmed"
-    appointment_datetime = _in_hospital_time(appointment.appointment_datetime)
-    # NOTE: these keys are positional placeholders in the Twilio content
-    # template and deliberately skip "5" -- verify that against the actual
-    # template before enabling TWILIO_USE_CONTENT_TEMPLATE. If the template has
-    # five placeholders, the booking ID is landing in the wrong slot. This path
-    # is currently dormant (the flag is false), so it is left as-is rather than
-    # renumbered on a guess.
-    content_variables = json.dumps(
-        {
-            "1": appointment.doctor_name,
-            "2": appointment_datetime.strftime("%d %b %Y"),
-            "3": appointment_datetime.strftime("%I:%M %p"),
-            "4": location,
-            "6": appointment.appointment_id,
-        },
-        default=str,
+    appointment_datetime = appointment.appointment_datetime.astimezone(ZoneInfo("Asia/Kolkata"))
+    parameters = [
+        ("name", patient_name),
+        ("doctor", appointment.doctor_name),
+        ("date", appointment_datetime.strftime("%d %b %Y")),
+        ("time", appointment_datetime.strftime("%I:%M %p")),
+        ("location", location),
+        ("id", appointment.appointment_id),
+    ]
+    return _send_template_message(
+        phone_no,
+        settings.META_WHATSAPP_APPOINTMENT_TEMPLATE_NAME,
+        parameters,
     )
-    message_data = {
-        "from_": _whatsapp_number(settings.TWILIO_WHATSAPP_FROM),
-        "to": _whatsapp_number(phone_no),
-    }
-    if settings.TWILIO_USE_CONTENT_TEMPLATE:
-        if not settings.TWILIO_CONTENT_SID:
-            raise RuntimeError("TWILIO_CONTENT_SID is required when template mode is enabled")
-        message_data.update(
-            content_sid=settings.TWILIO_CONTENT_SID,
-            content_variables=content_variables,
-        )
-    else:
-        # The recipient is the patient, so the message must not open by
-        # greeting them with the doctor's name. The doctor belongs in the
-        # details below.
-        message_data["body"] = (
-            "Your appointment is confirmed ✓\n\n"
-            f"👨‍⚕️ *Doctor:* {appointment.doctor_name}\n"
-            f"🗓 *Date:* {appointment_datetime.strftime('%d %b %Y')}\n"
-            f"⏰ *Time:* {appointment_datetime.strftime('%I:%M %p')}\n"
-            f"📍 *Location:* {location}\n"
-            f"Booking ID: *{appointment.appointment_id}*\n\n"
-            "Please arrive 10 minutes early. To change or cancel, reply to "
-            "this message or call the front desk."
-        )
-    message = client.messages.create(**message_data)
-    return message.sid
 
 
-def send_welcome_notification(phone_no: str) -> str:
-    missing = _twilio_configuration_error()
-    if missing:
-        raise RuntimeError(f"Missing Twilio welcome configuration: {missing}")
-
-    client = _twilio_client()
-    message_data = {
-        "from_": _whatsapp_number(settings.TWILIO_WHATSAPP_FROM),
-        "to": _whatsapp_number(phone_no),
-    }
-    if settings.TWILIO_USE_CONTENT_TEMPLATE:
-        if not settings.TWILIO_WELCOME_CONTENT_SID:
-            raise RuntimeError("TWILIO_WELCOME_CONTENT_SID is required when template mode is enabled")
-        message_data["content_sid"] = settings.TWILIO_WELCOME_CONTENT_SID
-    else:
-        message_data["body"] = (
-            "Welcome to Zenvy! Your account has been created successfully. "
-            "You can now book and manage your appointments here."
-        )
-    message = client.messages.create(**message_data)
-    return message.sid
+def send_welcome_notification(phone_no: str, name: str = "there") -> str:
+    return _send_template_message(
+        phone_no,
+        settings.META_WHATSAPP_WELCOME_TEMPLATE_NAME,
+        [("name", name)],
+    )

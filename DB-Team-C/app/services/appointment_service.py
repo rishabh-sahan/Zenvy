@@ -11,13 +11,13 @@ def create_appointment(db: Session, payload: AIAppointmentCreate, patient_phone_
     appointment = AIAppointment(
         appointment_id=str(uuid.uuid4()),
         session_id=payload.session_id,
+        patient_phone_no=patient_phone_no,
         patient_uhid=payload.patient_uhid.strip(),
         doctor_name=payload.doctor_name.strip(),
         appointment_datetime=payload.appointment_datetime,
         status=status,
         booking_info=payload.booking_info,
         appointment_metadata=payload.appointment_metadata,
-        patient_phone_no=patient_phone_no,
     )
     db.add(appointment)
     db.commit()

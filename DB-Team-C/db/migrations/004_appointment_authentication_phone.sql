@@ -11,4 +11,4 @@ DO $$ BEGIN
         FOREIGN KEY (phone_no) REFERENCES authentication(phone_no);
 EXCEPTION
     WHEN duplicate_object THEN NULL;
-END $$;
+END $$;

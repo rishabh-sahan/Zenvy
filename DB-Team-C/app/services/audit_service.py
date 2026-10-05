@@ -23,5 +23,30 @@ def create_audit_log(db: Session, payload: AuditLogCreate):
     return audit
 
 
+def write_audit_log(
+    db: Session,
+    *,
+    action: str,
+    actor: str,
+    session_id: str | None = None,
+    user_id: str | None = None,
+    relevant_metadata: dict | None = None,
+    before_value: dict | None = None,
+    after_value: dict | None = None,
+):
+    return create_audit_log(
+        db,
+        AuditLogCreate(
+            session_id=session_id,
+            user_id=user_id,
+            action=action,
+            actor=actor,
+            relevant_metadata=relevant_metadata,
+            before_value=before_value,
+            after_value=after_value,
+        ),
+    )
+
+
 def get_session_audit_logs(db: Session, session_id: str):
     return db.query(AuditLog).filter(AuditLog.session_id == session_id).all()
