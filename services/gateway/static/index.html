@@ -1,1218 +1,2375 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 
 <meta
   name="viewport"
   content="width=device-width, initial-scale=1.0"
-/>
+>
 
-<title>Zenvy Hospital Voice Assistant</title>
+<title>Zenvy | AI Hospital Assistant</title>
 
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  crossorigin=""
+>
 
 <style>
+* {
+  box-sizing: border-box;
+}
 
+:root {
+  --bg: #070914;
+  --panel: rgba(18, 22, 42, 0.82);
+  --panel2: rgba(25, 30, 55, 0.72);
+  --border: rgba(255,255,255,.10);
+  --text: #f7f8ff;
+  --muted: #9da5c5;
+  --purple: #8b5cf6;
+  --purple2: #a78bfa;
+  --cyan: #22d3ee;
+  --green: #34d399;
+  --red: #fb7185;
+  --yellow: #fbbf24;
+}
+
+html,
 body {
-
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(139,92,246,.18), transparent 28%),
+    radial-gradient(circle at 90% 15%, rgba(34,211,238,.12), transparent 25%),
+    radial-gradient(circle at 50% 100%, rgba(139,92,246,.10), transparent 30%),
+    var(--bg);
+  color: var(--text);
   font-family:
+    Inter,
+    ui-sans-serif,
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-
-  max-width: 560px;
-
-  margin: 50px auto;
-
-  padding: 0 20px;
-
-  color: #1a1a1a;
-
 }
 
-
-h1 {
-
-  text-align: center;
-
-  font-size: 1.5rem;
-
-  margin-bottom: 5px;
-
+body {
+  overflow-x: hidden;
 }
 
-
-.sub {
-
-  text-align: center;
-
-  color: #666;
-
-  font-size: 0.9rem;
-
-  margin-top: 0;
-
-}
-
-
-.card {
-
-  margin-top: 25px;
-
-  padding: 20px;
-
-  border: 1px solid #e2e8f0;
-
-  border-radius: 12px;
-
-  background: #f9fafb;
-
-}
-
-
-.card h2 {
-
-  margin-top: 0;
-
-  font-size: 1.1rem;
-
-}
-
-
-#talkBtn {
-
-  display: block;
-
-  width: 140px;
-
-  height: 140px;
-
-  margin: 20px auto;
-
-  border-radius: 50%;
-
-  border: none;
-
-  font-size: 1rem;
-
-  font-weight: 600;
-
-  cursor: pointer;
-
-  background: #2b6cb0;
-
-  color: white;
-
-}
-
-
-#talkBtn.recording {
-
-  background: #c53030;
-
-}
-
-
-#talkBtn:disabled {
-
-  background: #a0aec0;
-
-  cursor: not-allowed;
-
-}
-
-
-#status {
-
-  text-align: center;
-
-  margin-top: 15px;
-
-  min-height: 24px;
-
-  color: #444;
-
-}
-
-
-textarea {
-
-  width: 100%;
-
-  box-sizing: border-box;
-
-  min-height: 100px;
-
-  padding: 12px;
-
-  border: 1px solid #cbd5e0;
-
-  border-radius: 8px;
-
-  resize: vertical;
-
-  font-family: inherit;
-
-  font-size: 1rem;
-
-}
-
-
-.controls {
-
-  display: flex;
-
-  gap: 10px;
-
-  margin-top: 12px;
-
-}
-
-
-select,
-.button {
-
-  padding: 10px 12px;
-
-  border-radius: 8px;
-
-  border: 1px solid #cbd5e0;
-
-  font-size: 0.95rem;
-
-}
-
-
+button,
+input,
 select {
-
-  flex: 1;
-
-  background: white;
-
+  font: inherit;
 }
 
-
-.button {
-
-  background: #2f855a;
-
-  color: white;
-
-  border: none;
-
+button {
   cursor: pointer;
-
-  font-weight: 600;
-
 }
 
-
-.button:hover {
-
-  background: #276749;
-
+.hidden {
+  display: none !important;
 }
 
+/* =========================
+   TOP BAR
+========================= */
 
-.button:disabled {
-
-  background: #a0aec0;
-
-  cursor: not-allowed;
-
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  background: rgba(7,9,20,.78);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
 }
 
-
-.turn {
-
-  text-align: left;
-
-  margin-top: 24px;
-
-  padding: 12px 16px;
-
-  border: 1px solid #e2e8f0;
-
-  border-radius: 8px;
-
-  background: #f9fafb;
-
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-
-.turn .label {
-
-  font-size: 0.75rem;
-
-  text-transform: uppercase;
-
-  color: #888;
-
+.logo {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--purple), var(--cyan));
+  box-shadow: 0 10px 35px rgba(139,92,246,.28);
+  font-size: 22px;
 }
 
-
-.turn .text {
-
-  margin: 4px 0 10px 0;
-
+.brand-text h1 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -.5px;
 }
 
+.brand-text span {
+  color: var(--muted);
+  font-size: 11px;
+}
 
 .status {
-
-  margin-top: 10px;
-
-  color: #666;
-
-  font-size: 0.9rem;
-
-}
-
-
-.assistant-answer {
-
-  margin-top: 15px;
-
-  padding: 15px;
-
-  border-radius: 8px;
-
-  background: #edf7ed;
-
-  border: 1px solid #c6e6c6;
-
-}
-
-
-.assistant-answer .label {
-
-  font-size: 0.75rem;
-
-  text-transform: uppercase;
-
-  color: #2f855a;
-
-  font-weight: 700;
-
-}
-
-
-.assistant-answer .answer-text {
-
-  margin-top: 8px;
-
-  line-height: 1.5;
-
-  white-space: pre-wrap;
-
-}
-
-
-.input-display {
-
-  margin-top: 15px;
-
-  padding: 12px;
-
-  border-radius: 8px;
-
-  background: #f1f5f9;
-
-  border: 1px solid #e2e8f0;
-
-}
-
-
-.input-display .label {
-
-  font-size: 0.75rem;
-
-  text-transform: uppercase;
-
-  color: #888;
-
-}
-
-
-.input-display .text {
-
-  margin-top: 5px;
-
-}
-
-
-/* =========================================================
-   LOGIN
-   ========================================================= */
-
-input[type="tel"] {
-
-  width: 100%;
-
-  box-sizing: border-box;
-
-  padding: 12px;
-
-  border: 1px solid #cbd5e0;
-
-  border-radius: 8px;
-
-  font-family: inherit;
-
-  font-size: 1rem;
-
-  letter-spacing: 1px;
-
-}
-
-
-#loginButton {
-
-  width: 100%;
-
-  margin-top: 12px;
-
-}
-
-
-.signed-in-bar {
-
   display: flex;
-
   align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
 
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 14px var(--green);
+}
+
+/* =========================
+   LOGIN
+========================= */
+
+.login-page {
+  min-height: calc(100vh - 72px);
+  display: grid;
+  place-items: center;
+  padding: 30px;
+}
+
+.login-card {
+  width: min(440px, 100%);
+  padding: 38px;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: var(--panel);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 30px 100px rgba(0,0,0,.35);
+}
+
+.login-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--purple), var(--cyan));
+  font-size: 31px;
+  margin-bottom: 22px;
+}
+
+.login-card h2 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+
+.login-card p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.field {
+  margin-bottom: 18px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 8px;
+  color: #cdd2eb;
+  font-size: 13px;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 14px 15px;
+  color: white;
+  background: rgba(255,255,255,.055);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  outline: none;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: rgba(139,92,246,.8);
+  box-shadow: 0 0 0 3px rgba(139,92,246,.12);
+}
+
+.primary-btn {
+  width: 100%;
+  border: 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  color: white;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--purple), #6d4de6);
+  box-shadow: 0 12px 35px rgba(139,92,246,.25);
+  transition: .2s ease;
+}
+
+.primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 40px rgba(139,92,246,.35);
+}
+
+.demo-note {
+  margin-top: 16px;
+  text-align: center;
+  color: #7f88a9;
+  font-size: 11px;
+}
+
+/* =========================
+   DASHBOARD
+========================= */
+
+.dashboard {
+  max-width: 1500px;
+  margin: auto;
+  padding: 28px;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
   justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
 
+.hero h2 {
+  margin: 0 0 7px;
+  font-size: clamp(27px, 4vw, 43px);
+  letter-spacing: -1.5px;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.location-pill {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255,255,255,.045);
+  color: #dce0f3;
+  font-size: 13px;
+}
+
+/* =========================
+   VOICE GRID
+========================= */
+
+.voice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--panel);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 20px 70px rgba(0,0,0,.18);
+}
+
+.voice-card {
+  min-height: 330px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.voice-card::before {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: .16;
+  pointer-events: none;
+}
+
+.stt-card::before {
+  background: var(--cyan);
+  top: -70px;
+  right: -50px;
+}
+
+.tts-card::before {
+  background: var(--purple);
+  bottom: -70px;
+  left: -50px;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.card-title-left {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.icon-box {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(139,92,246,.13);
+  border: 1px solid rgba(139,92,246,.2);
+}
+
+.card-title h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.card-title p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mini-badge {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(52,211,153,.08);
+  color: var(--green);
+  font-size: 10px;
+  border: 1px solid rgba(52,211,153,.15);
+}
+
+.transcript {
+  min-height: 100px;
+  padding: 17px;
+  border-radius: 15px;
+  background: rgba(0,0,0,.16);
+  border: 1px solid rgba(255,255,255,.06);
+  color: #e9ecfa;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.transcript.empty {
+  color: #6f7897;
+}
+
+.voice-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.record-btn {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: linear-gradient(135deg, #ef4444, #be123c);
+  box-shadow: 0 10px 35px rgba(239,68,68,.25);
+  font-size: 22px;
+}
+
+.record-btn.recording {
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0%,100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239,68,68,.4);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 15px rgba(239,68,68,0);
+  }
+}
+
+.voice-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.voice-status strong {
+  color: white;
+}
+
+.audio-player {
+  width: 100%;
+  margin-top: 18px;
+}
+
+/* =========================
+   MAP
+========================= */
+
+.map-card {
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.map-header {
+  padding: 21px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+.map-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.map-header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.map-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.small-btn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.055);
+  color: #dfe4fa;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.small-btn:hover {
+  background: rgba(255,255,255,.09);
+}
+
+#map {
+  height: 430px;
+  width: 100%;
+  background: #101522;
+}
+
+/* =========================
+   LOCATION / DOCTOR SECTION
+========================= */
+
+.discovery-grid {
+  display: grid;
+  grid-template-columns: .9fr 1.1fr;
+  gap: 20px;
+}
+
+.hospital-card,
+.doctor-card {
+  padding: 22px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+  margin-bottom: 18px;
+}
+
+.section-heading h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.section-heading p {
+  color: var(--muted);
+  margin: 5px 0 0;
+  font-size: 12px;
+}
+
+.location-status {
+  padding: 13px;
+  border-radius: 13px;
+  background: rgba(34,211,238,.055);
+  border: 1px solid rgba(34,211,238,.12);
+  color: #c5f6ff;
+  font-size: 12px;
+  margin-bottom: 15px;
+}
+
+.hospital-list,
+.doctor-list {
+  display: grid;
   gap: 10px;
-
-  margin-top: 25px;
-
-  padding: 10px 14px;
-
-  border: 1px solid #e2e8f0;
-
-  border-radius: 8px;
-
-  background: #f9fafb;
-
-  font-size: 0.85rem;
-
-  color: #444;
-
 }
 
-
-.link-button {
-
-  background: none;
-
-  border: none;
-
-  padding: 0;
-
-  color: #2b6cb0;
-
-  font-family: inherit;
-
-  font-size: 0.85rem;
-
-  text-decoration: underline;
-
-  cursor: pointer;
-
+.hospital-item,
+.doctor-item {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px;
+  border-radius: 15px;
+  background: rgba(255,255,255,.035);
+  border: 1px solid rgba(255,255,255,.065);
+  transition: .2s;
 }
 
+.hospital-item:hover,
+.doctor-item:hover {
+  background: rgba(255,255,255,.065);
+  transform: translateY(-1px);
+}
 
+.place-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(139,92,246,.12);
+  font-size: 19px;
+}
+
+.item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-main strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.item-main span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.distance {
+  color: var(--cyan) !important;
+  margin-top: 4px;
+}
+
+.open {
+  color: var(--green) !important;
+}
+
+.closed {
+  color: var(--red) !important;
+}
+
+.doctor-avatar {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(139,92,246,.3), rgba(34,211,238,.18));
+  font-size: 20px;
+}
+
+.doctor-specialty {
+  color: var(--purple2) !important;
+}
+
+.slot-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+
+.slot {
+  padding: 4px 7px;
+  border-radius: 7px;
+  background: rgba(52,211,153,.08);
+  border: 1px solid rgba(52,211,153,.12);
+  color: #8ff0c9;
+  font-size: 9px;
+}
+
+.prefer-row {
+  display: flex;
+  gap: 9px;
+  margin-bottom: 16px;
+}
+
+.prefer-row select {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 12px;
+  color: white;
+  background: rgba(255,255,255,.055);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  outline: none;
+}
+
+.prefer-row button {
+  padding: 11px 15px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--purple);
+  color: white;
+  font-weight: 700;
+}
+
+/* =========================
+   CHAT
+========================= */
+
+.chat-card {
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.chat-box {
+  min-height: 140px;
+  max-height: 330px;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message {
+  max-width: 82%;
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.message.bot {
+  align-self: flex-start;
+  background: rgba(139,92,246,.11);
+  border: 1px solid rgba(139,92,246,.13);
+}
+
+.message.user {
+  align-self: flex-end;
+  background: rgba(34,211,238,.08);
+  border: 1px solid rgba(34,211,238,.12);
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.chat-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.045);
+  color: white;
+  outline: none;
+}
+
+.chat-input-row button {
+  padding: 13px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg,var(--purple),#6d4de6);
+  color: white;
+  font-weight: 700;
+}
+
+/* =========================
+   MODAL
+========================= */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(8px);
+}
+
+.location-modal {
+  width: min(500px, 100%);
+  padding: 28px;
+  border-radius: 25px;
+  border: 1px solid var(--border);
+  background: #11152a;
+  box-shadow: 0 40px 120px rgba(0,0,0,.55);
+}
+
+.location-modal h2 {
+  margin: 0 0 9px;
+}
+
+.location-modal p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.gps-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  border: 0;
+  border-radius: 13px;
+  color: white;
+  background: linear-gradient(135deg,var(--cyan),#0891b2);
+  font-weight: 700;
+}
+
+.manual-location {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.manual-location button {
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.05);
+  color: white;
+  border-radius: 12px;
+}
+
+/* =========================
+   TOAST
+========================= */
+
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 5000;
+  max-width: 360px;
+  padding: 14px 17px;
+  border-radius: 13px;
+  background: #171c34;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  color: #e9ecfb;
+  font-size: 12px;
+  transform: translateY(20px);
+  opacity: 0;
+  pointer-events: none;
+  transition: .25s;
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 950px) {
+  .voice-grid,
+  .discovery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    padding: 0 15px;
+  }
+
+  .status {
+    display: none;
+  }
+
+  .dashboard {
+    padding: 17px;
+  }
+
+  .voice-card {
+    padding: 18px;
+  }
+
+  .map-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  #map {
+    height: 350px;
+  }
+
+  .login-card {
+    padding: 26px;
+  }
+}
 </style>
-
 </head>
-
 
 <body>
 
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">🏥</div>
+    <div class="brand-text">
+      <h1>Zenvy</h1>
+      <span>AI-Powered Hospital Voice Assistant</span>
+    </div>
+  </div>
 
-<h1>
-  🏥 Zenvy Hospital Voice Assistant
-</h1>
+  <div class="status">
+    <span class="status-dot"></span>
+    <span id="systemStatus">System Ready</span>
+  </div>
+</header>
 
-
-<p class="sub">
-  Kannada · Hindi · English
-</p>
-
-
-
-<!-- =====================================================
+<!-- =========================
      LOGIN
-     ===================================================== -->
+========================= -->
 
-<div
-  class="card"
-  id="loginView"
-  style="display:none;"
->
+<section id="loginPage" class="login-page">
 
-  <h2>
-    🔐 Patient Login
-  </h2>
+  <div class="login-card">
 
+    <div class="login-icon">🩺</div>
 
-  <p class="sub">
-    Enter your phone number to continue
-  </p>
+    <h2>Welcome to Zenvy</h2>
 
+    <p>
+      Your AI hospital assistant for finding nearby hospitals,
+      doctors, appointments and available consultation slots.
+    </p>
 
-  <form id="loginForm">
+    <div class="field">
+      <label for="phoneInput">Mobile Number</label>
 
-    <input
-      type="tel"
-      id="loginPhone"
-      inputmode="numeric"
-      autocomplete="tel"
-      placeholder="10-digit mobile number"
-    />
-
+      <input
+        id="phoneInput"
+        type="tel"
+        placeholder="Enter your phone number"
+        autocomplete="tel"
+      >
+    </div>
 
     <button
-      class="button"
-      id="loginButton"
-      type="submit"
+      class="primary-btn"
+      id="loginBtn"
+      onclick="loginUser()"
     >
-      Continue
+      Continue to Zenvy →
     </button>
 
-  </form>
-
-
-  <div
-    id="loginStatus"
-    class="status"
-  ></div>
-
-</div>
-
-
-
-<!-- =====================================================
-     ASSISTANT (hidden until signed in)
-     ===================================================== -->
-
-<div
-  id="appView"
-  style="display:none;"
->
-
-
-  <div class="signed-in-bar">
-
-    <span>
-      Signed in as
-      <strong id="signedInPhone"></strong>
-    </span>
-
-    <button
-      class="link-button"
-      id="logoutButton"
-      type="button"
-    >
-      Log out
-    </button>
+    <div class="demo-note">
+      Demo environment • Phone-only authentication
+    </div>
 
   </div>
 
+</section>
 
+<!-- =========================
+     DASHBOARD
+========================= -->
 
-<!-- =====================================================
-     VOICE ASSISTANT
-     ===================================================== -->
+<main id="dashboard" class="dashboard hidden">
 
-<div class="card">
+  <section class="hero">
 
-  <h2>
-    🎙️ Voice Assistant
-  </h2>
+    <div>
+      <h2>Good to see you 👋</h2>
 
-  <p class="sub">
-    Press and hold to speak
-  </p>
+      <p>
+        Talk to Zenvy. Find the right care around you.
+      </p>
+    </div>
 
+    <div class="location-pill">
+      📍
+      <span id="locationText">
+        Waiting for your location...
+      </span>
+    </div>
 
-  <button id="talkBtn">
-    Hold to talk
-  </button>
+  </section>
 
+  <!-- VOICE -->
+  <section class="voice-grid">
 
-  <div id="status">
-    Ready
-  </div>
+    <!-- STT -->
+    <div class="card voice-card stt-card">
 
+      <div class="card-title">
 
-  <div id="log"></div>
+        <div class="card-title-left">
 
-</div>
+          <div class="icon-box">🎙️</div>
 
+          <div>
+            <h3>Speech → Text</h3>
+            <p>Talk naturally to Zenvy</p>
+          </div>
 
+        </div>
 
-<!-- =====================================================
-     ASK ZENVY
-     ===================================================== -->
+        <div class="mini-badge">
+          Sarvam STT
+        </div>
 
-<div class="card">
+      </div>
 
-  <h2>
-    🤖 Ask Zenvy
-  </h2>
+      <div
+        id="transcript"
+        class="transcript empty"
+      >
+        Your speech transcript will appear here...
+      </div>
 
+      <div class="voice-controls">
 
-  <p class="sub">
-    Type your problem and Zenvy will generate an answer
-  </p>
+        <button
+          id="recordBtn"
+          class="record-btn"
+          onclick="toggleRecording()"
+        >
+          🎙
+        </button>
 
+        <div class="voice-status">
+          <strong id="recordStatus">
+            Tap the microphone
+          </strong>
+          <br>
+          <span>
+            Kannada • Hindi • English
+          </span>
+        </div>
 
-  <textarea
-    id="askText"
-    placeholder="Example: What are the OPD timings?"
-  ></textarea>
+      </div>
 
+    </div>
 
-  <div class="controls">
+    <!-- TTS -->
+    <div class="card voice-card tts-card">
 
+      <div class="card-title">
 
-    <select id="askLanguage">
+        <div class="card-title-left">
 
-      <option value="en">
-        English
-      </option>
+          <div class="icon-box">🔊</div>
 
-      <option value="hi">
-        Hindi
-      </option>
+          <div>
+            <h3>AI Voice Response</h3>
+            <p>Listen to Zenvy's response</p>
+          </div>
 
-      <option value="kn">
-        Kannada
-      </option>
+        </div>
 
-    </select>
+        <div class="mini-badge">
+          Sarvam TTS
+        </div>
 
+      </div>
 
-    <button
-      class="button"
-      id="askButton"
-    >
-      Ask Zenvy
-    </button>
+      <div
+        id="aiResponse"
+        class="transcript empty"
+      >
+        Zenvy's response will appear here...
+      </div>
 
+      <audio
+        id="audioPlayer"
+        class="audio-player hidden"
+        controls
+      ></audio>
 
-  </div>
+    </div>
 
+  </section>
 
-  <div
-    id="askStatus"
-    class="status"
-  >
-    Ready
-  </div>
+  <!-- MAP -->
+  <section class="card map-card">
 
+    <div class="map-header">
 
+      <div>
+        <h3>📍 Care Around You</h3>
 
-  <!-- USER INPUT -->
+        <p>
+          Your location, nearby hospitals and doctor availability
+        </p>
+      </div>
 
-  <div
-    id="userQuestion"
-    class="input-display"
-    style="display:none;"
-  >
+      <div class="map-actions">
 
-    <div class="label">
-      Your Question
+        <button
+          class="small-btn"
+          onclick="requestGPS()"
+        >
+          📡 Use GPS
+        </button>
+
+        <button
+          class="small-btn"
+          onclick="focusUser()"
+        >
+          🎯 My Location
+        </button>
+
+      </div>
+
+    </div>
+
+    <div id="map"></div>
+
+  </section>
+
+  <!-- HOSPITALS + DOCTORS -->
+  <section class="discovery-grid">
+
+    <!-- HOSPITALS -->
+    <div class="card hospital-card">
+
+      <div class="section-heading">
+
+        <div>
+          <h3>🏥 Nearby Hospitals</h3>
+
+          <p>
+            Dummy demo hospitals with timings
+          </p>
+        </div>
+
+      </div>
+
+      <div
+        id="hospitalList"
+        class="hospital-list"
+      ></div>
+
+    </div>
+
+    <!-- DOCTORS -->
+    <div class="card doctor-card">
+
+      <div class="section-heading">
+
+        <div>
+          <h3>👨‍⚕️ Nearby Doctors</h3>
+
+          <p id="doctorSubtitle">
+            Get your location to see suggestions
+          </p>
+        </div>
+
+      </div>
+
+      <div class="prefer-row">
+
+        <select id="specialtySelect">
+
+          <option value="all">
+            Any specialist
+          </option>
+
+          <option value="Cardiologist">
+            Cardiologist
+          </option>
+
+          <option value="Orthopedist">
+            Orthopedist
+          </option>
+
+          <option value="Dermatologist">
+            Dermatologist
+          </option>
+
+          <option value="Neurologist">
+            Neurologist
+          </option>
+
+          <option value="Pediatrician">
+            Pediatrician
+          </option>
+
+          <option value="Gynecologist">
+            Gynecologist
+          </option>
+
+          <option value="ENT Specialist">
+            ENT Specialist
+          </option>
+
+          <option value="General Physician">
+            General Physician
+          </option>
+
+          <option value="Ophthalmologist">
+            Ophthalmologist
+          </option>
+
+          <option value="Psychiatrist">
+            Psychiatrist
+          </option>
+
+        </select>
+
+        <button onclick="applySpecialty()">
+          Find
+        </button>
+
+      </div>
+
+      <div
+        id="doctorList"
+        class="doctor-list"
+      ></div>
+
+    </div>
+
+  </section>
+
+  <!-- CHAT -->
+  <section class="card chat-card">
+
+    <div class="section-heading">
+
+      <div>
+        <h3>💬 Talk to Zenvy</h3>
+
+        <p>
+          Ask about doctors, hospitals, specialties or appointments
+        </p>
+      </div>
+
     </div>
 
     <div
-      id="userQuestionText"
-      class="text"
-    ></div>
+      id="chatBox"
+      class="chat-box"
+    >
 
-  </div>
+      <div class="message bot">
+        Hi! 👋 I'm Zenvy. I'll first find your nearby hospitals
+        and doctors. Which type of doctor are you looking for?
+      </div>
 
-
-
-  <!-- ASSISTANT ANSWER -->
-
-  <div
-    id="assistantAnswer"
-    class="assistant-answer"
-    style="display:none;"
-  >
-
-    <div class="label">
-      Zenvy's Answer
     </div>
 
-    <div
-      id="assistantAnswerText"
-      class="answer-text"
-    ></div>
+    <div class="chat-input-row">
+
+      <input
+        id="chatInput"
+        type="text"
+        placeholder="Ask Zenvy something..."
+        onkeydown="if(event.key==='Enter') sendChat()"
+      >
+
+      <button onclick="sendChat()">
+        Send
+      </button>
+
+    </div>
+
+  </section>
+
+</main>
+
+<!-- LOCATION MODAL -->
+
+<div
+  id="locationModal"
+  class="modal-backdrop"
+>
+
+  <div class="location-modal">
+
+    <h2>📍 Find care near you</h2>
+
+    <p>
+      Zenvy needs your location to show nearby hospitals
+      and recommend doctors around you.
+    </p>
+
+    <button
+      class="gps-btn"
+      onclick="requestGPS(true)"
+    >
+      📡 Allow GPS Location
+    </button>
+
+    <div class="manual-location">
+
+      <button onclick="useDemoLocation('mysore')">
+        Mysuru Demo
+      </button>
+
+      <button onclick="useDemoLocation('bangalore')">
+        Bengaluru Demo
+      </button>
+
+    </div>
 
   </div>
 
 </div>
 
+<div
+  id="toast"
+  class="toast"
+></div>
 
-</div>
-<!-- end #appView -->
-
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 
-
 /* =========================================================
-   GLOBAL SESSION
-   ========================================================= */
+   GLOBAL STATE
+========================================================= */
 
-let currentSessionId = null;
+let map = null;
 
+let userMarker = null;
 
+let currentLocation = null;
 
-/* =========================================================
-   LOGIN
-
-   Phone-number-only gate. A number Team C has not seen
-   before is registered on first use, so there is no separate
-   signup screen and no password anywhere.
-
-   NOTE: this hides the UI, it does not secure the API. The
-   /channels/web/* endpoints remain callable directly.
-   ========================================================= */
-
-const AUTH_STORAGE_KEY = "zenvy_auth";
-
-
-const loginView =
-  document.getElementById(
-    "loginView"
-  );
-
-
-const appView =
-  document.getElementById(
-    "appView"
-  );
-
-
-const loginForm =
-  document.getElementById(
-    "loginForm"
-  );
-
-
-const loginPhone =
-  document.getElementById(
-    "loginPhone"
-  );
-
-
-const loginButton =
-  document.getElementById(
-    "loginButton"
-  );
-
-
-const loginStatus =
-  document.getElementById(
-    "loginStatus"
-  );
-
-
-const signedInPhone =
-  document.getElementById(
-    "signedInPhone"
-  );
-
-
-const logoutButton =
-  document.getElementById(
-    "logoutButton"
-  );
-
-
-
-/* ---------------------------------------------------------
-   READ STORED LOGIN
-   --------------------------------------------------------- */
-
-function getStoredAuth() {
-
-
-  try {
-
-
-    const raw =
-      localStorage.getItem(
-        AUTH_STORAGE_KEY
-      );
-
-
-    if (!raw) {
-      return null;
-    }
-
-
-    const parsed =
-      JSON.parse(raw);
-
-
-    if (
-      parsed &&
-      parsed.phone_no
-    ) {
-      return parsed;
-    }
-
-
-    return null;
-
-
-  }
-
-  catch {
-
-    return null;
-
-  }
-
-}
-
-
-
-/* ---------------------------------------------------------
-   ATTACH THE LOGGED-IN PATIENT TO A REQUEST
-
-   The gateway uses auth_id as the session's user_id, which is
-   what lets Team C join the session back to the patient's
-   phone number and send their WhatsApp appointment
-   confirmation. Without it the booking still works, it just
-   goes out unlinked and silently unconfirmed.
-   --------------------------------------------------------- */
-
-function appendAuthId(formData) {
-
-
-  const auth =
-    getStoredAuth();
-
-
-  if (
-    auth &&
-    auth.auth_id
-  ) {
-
-    formData.append(
-      "auth_id",
-      auth.auth_id
-    );
-
-  }
-
-}
-
-
-
-/* ---------------------------------------------------------
-   SHOW LOGIN / SHOW ASSISTANT
-   --------------------------------------------------------- */
-
-function showLogin() {
-
-
-  loginView.style.display =
-    "block";
-
-
-  appView.style.display =
-    "none";
-
-}
-
-
-
-function showApp(auth) {
-
-
-  signedInPhone.textContent =
-    auth.phone_no;
-
-
-  loginView.style.display =
-    "none";
-
-
-  appView.style.display =
-    "block";
-
-}
-
-
-
-function applyAuthState() {
-
-
-  const auth =
-    getStoredAuth();
-
-
-  if (auth) {
-
-    showApp(auth);
-
-  }
-
-  else {
-
-    showLogin();
-
-  }
-
-}
-
-
-
-/* ---------------------------------------------------------
-   LOGIN SUBMIT
-   --------------------------------------------------------- */
-
-loginForm.addEventListener(
-
-  "submit",
-
-  async function (event) {
-
-
-    event.preventDefault();
-
-
-    const phone =
-      loginPhone.value.trim();
-
-
-    if (!phone) {
-
-
-      loginStatus.textContent =
-        "Please enter your phone number.";
-
-
-      loginPhone.focus();
-
-
-      return;
-
-    }
-
-
-    loginButton.disabled =
-      true;
-
-
-    loginStatus.textContent =
-      "Checking...";
-
-
-    try {
-
-
-      const formData =
-        new FormData();
-
-
-      formData.append(
-        "phone_no",
-        phone
-      );
-
-
-      const response =
-        await fetch(
-
-          "/channels/web/login",
-
-          {
-
-            method:
-              "POST",
-
-            body:
-              formData
-
-          }
-
-        );
-
-
-      if (!response.ok) {
-
-
-        let message =
-          response.statusText;
-
-
-        try {
-
-
-          const error =
-            await response.json();
-
-
-          /*
-           * FastAPI validation errors put an ARRAY in
-           * detail, which would render as [object Object].
-           */
-
-          if (
-            typeof error.detail === "string"
-          ) {
-
-            message =
-              error.detail;
-
-          }
-
-          else if (
-            Array.isArray(error.detail)
-          ) {
-
-            message =
-              "Please enter a valid 10-digit phone number.";
-
-          }
-
-
-        }
-
-        catch {}
-
-
-        throw new Error(
-          message
-        );
-
-      }
-
-
-      const data =
-        await response.json();
-
-
-      /*
-       * Fresh login starts a fresh conversation.
-       */
-
-      currentSessionId = null;
-
-
-      try {
-
-        localStorage.setItem(
-
-          AUTH_STORAGE_KEY,
-
-          JSON.stringify({
-            auth_id: data.auth_id,
-            phone_no: data.phone_no,
-          })
-
-        );
-
-      }
-
-      catch {}
-
-
-      loginStatus.textContent =
-        "";
-
-
-      loginPhone.value =
-        "";
-
-
-      showApp(data);
-
-
-    }
-
-    catch (err) {
-
-
-      console.error(
-        "[Login] Error:",
-        err
-      );
-
-
-      loginStatus.textContent =
-        err.message;
-
-
-    }
-
-
-    finally {
-
-
-      loginButton.disabled =
-        false;
-
-    }
-
-  }
-
-);
-
-
-
-/* ---------------------------------------------------------
-   LOGOUT
-   --------------------------------------------------------- */
-
-logoutButton.addEventListener(
-
-  "click",
-
-  function () {
-
-
-    try {
-
-      localStorage.removeItem(
-        AUTH_STORAGE_KEY
-      );
-
-    }
-
-    catch {}
-
-
-    /*
-     * Drop the conversation so the next patient
-     * does not inherit it.
-     */
-
-    currentSessionId = null;
-
-
-    loginStatus.textContent =
-      "";
-
-
-    showLogin();
-
-  }
-
-);
-
-
-
-applyAuthState();
-
-
-
-/* =========================================================
-   VOICE ASSISTANT
-   ========================================================= */
-
-const talkBtn =
-  document.getElementById(
-    "talkBtn"
-  );
-
-
-const statusEl =
-  document.getElementById(
-    "status"
-  );
-
-
-const logEl =
-  document.getElementById(
-    "log"
-  );
-
+let currentCity = "mysore";
 
 let mediaRecorder = null;
 
 let audioChunks = [];
 
-let recordingStartTime = 0;
+let isRecording = false;
 
+let sessionId =
+  localStorage.getItem("zenvy_session_id") || null;
 
-const MIN_RECORDING_MS = 600;
+let authId =
+  localStorage.getItem("zenvy_auth_id") || null;
 
+let phoneNumber =
+  localStorage.getItem("zenvy_phone") || null;
 
 
 /* =========================================================
-   START RECORDING
-   ========================================================= */
+   DEMO LOCATIONS
+========================================================= */
 
-async function startRecording() {
+const locations = {
+
+  mysore: {
+    lat: 12.2958,
+    lng: 76.6394,
+    name: "Mysuru, Karnataka"
+  },
+
+  bangalore: {
+    lat: 12.9716,
+    lng: 77.5946,
+    name: "Bengaluru, Karnataka"
+  }
+
+};
 
 
-  if (
-    mediaRecorder &&
-    mediaRecorder.state === "recording"
-  ) {
+/* =========================================================
+   HOSPITAL DATA
+========================================================= */
+
+const hospitals = [
+
+  {
+    city: "mysore",
+    name: "Zenvy Care Hospital",
+    lat: 12.2958,
+    lng: 76.6394,
+    timing: "Open 24 hours",
+    status: "open"
+  },
+
+  {
+    city: "mysore",
+    name: "Mysuru Multispeciality Hospital",
+    lat: 12.302,
+    lng: 76.650,
+    timing: "Open 8:00 AM – 10:00 PM",
+    status: "open"
+  },
+
+  {
+    city: "mysore",
+    name: "Chamundi Medical Centre",
+    lat: 12.286,
+    lng: 76.635,
+    timing: "Open 24 hours",
+    status: "open"
+  },
+
+  {
+    city: "mysore",
+    name: "Royal Mysore Hospital",
+    lat: 12.310,
+    lng: 76.620,
+    timing: "Open 7:00 AM – 11:00 PM",
+    status: "open"
+  },
+
+  {
+    city: "mysore",
+    name: "Kaveri Specialty Hospital",
+    lat: 12.279,
+    lng: 76.646,
+    timing: "Open 9:00 AM – 9:00 PM",
+    status: "open"
+  },
+
+  {
+    city: "bangalore",
+    name: "Zenvy Bengaluru Care",
+    lat: 12.9716,
+    lng: 77.5946,
+    timing: "Open 24 hours",
+    status: "open"
+  },
+
+  {
+    city: "bangalore",
+    name: "Bengaluru Multispeciality Centre",
+    lat: 12.982,
+    lng: 77.603,
+    timing: "Open 8:00 AM – 10:00 PM",
+    status: "open"
+  },
+
+  {
+    city: "bangalore",
+    name: "Metro Health Hospital",
+    lat: 12.961,
+    lng: 77.585,
+    timing: "Open 24 hours",
+    status: "open"
+  },
+
+  {
+    city: "bangalore",
+    name: "Namma Care Medical Centre",
+    lat: 12.955,
+    lng: 77.610,
+    timing: "Open 7:00 AM – 11:00 PM",
+    status: "open"
+  },
+
+  {
+    city: "bangalore",
+    name: "Silicon City Specialty Hospital",
+    lat: 12.985,
+    lng: 77.575,
+    timing: "Open 9:00 AM – 9:00 PM",
+    status: "open"
+  }
+
+];
+
+
+/* =========================================================
+   DOCTOR GENERATOR
+   25 MYSURU + 25 BENGALURU
+========================================================= */
+
+const doctorNames = [
+
+  "Arjun Rao",
+  "Priya Sharma",
+  "Vikram Shetty",
+  "Ananya Iyer",
+  "Rahul Gowda",
+  "Sneha Patil",
+  "Karthik Reddy",
+  "Meera Nair",
+  "Aditya Kulkarni",
+  "Divya Joshi",
+  "Rohan Desai",
+  "Kavya Hegde",
+  "Nikhil Bhat",
+  "Pooja Menon",
+  "Sanjay Kumar",
+  "Neha Rao",
+  "Manoj Shetty",
+  "Aishwarya Das",
+  "Akshay Naik",
+  "Shreya Rao",
+  "Harish Gowda",
+  "Nandini Iyer",
+  "Vivek Patil",
+  "Riya Sharma",
+  "Suresh Reddy"
+
+];
+
+const specialties = [
+
+  "Cardiologist",
+  "Orthopedist",
+  "Dermatologist",
+  "Neurologist",
+  "Pediatrician",
+  "Gynecologist",
+  "ENT Specialist",
+  "General Physician",
+  "Ophthalmologist",
+  "Psychiatrist"
+
+];
+
+const slotSets = [
+
+  ["09:30 AM", "11:00 AM", "04:30 PM"],
+  ["10:00 AM", "01:30 PM", "05:00 PM"],
+  ["09:00 AM", "12:30 PM", "06:00 PM"],
+  ["11:30 AM", "02:00 PM", "05:30 PM"],
+  ["08:30 AM", "03:00 PM", "07:00 PM"]
+
+];
+
+function makeDoctors(city) {
+
+  const base = locations[city];
+
+  return doctorNames.map((name, index) => {
+
+    const specialty =
+      specialties[index % specialties.length];
+
+    const offsetLat =
+      ((index % 5) - 2) * 0.008 +
+      Math.sin(index) * 0.002;
+
+    const offsetLng =
+      ((Math.floor(index / 5)) - 2) * 0.008 +
+      Math.cos(index) * 0.002;
+
+    return {
+
+      id:
+        city + "-" + (index + 1),
+
+      city,
+
+      name,
+
+      specialty,
+
+      hospital:
+        hospitals[
+          city === "mysore"
+            ? index % 5
+            : 5 + (index % 5)
+        ].name,
+
+      lat:
+        base.lat + offsetLat,
+
+      lng:
+        base.lng + offsetLng,
+
+      slots:
+        slotSets[index % slotSets.length]
+
+    };
+
+  });
+
+}
+
+const doctors = [
+
+  ...makeDoctors("mysore"),
+
+  ...makeDoctors("bangalore")
+
+];
+
+
+/* =========================================================
+   INITIALIZE
+========================================================= */
+
+window.addEventListener("load", () => {
+
+  initMap();
+
+  renderHospitals();
+
+  if (phoneNumber) {
+
+    showDashboard();
+
+  }
+
+});
+
+
+/* =========================================================
+   LOGIN
+========================================================= */
+
+async function loginUser() {
+
+  const phone =
+    document.getElementById("phoneInput").value.trim();
+
+  if (!phone) {
+
+    showToast("Please enter your mobile number.");
 
     return;
 
   }
 
+  const button =
+    document.getElementById("loginBtn");
+
+  button.disabled = true;
+
+  button.textContent = "Connecting...";
 
   try {
 
+    const response =
+      await fetch("/channels/web/login", {
 
-    talkBtn.classList.add(
-      "recording"
-    );
+        method: "POST",
 
+        headers: {
+          "Content-Type": "application/json"
+        },
 
-    talkBtn.textContent =
-      "Starting...";
+        body: JSON.stringify({
+          phone_no: phone
+        })
 
+      });
 
-    statusEl.textContent =
-      "Requesting microphone...";
+    if (!response.ok) {
 
-
-    const stream =
-      await navigator.mediaDevices
-        .getUserMedia({
-
-          audio: true
-
-        });
-
-
-    mediaRecorder =
-      new MediaRecorder(
-        stream
+      throw new Error(
+        "Login service unavailable"
       );
 
+    }
+
+    const data =
+      await response.json();
+
+    authId =
+      data.auth_id ||
+      data.user_id ||
+      data.id ||
+      phone;
+
+    phoneNumber = phone;
+
+    localStorage.setItem(
+      "zenvy_phone",
+      phoneNumber
+    );
+
+    localStorage.setItem(
+      "zenvy_auth_id",
+      authId
+    );
+
+    sessionId =
+      data.session_id || sessionId;
+
+    if (sessionId) {
+
+      localStorage.setItem(
+        "zenvy_session_id",
+        sessionId
+      );
+
+    }
+
+    showDashboard();
+
+  } catch (error) {
+
+    /*
+      Temporary standalone fallback.
+
+      This keeps the UI usable for your demo even if
+      Team-C authentication is not connected yet.
+    */
+
+    authId = phone;
+
+    phoneNumber = phone;
+
+    localStorage.setItem(
+      "zenvy_phone",
+      phoneNumber
+    );
+
+    localStorage.setItem(
+      "zenvy_auth_id",
+      authId
+    );
+
+    showDashboard();
+
+    showToast(
+      "Demo mode enabled — backend login is currently unavailable."
+    );
+
+  } finally {
+
+    button.disabled = false;
+
+    button.textContent =
+      "Continue to Zenvy →";
+
+  }
+
+}
+
+
+/* =========================================================
+   SHOW DASHBOARD
+========================================================= */
+
+function showDashboard() {
+
+  document
+    .getElementById("loginPage")
+    .classList.add("hidden");
+
+  document
+    .getElementById("dashboard")
+    .classList.remove("hidden");
+
+  setTimeout(() => {
+
+    if (!map) {
+
+      initMap();
+
+    }
+
+    map.invalidateSize();
+
+  }, 200);
+
+  requestGPS();
+
+}
+
+
+/* =========================================================
+   MAP
+========================================================= */
+
+function initMap() {
+
+  map =
+    L.map("map", {
+      zoomControl: true
+    }).setView(
+      [
+        locations.mysore.lat,
+        locations.mysore.lng
+      ],
+      11
+    );
+
+  L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      maxZoom: 19,
+      attribution:
+        "&copy; OpenStreetMap contributors"
+    }
+  ).addTo(map);
+
+  renderMapPlaces("mysore");
+
+}
+
+
+/* =========================================================
+   GPS
+========================================================= */
+
+function requestGPS(showModal = false) {
+
+  if (!navigator.geolocation) {
+
+    showToast(
+      "GPS is not supported by this browser."
+    );
+
+    return;
+
+  }
+
+  document.getElementById(
+    "locationText"
+  ).textContent =
+    "Requesting GPS...";
+
+  navigator.geolocation.getCurrentPosition(
+
+    position => {
+
+      const lat =
+        position.coords.latitude;
+
+      const lng =
+        position.coords.longitude;
+
+      currentLocation = {
+        lat,
+        lng,
+        name: "Your current location"
+      };
+
+      currentCity =
+        nearestCity(lat, lng);
+
+      updateLocationUI();
+
+      renderMapPlaces(currentCity);
+
+      renderHospitals();
+
+      renderDoctors();
+
+      document
+        .getElementById("locationModal")
+        .classList.add("hidden");
+
+      addBotMessage(
+        "📍 Location received! I found nearby hospitals and doctors. Which specialist do you prefer?"
+      );
+
+    },
+
+    error => {
+
+      document.getElementById(
+        "locationText"
+      ).textContent =
+        "Location permission needed";
+
+      if (showModal) {
+
+        showToast(
+          "Please allow location access in your browser."
+        );
+
+      } else {
+
+        document
+          .getElementById("locationModal")
+          .classList.remove("hidden");
+
+      }
+
+    },
+
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000
+    }
+
+  );
+
+}
+
+
+/* =========================================================
+   DEMO LOCATION
+========================================================= */
+
+function useDemoLocation(city) {
+
+  currentCity = city;
+
+  currentLocation = {
+    ...locations[city]
+  };
+
+  updateLocationUI();
+
+  renderMapPlaces(city);
+
+  renderHospitals();
+
+  renderDoctors();
+
+  document
+    .getElementById("locationModal")
+    .classList.add("hidden");
+
+  addBotMessage(
+
+    city === "mysore"
+
+      ? "📍 Using Mysuru demo location. I found 5 nearby doctors. Which specialist do you prefer?"
+
+      : "📍 Using Bengaluru demo location. I found 5 nearby doctors. Which specialist do you prefer?"
+
+  );
+
+}
+
+
+/* =========================================================
+   CITY CALCULATION
+========================================================= */
+
+function nearestCity(lat, lng) {
+
+  const mysoreDistance =
+    haversine(
+      lat,
+      lng,
+      locations.mysore.lat,
+      locations.mysore.lng
+    );
+
+  const bangaloreDistance =
+    haversine(
+      lat,
+      lng,
+      locations.bangalore.lat,
+      locations.bangalore.lng
+    );
+
+  return mysoreDistance <= bangaloreDistance
+    ? "mysore"
+    : "bangalore";
+
+}
+
+
+/* =========================================================
+   LOCATION UI
+========================================================= */
+
+function updateLocationUI() {
+
+  const city =
+    locations[currentCity];
+
+  const distance =
+    currentLocation
+      ? haversine(
+          currentLocation.lat,
+          currentLocation.lng,
+          city.lat,
+          city.lng
+        )
+      : 0;
+
+  document.getElementById(
+    "locationText"
+  ).textContent =
+    currentLocation &&
+    currentLocation.name ===
+      "Your current location"
+
+      ? `GPS • ${city.name}`
+
+      : city.name;
+
+  document.getElementById(
+    "doctorSubtitle"
+  ).textContent =
+    `Top 5 nearby doctors around ${city.name}`;
+
+}
+
+
+/* =========================================================
+   HAVERSINE DISTANCE
+========================================================= */
+
+function haversine(
+  lat1,
+  lon1,
+  lat2,
+  lon2
+) {
+
+  const R = 6371;
+
+  const dLat =
+    (lat2 - lat1) *
+    Math.PI / 180;
+
+  const dLon =
+    (lon2 - lon1) *
+    Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+
+  const c =
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    );
+
+  return R * c;
+
+}
+
+
+/* =========================================================
+   MAP MARKERS
+========================================================= */
+
+function renderMapPlaces(city) {
+
+  if (!map) return;
+
+  map.eachLayer(layer => {
+
+    if (
+      layer instanceof L.Marker ||
+      layer instanceof L.Circle
+    ) {
+
+      map.removeLayer(layer);
+
+    }
+
+  });
+
+  const center =
+    currentLocation ||
+    locations[city];
+
+  userMarker =
+    L.marker(
+      [center.lat, center.lng]
+    )
+      .addTo(map)
+      .bindPopup(
+        "<strong>📍 Your Location</strong><br>" +
+        "Zenvy detected your position."
+      )
+      .openPopup();
+
+  L.circle(
+    [center.lat, center.lng],
+    {
+      radius: 1000,
+      color: "#8b5cf6",
+      fillOpacity: .08
+    }
+  ).addTo(map);
+
+  hospitals
+    .filter(h => h.city === city)
+    .forEach(hospital => {
+
+      L.marker(
+        [hospital.lat, hospital.lng]
+      )
+        .addTo(map)
+        .bindPopup(
+
+          `<strong>🏥 ${hospital.name}</strong><br>` +
+
+          `<span>${hospital.timing}</span>`
+
+        );
+
+    });
+
+  const nearby =
+    doctors
+      .filter(d => d.city === city)
+      .sort(
+        (a,b) =>
+          haversine(
+            center.lat,
+            center.lng,
+            a.lat,
+            a.lng
+          ) -
+          haversine(
+            center.lat,
+            center.lng,
+            b.lat,
+            b.lng
+          )
+      )
+      .slice(0,5);
+
+  nearby.forEach(doctor => {
+
+    L.marker(
+      [doctor.lat, doctor.lng]
+    )
+      .addTo(map)
+      .bindPopup(
+
+        `<strong>👨‍⚕️ ${doctor.name}</strong><br>` +
+
+        `<span>${doctor.specialty}</span><br>` +
+
+        `<span>${doctor.hospital}</span>`
+
+      );
+
+  });
+
+  map.setView(
+    [center.lat, center.lng],
+    12
+  );
+
+}
+
+
+/* =========================================================
+   FOCUS USER
+========================================================= */
+
+function focusUser() {
+
+  if (!currentLocation) {
+
+    requestGPS();
+
+    return;
+
+  }
+
+  map.setView(
+    [
+      currentLocation.lat,
+      currentLocation.lng
+    ],
+    14
+  );
+
+  if (userMarker) {
+
+    userMarker.openPopup();
+
+  }
+
+}
+
+
+/* =========================================================
+   HOSPITAL LIST
+========================================================= */
+
+function renderHospitals() {
+
+  const container =
+    document.getElementById(
+      "hospitalList"
+    );
+
+  if (!container) return;
+
+  const cityHospitals =
+    hospitals.filter(
+      h => h.city === currentCity
+    );
+
+  const center =
+    currentLocation ||
+    locations[currentCity];
+
+  const sorted =
+    cityHospitals
+      .map(h => ({
+
+        ...h,
+
+        distance:
+          haversine(
+            center.lat,
+            center.lng,
+            h.lat,
+            h.lng
+          )
+
+      }))
+      .sort(
+        (a,b) =>
+          a.distance - b.distance
+      );
+
+  container.innerHTML =
+    sorted
+      .map(hospital => `
+
+        <div class="hospital-item">
+
+          <div class="place-icon">
+            🏥
+          </div>
+
+          <div class="item-main">
+
+            <strong>
+              ${hospital.name}
+            </strong>
+
+            <span class="${hospital.status}">
+              ● ${hospital.timing}
+            </span>
+
+            <span class="distance">
+              ${hospital.distance.toFixed(1)} km away
+            </span>
+
+          </div>
+
+        </div>
+
+      `)
+      .join("");
+
+}
+
+
+/* =========================================================
+   DOCTOR LIST
+========================================================= */
+
+function renderDoctors() {
+
+  const container =
+    document.getElementById(
+      "doctorList"
+    );
+
+  if (!container) return;
+
+  const selected =
+    document.getElementById(
+      "specialtySelect"
+    ).value;
+
+  const center =
+    currentLocation ||
+    locations[currentCity];
+
+  let nearby =
+    doctors
+      .filter(
+        d =>
+          d.city === currentCity &&
+          (
+            selected === "all" ||
+            d.specialty === selected
+          )
+      )
+      .map(d => ({
+
+        ...d,
+
+        distance:
+          haversine(
+            center.lat,
+            center.lng,
+            d.lat,
+            d.lng
+          )
+
+      }))
+      .sort(
+        (a,b) =>
+          a.distance - b.distance
+      )
+      .slice(0,5);
+
+  if (!nearby.length) {
+
+    container.innerHTML = `
+
+      <div class="location-status">
+        No demo doctors found for this specialty.
+        Try another specialist.
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+  container.innerHTML =
+    nearby
+      .map(
+        doctor => `
+
+          <div class="doctor-item">
+
+            <div class="doctor-avatar">
+              👨‍⚕️
+            </div>
+
+            <div class="item-main">
+
+              <strong>
+                ${doctor.name}
+              </strong>
+
+              <span class="doctor-specialty">
+                ${doctor.specialty}
+              </span>
+
+              <span>
+                ${doctor.hospital}
+              </span>
+
+              <span class="distance">
+                ${doctor.distance.toFixed(1)} km away
+              </span>
+
+              <div class="slot-row">
+
+                ${doctor.slots
+                  .map(
+                    slot =>
+                      `<span class="slot">
+                        ${slot}
+                      </span>`
+                  )
+                  .join("")}
+
+              </div>
+
+            </div>
+
+          </div>
+
+        `
+      )
+      .join("");
+
+}
+
+
+/* =========================================================
+   SPECIALTY FILTER
+========================================================= */
+
+function applySpecialty() {
+
+  const specialty =
+    document.getElementById(
+      "specialtySelect"
+    ).value;
+
+  renderDoctors();
+
+  const label =
+    specialty === "all"
+      ? "any specialist"
+      : specialty;
+
+  addBotMessage(
+
+    `🩺 Showing the top nearby doctors for ${label}. Check their available slots below.`
+
+  );
+
+}
+
+
+/* =========================================================
+   RECORDING
+========================================================= */
+
+async function toggleRecording() {
+
+  if (isRecording) {
+
+    stopRecording();
+
+    return;
+
+  }
+
+  try {
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+        audio: true
+      });
 
     audioChunks = [];
 
+    mediaRecorder =
+      new MediaRecorder(stream, {
+        mimeType: getSupportedMimeType()
+      });
 
-    mediaRecorder.addEventListener(
-      "dataavailable",
+    mediaRecorder.ondataavailable =
       event => {
 
-
-        if (
-          event.data.size > 0
-        ) {
+        if (event.data.size > 0) {
 
           audioChunks.push(
             event.data
@@ -1220,990 +2377,619 @@ async function startRecording() {
 
         }
 
-      }
-    );
+      };
 
-
-    mediaRecorder.addEventListener(
-      "stop",
+    mediaRecorder.onstop =
       async () => {
-
 
         stream
           .getTracks()
           .forEach(
-            track =>
-              track.stop()
+            track => track.stop()
           );
 
-
-        const audioBlob =
+        const blob =
           new Blob(
-
             audioChunks,
-
             {
               type:
-                "audio/webm"
+                mediaRecorder.mimeType
             }
-
           );
 
+        await sendVoice(blob);
 
-        await sendVoiceToGateway(
-          audioBlob
-        );
-
-      }
-    );
-
+      };
 
     mediaRecorder.start();
 
+    isRecording = true;
 
-    recordingStartTime =
-      Date.now();
+    const btn =
+      document.getElementById(
+        "recordBtn"
+      );
 
+    btn.classList.add("recording");
 
-    talkBtn.textContent =
-      "Release to send";
+    btn.textContent = "⏹";
 
+    document.getElementById(
+      "recordStatus"
+    ).textContent =
+      "Listening... tap to stop";
 
-    statusEl.textContent =
-      "Listening...";
+  } catch (error) {
 
-
-  }
-
-  catch (err) {
-
-
-    talkBtn.classList.remove(
-      "recording"
+    showToast(
+      "Microphone permission is required."
     );
-
-
-    talkBtn.textContent =
-      "Hold to talk";
-
-
-    statusEl.textContent =
-      "Microphone error: " +
-      err.message;
 
   }
 
 }
 
 
-
-/* =========================================================
-   STOP RECORDING
-   ========================================================= */
-
 function stopRecording() {
 
-
   if (
-
-    !mediaRecorder ||
-
-    mediaRecorder.state !==
-      "recording"
-
+    mediaRecorder &&
+    mediaRecorder.state !== "inactive"
   ) {
-
-    return;
-
-  }
-
-
-  const elapsed =
-    Date.now() -
-    recordingStartTime;
-
-
-  const remaining =
-    MIN_RECORDING_MS -
-    elapsed;
-
-
-  talkBtn.classList.remove(
-    "recording"
-  );
-
-
-  talkBtn.textContent =
-    "Hold to talk";
-
-
-  if (
-    remaining > 0
-  ) {
-
-
-    statusEl.textContent =
-      "Hold a little longer...";
-
-
-    setTimeout(() => {
-
-
-      if (
-
-        mediaRecorder &&
-
-        mediaRecorder.state ===
-          "recording"
-
-      ) {
-
-        mediaRecorder.stop();
-
-      }
-
-    }, remaining);
-
-
-  }
-
-  else {
 
     mediaRecorder.stop();
 
   }
 
+  isRecording = false;
+
+  const btn =
+    document.getElementById(
+      "recordBtn"
+    );
+
+  btn.classList.remove(
+    "recording"
+  );
+
+  btn.textContent = "🎙";
+
+  document.getElementById(
+    "recordStatus"
+  ).textContent =
+    "Processing your voice...";
+
 }
 
 
+function getSupportedMimeType() {
 
-/* =========================================================
-   SEND VOICE TO GATEWAY
-   ========================================================= */
+  const types = [
 
-async function sendVoiceToGateway(
-  audioBlob
-) {
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus"
 
+  ];
 
-  talkBtn.disabled = true;
-
-
-  statusEl.textContent =
-    "Thinking...";
-
-
-  const formData =
-    new FormData();
-
-
-  formData.append(
-    "file",
-    audioBlob,
-    "input.webm"
-  );
-
-
-  if (
-    currentSessionId
-  ) {
-
-    formData.append(
-      "session_id",
-      currentSessionId
-    );
-
-  }
-
-
-  appendAuthId(formData);
-
-
-  try {
-
-
-    const response =
-      await fetch(
-
-        "/channels/web/chat",
-
-        {
-
-          method:
-            "POST",
-
-          body:
-            formData
-
-        }
-
-      );
-
-
-    if (!response.ok) {
-
-
-      let message =
-        response.statusText;
-
-
-      try {
-
-
-        const error =
-          await response.json();
-
-
-        message =
-          error.detail ||
-          message;
-
-
-      }
-
-      catch {}
-
-
-      throw new Error(
-        message
-      );
-
-    }
-
-
-
-    /* -----------------------------------------
-       READ RESPONSE HEADERS
-       ----------------------------------------- */
-
-
-    const transcript =
-      decodeHeader(
-        response.headers.get(
-          "X-Transcript"
-        )
-      );
-
-
-    const replyText =
-      decodeHeader(
-        response.headers.get(
-          "X-Reply-Text"
-        )
-      );
-
-
-    const language =
-      response.headers.get(
-        "X-Language"
-      ) || "";
-
-
-
-    const sessionId =
-      response.headers.get(
-        "X-Session-Id"
-      );
-
+  for (const type of types) {
 
     if (
-      sessionId
+      MediaRecorder.isTypeSupported(type)
     ) {
 
-      currentSessionId =
-        sessionId;
-
-    }
-
-
-
-    /* -----------------------------------------
-       AUDIO
-       ----------------------------------------- */
-
-    const audioBlobReply =
-      await response.blob();
-
-
-    const audioUrl =
-      URL.createObjectURL(
-        audioBlobReply
-      );
-
-
-    const audio =
-      new Audio(
-        audioUrl
-      );
-
-
-    addVoiceTurn(
-
-      transcript,
-
-      replyText,
-
-      language
-
-    );
-
-
-    statusEl.textContent =
-      "Playing reply...";
-
-
-    await audio.play();
-
-
-    audio.onended = () => {
-
-
-      statusEl.textContent =
-        "Ready";
-
-
-      talkBtn.disabled =
-        false;
-
-
-      URL.revokeObjectURL(
-        audioUrl
-      );
-
-    };
-
-
-  }
-
-  catch (err) {
-
-
-    statusEl.textContent =
-      "Request failed: " +
-      err.message;
-
-
-    talkBtn.disabled =
-      false;
-
-  }
-
-}
-
-
-
-/* =========================================================
-   HEADER DECODER
-   ========================================================= */
-
-function decodeHeader(
-  value
-) {
-
-
-  if (!value) {
-
-    return "";
-
-  }
-
-
-  try {
-
-    return decodeURIComponent(
-      value
-    );
-
-  }
-
-  catch {
-
-    return value;
-
-  }
-
-}
-
-
-
-/* =========================================================
-   ADD VOICE TURN
-   ========================================================= */
-
-function addVoiceTurn(
-
-  heard,
-
-  reply,
-
-  lang
-
-) {
-
-
-  const div =
-    document.createElement(
-      "div"
-    );
-
-
-  div.className =
-    "turn";
-
-
-  const heardLabel =
-    document.createElement(
-      "div"
-    );
-
-
-  heardLabel.className =
-    "label";
-
-
-  heardLabel.textContent =
-    "You said (" +
-    lang +
-    ")";
-
-
-  const heardDiv =
-    document.createElement(
-      "div"
-    );
-
-
-  heardDiv.className =
-    "text";
-
-
-  heardDiv.textContent =
-    heard;
-
-
-  const replyLabel =
-    document.createElement(
-      "div"
-    );
-
-
-  replyLabel.className =
-    "label";
-
-
-  replyLabel.textContent =
-    "Zenvy";
-
-
-  const replyDiv =
-    document.createElement(
-      "div"
-    );
-
-
-  replyDiv.className =
-    "text";
-
-
-  replyDiv.textContent =
-    reply;
-
-
-  div.appendChild(
-    heardLabel
-  );
-
-
-  div.appendChild(
-    heardDiv
-  );
-
-
-  div.appendChild(
-    replyLabel
-  );
-
-
-  div.appendChild(
-    replyDiv
-  );
-
-
-  logEl.prepend(
-    div
-  );
-
-}
-
-
-
-/* =========================================================
-   MOUSE CONTROLS
-   ========================================================= */
-
-talkBtn.addEventListener(
-  "mousedown",
-  startRecording
-);
-
-
-talkBtn.addEventListener(
-  "mouseup",
-  stopRecording
-);
-
-
-talkBtn.addEventListener(
-  "mouseleave",
-  () => {
-
-
-    if (
-
-      mediaRecorder &&
-
-      mediaRecorder.state ===
-        "recording"
-
-    ) {
-
-      stopRecording();
+      return type;
 
     }
 
   }
-);
 
+  return "";
 
-
-/* =========================================================
-   TOUCH CONTROLS
-   ========================================================= */
-
-talkBtn.addEventListener(
-  "touchstart",
-  event => {
-
-
-    event.preventDefault();
-
-
-    startRecording();
-
-  }
-);
-
-
-talkBtn.addEventListener(
-  "touchend",
-  event => {
-
-
-    event.preventDefault();
-
-
-    stopRecording();
-
-  }
-);
-
+}
 
 
 /* =========================================================
-   ASK ZENVY
-   ========================================================= */
+   VOICE → BACKEND
+========================================================= */
 
-const askText =
-  document.getElementById(
-    "askText"
-  );
-
-
-const askLanguage =
-  document.getElementById(
-    "askLanguage"
-  );
-
-
-const askButton =
-  document.getElementById(
-    "askButton"
-  );
-
-
-const askStatus =
-  document.getElementById(
-    "askStatus"
-  );
-
-
-const userQuestion =
-  document.getElementById(
-    "userQuestion"
-  );
-
-
-const userQuestionText =
-  document.getElementById(
-    "userQuestionText"
-  );
-
-
-const assistantAnswer =
-  document.getElementById(
-    "assistantAnswer"
-  );
-
-
-const assistantAnswerText =
-  document.getElementById(
-    "assistantAnswerText"
-  );
-
-
-
-/* =========================================================
-   ASK ZENVY BUTTON
-   ========================================================= */
-
-askButton.addEventListener(
-  "click",
-  askZenvy
-);
-
-
-
-/* =========================================================
-   ASK ZENVY FUNCTION
-   ========================================================= */
-
-async function askZenvy() {
-
-
-  const text =
-    askText.value.trim();
-
-
-  const language =
-    askLanguage.value;
-
-
-  if (!text) {
-
-
-    askStatus.textContent =
-      "Please enter your question.";
-
-
-    askText.focus();
-
-
-    return;
-
-  }
-
-
-  askButton.disabled =
-    true;
-
-
-  askStatus.textContent =
-    "Zenvy is thinking...";
-
-
-  assistantAnswer.style.display =
-    "none";
-
-
-  userQuestion.style.display =
-    "none";
-
-
+async function sendVoice(blob) {
 
   try {
-
-
-    /* -----------------------------------------
-       CREATE FORM DATA
-       ----------------------------------------- */
 
     const formData =
       new FormData();
 
-
     formData.append(
-      "text",
-      text
+      "file",
+      blob,
+      "voice.webm"
     );
 
-
-    formData.append(
-      "language",
-      language
-    );
-
-
-    /*
-     * Send the existing session if available.
-     */
-
-    if (
-      currentSessionId
-    ) {
+    if (sessionId) {
 
       formData.append(
         "session_id",
-        currentSessionId
+        sessionId
       );
 
     }
 
+    if (authId) {
 
-    appendAuthId(formData);
+      formData.append(
+        "auth_id",
+        authId
+      );
 
+    }
 
-
-    /* -----------------------------------------
-       CALL THE CORRECT ENDPOINT
-       -----------------------------------------
-
-       IMPORTANT:
-
-       This is /channels/web/ask
-
-       NOT:
-
-       /channels/web/tts
-
-       NOT:
-
-       /channels/web/text-chat
-
-    ----------------------------------------- */
-
+    formData.append(
+      "language",
+      "en"
+    );
 
     const response =
       await fetch(
-
-        "/channels/web/ask",
-
+        "/channels/web/chat",
         {
-
-          method:
-            "POST",
-
-          body:
-            formData
-
+          method: "POST",
+          body: formData
         }
-
       );
-
-
-
-    /* -----------------------------------------
-       HANDLE HTTP ERROR
-       ----------------------------------------- */
 
     if (!response.ok) {
 
-
-      let message =
-        response.statusText;
-
-
-      try {
-
-
-        const error =
-          await response.json();
-
-
-        message =
-          error.detail ||
-          error.message ||
-          message;
-
-
-      }
-
-      catch {}
-
-
       throw new Error(
-        message
+        "Voice request failed"
       );
 
     }
 
-
-
-    /* -----------------------------------------
-       READ JSON RESPONSE
-       ----------------------------------------- */
-
-    const data =
-      await response.json();
-
-
-    console.log(
-      "[Ask Zenvy] Response:",
-      data
-    );
-
-
-
-    /* -----------------------------------------
-       CHECK SUCCESS
-       ----------------------------------------- */
+    const contentType =
+      response.headers.get(
+        "content-type"
+      ) || "";
 
     if (
-      data.success === false
+      contentType.includes("audio")
     ) {
 
-      throw new Error(
-        data.message ||
-        "Zenvy could not generate a response."
+      const audioBlob =
+        await response.blob();
+
+      const audioUrl =
+        URL.createObjectURL(
+          audioBlob
+        );
+
+      document.getElementById(
+        "audioPlayer"
+      ).src = audioUrl;
+
+      document.getElementById(
+        "audioPlayer"
+      ).classList.remove(
+        "hidden"
       );
 
-    }
+      document.getElementById(
+        "aiResponse"
+      ).textContent =
+        "Zenvy responded with voice.";
 
-
-
-    /* -----------------------------------------
-       GET ACTUAL ASSISTANT REPLY
-       ----------------------------------------- */
-
-    const reply =
-      data.reply || "";
-
-
-    if (!reply) {
-
-      throw new Error(
-        "Zenvy returned an empty answer."
+      document.getElementById(
+        "aiResponse"
+      ).classList.remove(
+        "empty"
       );
 
+      document.getElementById(
+        "recordStatus"
+      ).textContent =
+        "Response ready";
+
+      await document
+        .getElementById("audioPlayer")
+        .play()
+        .catch(() => {});
+
+    } else {
+
+      const data =
+        await response.json();
+
+      processAIResponse(data);
+
     }
 
+  } catch (error) {
 
+    console.error(error);
 
-    /* -----------------------------------------
-       UPDATE SESSION
-       ----------------------------------------- */
+    document.getElementById(
+      "recordStatus"
+    ).textContent =
+      "Voice request failed";
 
-    if (
-      data.session_id
-    ) {
-
-      currentSessionId =
-        data.session_id;
-
-    }
-
-
-
-    /* -----------------------------------------
-       SHOW QUESTION
-       ----------------------------------------- */
-
-    userQuestionText.textContent =
-      data.input || text;
-
-
-    userQuestion.style.display =
-      "block";
-
-
-    askText.value =
-      "";
-
-
-
-    /* -----------------------------------------
-       SHOW ZENVY ANSWER
-       ----------------------------------------- */
-
-    assistantAnswerText.textContent =
-      reply;
-
-
-    assistantAnswer.style.display =
-      "block";
-
-
-    askStatus.textContent =
-      "Zenvy answered ✓";
-
-
-  }
-
-  catch (err) {
-
-
-    console.error(
-      "[Ask Zenvy] Error:",
-      err
+    showToast(
+      "Could not connect to the voice service."
     );
-
-
-    askStatus.textContent =
-      "Error: " +
-      err.message;
-
-  }
-
-
-  finally {
-
-
-    askButton.disabled =
-      false;
 
   }
 
 }
 
 
+/* =========================================================
+   PROCESS AI RESPONSE
+========================================================= */
+
+function processAIResponse(data) {
+
+  const text =
+    data.reply ||
+    data.response ||
+    data.text ||
+    data.message ||
+    "I received your request.";
+
+  document.getElementById(
+    "aiResponse"
+  ).textContent = text;
+
+  document.getElementById(
+    "aiResponse"
+  ).classList.remove(
+    "empty"
+  );
+
+  addBotMessage(text);
+
+  if (data.session_id) {
+
+    sessionId =
+      data.session_id;
+
+    localStorage.setItem(
+      "zenvy_session_id",
+      sessionId
+    );
+
+  }
+
+}
+
 
 /* =========================================================
-   ENTER KEY SUPPORT
-   ========================================================= */
+   TEXT CHAT
+========================================================= */
 
-askText.addEventListener(
-  "keydown",
-  event => {
+async function sendChat() {
 
+  const input =
+    document.getElementById(
+      "chatInput"
+    );
 
-    /*
-     * Ctrl + Enter
-     * or
-     * Enter without Shift
-     */
+  const message =
+    input.value.trim();
 
-    if (
+  if (!message) return;
 
-      event.key ===
-        "Enter" &&
+  addUserMessage(message);
 
-      !event.shiftKey
+  input.value = "";
 
-    ) {
+  try {
 
+    const response =
+      await fetch(
+        "/channels/web/ask",
+        {
 
-      event.preventDefault();
+          method: "POST",
 
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
 
-      askZenvy();
+          body: JSON.stringify({
+
+            message,
+
+            session_id:
+              sessionId,
+
+            auth_id:
+              authId,
+
+            language:
+              "en"
+
+          })
+
+        }
+      );
+
+    if (!response.ok) {
+
+      throw new Error(
+        "Chat failed"
+      );
 
     }
 
-  }
-);
+    const data =
+      await response.json();
 
+    processAIResponse(data);
+
+  } catch (error) {
+
+    /*
+      Local demo response so the UI can still
+      demonstrate the doctor discovery flow.
+    */
+
+    const lower =
+      message.toLowerCase();
+
+    let reply =
+      "I can help you find nearby doctors and hospitals.";
+
+    if (
+      lower.includes("heart") ||
+      lower.includes("cardio")
+    ) {
+
+      document.getElementById(
+        "specialtySelect"
+      ).value =
+        "Cardiologist";
+
+      renderDoctors();
+
+      reply =
+        "I found nearby cardiologists. Would you like to see their available time slots?";
+
+    }
+
+    else if (
+      lower.includes("bone") ||
+      lower.includes("ortho")
+    ) {
+
+      document.getElementById(
+        "specialtySelect"
+      ).value =
+        "Orthopedist";
+
+      renderDoctors();
+
+      reply =
+        "I found nearby orthopedists. Would you like to choose one based on their free slots?";
+
+    }
+
+    else if (
+      lower.includes("skin") ||
+      lower.includes("derma")
+    ) {
+
+      document.getElementById(
+        "specialtySelect"
+      ).value =
+        "Dermatologist";
+
+      renderDoctors();
+
+      reply =
+        "I found nearby dermatologists. Their available slots are displayed below.";
+
+    }
+
+    else if (
+      lower.includes("children") ||
+      lower.includes("child")
+    ) {
+
+      document.getElementById(
+        "specialtySelect"
+      ).value =
+        "Pediatrician";
+
+      renderDoctors();
+
+      reply =
+        "I found nearby pediatricians for you.";
+
+    }
+
+    else if (
+      lower.includes("doctor")
+    ) {
+
+      renderDoctors();
+
+      reply =
+        "I've shortlisted the top 5 nearby doctors. What type of doctor do you prefer?";
+
+    }
+
+    addBotMessage(reply);
+
+  }
+
+}
+
+
+/* =========================================================
+   CHAT UI
+========================================================= */
+
+function addBotMessage(text) {
+
+  const box =
+    document.getElementById(
+      "chatBox"
+    );
+
+  const div =
+    document.createElement("div");
+
+  div.className =
+    "message bot";
+
+  div.textContent =
+    text;
+
+  box.appendChild(div);
+
+  box.scrollTop =
+    box.scrollHeight;
+
+}
+
+
+function addUserMessage(text) {
+
+  const box =
+    document.getElementById(
+      "chatBox"
+    );
+
+  const div =
+    document.createElement("div");
+
+  div.className =
+    "message user";
+
+  div.textContent =
+    text;
+
+  box.appendChild(div);
+
+  box.scrollTop =
+    box.scrollHeight;
+
+}
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+let toastTimer = null;
+
+function showToast(message) {
+
+  const toast =
+    document.getElementById(
+      "toast"
+    );
+
+  toast.textContent =
+    message;
+
+  toast.classList.add(
+    "show"
+  );
+
+  clearTimeout(
+    toastTimer
+  );
+
+  toastTimer =
+    setTimeout(
+      () => {
+
+        toast.classList.remove(
+          "show"
+        );
+
+      },
+      3500
+    );
+
+}
+
+
+/* =========================================================
+   INITIAL DOCTOR RENDER
+========================================================= */
+
+function renderInitialDemo() {
+
+  currentLocation =
+    locations.mysore;
+
+  currentCity =
+    "mysore";
+
+  updateLocationUI();
+
+  renderMapPlaces(
+    currentCity
+  );
+
+  renderHospitals();
+
+  renderDoctors();
+
+}
+
+
+/* =========================================================
+   AUTOMATIC DEMO FALLBACK
+========================================================= */
+
+setTimeout(() => {
+
+  if (
+    !currentLocation &&
+    !document
+      .getElementById(
+        "dashboard"
+      )
+      .classList.contains("hidden")
+  ) {
+
+    renderInitialDemo();
+
+  }
+
+}, 4000);
+
+
+/* =========================================================
+   DEBUG HELPER
+========================================================= */
+
+window.zenvyDemo = {
+
+  doctors,
+
+  hospitals,
+
+  locations,
+
+  setMysuru: () =>
+    useDemoLocation("mysore"),
+
+  setBengaluru: () =>
+    useDemoLocation("bangalore"),
+
+  doctorsForCity:
+    city =>
+      doctors.filter(
+        d => d.city === city
+      )
+
+};
 
 </script>
 
 </body>
-
 </html>
