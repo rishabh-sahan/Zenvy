@@ -7,9 +7,16 @@ from app.schemas.authentication import (
     AuthenticationCreate,
     AuthenticationLogin,
     AuthenticationResponse,
+    PhoneLoginRequest,
+    PhoneLoginResponse,
     StaffLoginResponse,
 )
-from app.services.authentication_service import create_authentication, verify_password
+from app.services.authentication_service import (
+    StaffPhoneError,
+    create_authentication,
+    phone_login,
+    verify_password,
+)
 from app.services.whatsapp_service import send_welcome_notification
 from app.core.config import settings
 from app.core.security import create_access_token
@@ -50,6 +57,39 @@ def login(auth_in: AuthenticationLogin, db: Session = Depends(get_db)):
     if authentication is None or not verify_password(auth_in.password, authentication.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid phone number or password")
     return authentication
+
+
+@router.post("/phone-login", response_model=PhoneLoginResponse)
+def phone_login_endpoint(payload: PhoneLoginRequest, db: Session = Depends(get_db)):
+    """
+    Phone-number-only login for the patient web app; registers the number on
+    first use. No password is asked or checked (demo/pilot behaviour). The
+    password-based /login, /register and /staff/login are unchanged.
+    """
+    try:
+        account, is_new = phone_login(db, payload.phone_no)
+    except StaffPhoneError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This number belongs to a staff account. Staff sign in with a password.",
+        ) from exc
+
+    if is_new:
+        write_audit_log(
+            db,
+            action="register_user",
+            actor="authentication-service",
+            user_id=account.auth_id,
+            after_value={"role": account.role, "method": "phone-login"},
+        )
+        # Best effort only: a WhatsApp problem must never block a patient's
+        # first login (unlike the booking confirmation, which does fail loudly).
+        try:
+            send_welcome_notification(account.phone_no, "there")
+        except RuntimeError as exc:
+            print(f"[auth] Welcome WhatsApp notification failed for new account: {exc}")
+
+    return PhoneLoginResponse(auth_id=account.auth_id, phone_no=account.phone_no, is_new=is_new)
 
 
 @router.post("/staff/login", response_model=StaffLoginResponse)
