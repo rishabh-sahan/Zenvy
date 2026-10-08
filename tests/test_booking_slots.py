@@ -632,3 +632,94 @@ def test_the_language_model_is_told_the_indian_date(monkeypatch):
     monkeypatch.setattr(extraction.requests, "post", lambda url, headers=None, json=None, timeout=None: sent.update(json=json) or Reply())
     extraction.extract_booking_fields("book tomorrow")
     assert "2026-10-09" in sent["json"]["messages"][0]["content"]
+
+
+# ---------------------------------------------------------------------------
+# the language model missed a short answer: the words are read by rules
+# ---------------------------------------------------------------------------
+
+def _asking_for_time(say):
+    """A booking that has the doctor and the date and is waiting for the time."""
+    reply = say("s1", "book", wants_to_book=True, doctor_name="Arjun Rao", appointment_date=DAY)
+    assert "time" in reply.lower()
+
+
+@pytest.mark.parametrize("answer", ["11 am", "11:00 AM", "11", "at 11", "11 o'clock", "eleven", "11.00", "eleven am"])
+def test_a_time_the_model_returned_nothing_for_is_still_understood(team_c, say, answer):
+    """The model returned appointment_time=None for "11 am" (a real session got stuck here)."""
+    _asking_for_time(say)
+
+    reply = say("s1", answer)          # no time passed: the model "found nothing"
+
+    assert "Just to confirm" in reply and "11:00" in reply
+    assert team_c.held == {team_c.slot_id("d1", DAY, "11:00"): "s1"}
+
+
+def test_what_the_model_found_wins_over_the_rules(team_c, say):
+    _asking_for_time(say)
+    say("s1", "11 am", appointment_time="10:30")
+    assert team_c.held == {team_c.slot_id("d1", DAY, "10:30"): "s1"}
+
+
+def test_a_bare_number_is_only_a_time_when_we_asked_for_a_time(team_c, say):
+    say("s1", "book", wants_to_book=True)
+    assert _state("s1")["state"] == "ASK_DOCTOR"
+    say("s1", "11")                     # we asked for a doctor: not a time
+    assert _state("s1")["slots"]["appointment_time"] is None
+
+    say("s1", "Arjun Rao", doctor_name="Arjun Rao")
+    assert _state("s1")["state"] == "ASK_DATE"
+    say("s1", "11")                     # we asked for a date: not a time
+    assert _state("s1")["slots"]["appointment_time"] is None
+
+
+def test_a_date_in_the_answer_is_not_mistaken_for_a_time(team_c, say, monkeypatch):
+    from datetime import date
+    monkeypatch.setattr(state_machine, "hospital_today", lambda: date(2030, 3, 1))
+    say("s1", "book", wants_to_book=True, doctor_name="Arjun Rao")
+    assert _state("s1")["state"] == "ASK_DATE"
+
+    say("s1", "4th of March")           # the model returned nothing
+    entry = _state("s1")
+    assert entry["slots"]["appointment_date"] == DAY and entry["slots"]["appointment_time"] is None
+    assert entry["state"] == "ASK_TIME"
+
+
+@pytest.mark.parametrize("answer,expected", [("tomorrow", "2030-03-02"), ("day after tomorrow", "2030-03-03"), ("kal", "2030-03-02")])
+def test_a_date_the_model_returned_nothing_for_is_still_understood(team_c, say, monkeypatch, answer, expected):
+    from datetime import date
+    monkeypatch.setattr(state_machine, "hospital_today", lambda: date(2030, 3, 1))
+    say("s1", "book", wants_to_book=True, doctor_name="Arjun Rao")
+    say("s1", answer)
+    assert _state("s1")["slots"]["appointment_date"] == expected
+
+
+def test_a_whole_booking_works_even_if_the_model_never_finds_a_time_or_date(team_c, say, monkeypatch):
+    from datetime import date
+    monkeypatch.setattr(state_machine, "hospital_today", lambda: date(2030, 3, 3))
+    say("s1", "I need an appointment", wants_to_book=True)
+    say("s1", "Arjun Rao", doctor_name="Arjun Rao")
+    say("s1", "tomorrow")                       # 2030-03-04 = DAY
+    say("s1", "eleven")
+    assert _state("s1")["state"] == "CONFIRM"
+    reply = say("s1", "yes", confirms_booking=True)
+    assert "confirmed" in reply.lower()
+    assert [a["slot_id"] for a in team_c.appointments] == [team_c.slot_id("d1", DAY, "11:00")]
+
+
+def test_the_confirmation_step_is_not_disturbed_by_numbers(team_c, say):
+    say("s1", "x", wants_to_book=True, doctor_name="Arjun Rao", appointment_date=DAY, appointment_time="10:30")
+    say("s1", "make it 11 am please", confirms_booking=None)      # not a yes or a no
+    assert _state("s1")["state"] == "CONFIRM"
+    assert _state("s1")["slots"]["appointment_time"] == "10:30"
+
+
+@pytest.mark.parametrize("answer", [
+    "make it 11 am please", "please", "yes but make it 3 pm", "yes, change the doctor", "okay but later",
+    "sure, tomorrow instead", "yes 4th march",
+])
+def test_changing_the_booking_is_never_taken_as_a_yes(team_c, say, answer):
+    say("s1", "x", wants_to_book=True, doctor_name="Arjun Rao", appointment_date=DAY, appointment_time="10:30")
+    reply = say("s1", answer, confirms_booking=None)
+    assert "Just to confirm" in reply
+    assert team_c.appointments == []

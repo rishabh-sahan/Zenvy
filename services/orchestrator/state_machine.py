@@ -38,7 +38,8 @@ from services.conversation_client import (
     hold_slot,
     release_slot,
 )
-from services.orchestrator.entity_extraction import extract_booking_fields
+from services.orchestrator.entity_extraction import extract_booking_fields, hospital_today
+from services.orchestrator.slot_parsing import parse_date, parse_time
 from services.orchestrator.templates import render_template
 
 
@@ -142,12 +143,13 @@ def _first_missing_slot(slots: dict) -> str | None:
 # nothing for a bare "Yes", so the confirmation step also understands these.
 _YES_WORDS = {
     "yes", "yeah", "yep", "yup", "ok", "okay", "sure", "confirm", "confirmed",
-    "correct", "right", "proceed", "please", "fine",
+    "correct", "right", "proceed", "fine",
     "haan", "han", "haa", "ji", "theek", "thik", "sahi", "houdu", "howdu", "sari",
     "हाँ", "हां", "जी", "ठीक", "सही", "बुक",
     "ಹೌದು", "ಸರಿ", "ಆಯಿತು", "ಓಕೆ",
 }
 _YES_PHRASES = ("go ahead", "book it", "do it", "that's fine", "that works")
+_CHANGE_WORDS = {"but", "instead", "change", "rather", "different", "another", "later", "earlier", "except"}
 _NO_WORDS = {
     "no", "nope", "nah", "cancel", "stop", "dont", "don't", "nahi", "nahin", "mat",
     "नहीं", "नही", "मत", "रद्द",
@@ -164,6 +166,10 @@ def _plain_yes_no(text: str) -> bool | None:
         for ch in (text or "").lower()
     )
     words = set(cleaned.split())
+    # A time, a date or "but / instead / change" means they are changing the
+    # booking, not agreeing to it: "make it 11 am please" is not a yes.
+    if any(ch.isdigit() for ch in cleaned) or words & _CHANGE_WORDS:
+        return None
     said_yes = bool(words & _YES_WORDS) or any(phrase in cleaned for phrase in _YES_PHRASES)
     said_no = bool(words & _NO_WORDS)
     if said_yes == said_no:
@@ -175,6 +181,30 @@ def _normalize_time(value: str) -> str:
     """'9:30', '09:30' or '09:30:00' -> '09:30' (how Team C's slots are compared)."""
     hours, _, rest = str(value).strip().partition(":")
     return f"{int(hours):02d}:{rest[:2]}"
+
+
+def _rescue_slots(extracted: dict, user_text: str, state: str | None) -> None:
+    """Fill in a time or date the language model missed, by reading the words.
+
+    The model is unreliable on short answers: "11 am" can come back empty one
+    minute and as 11:00 the next, which left patients stuck in "what time?".
+    Whatever the model did find is kept; rules only fill what is missing. A bare
+    number ("11") only counts as a time right after we asked for the time.
+    """
+    if state == "CONFIRM":
+        return
+
+    if not extracted.get("appointment_time"):
+        found = parse_time(user_text, bare_ok=(state == "ASK_TIME"))
+        if found:
+            print(f"[Orchestrator] Time read from the words: {found}")
+            extracted["appointment_time"] = found
+
+    if not extracted.get("appointment_date"):
+        found = parse_date(user_text, hospital_today())
+        if found:
+            print(f"[Orchestrator] Date read from the words: {found}")
+            extracted["appointment_date"] = found
 
 
 def _hhmm(slot: dict) -> str:
@@ -437,6 +467,9 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
 
     # Extract appointment information from the current message.
     extracted = extract_booking_fields(user_text)
+
+    # The model can miss a short "11 am" or "tomorrow": read those by rules.
+    _rescue_slots(extracted, user_text, existing["state"] if existing else None)
 
     # Debug logging
     print(f"[Orchestrator] INPUT: {user_text}")
