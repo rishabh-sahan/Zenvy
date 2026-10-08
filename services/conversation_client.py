@@ -96,30 +96,111 @@ def get_session(session_id: str) -> dict:
 _APPOINTMENTS_URL = f"{TEAM_C_BASE_URL}/api/v1/appointments"
 
 
+class SlotUnavailableError(Exception):
+    """The slot was taken (or the hold lapsed) before it could be booked."""
+
+
+_DOCTORS_URL = f"{TEAM_C_BASE_URL}/api/v1/doctors"
+_SLOTS_URL = f"{TEAM_C_BASE_URL}/api/v1/slots"
+
+
+def find_doctors(query: str) -> list[dict]:
+    """
+    Doctors matching a name or department ("Arjun Rao", "Cardiology").
+    Each dict has doctor_id, name, specialty, hospital_name, city, slot_minutes.
+    """
+    response = requests.get(_DOCTORS_URL, params={"query": query}, timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+
+def get_free_slots(
+    doctor_id: str, day: str, near: str | None = None, limit: int = 3
+) -> list[dict]:
+    """
+    Free slots for one doctor on one IST day ('YYYY-MM-DD'), soonest first.
+    With near='HH:MM', returns only the `limit` slots closest to that time.
+    Each slot has slot_id and slot_start (ISO 8601 with +05:30).
+    """
+    params = {"date": day}
+    if near:
+        params.update({"near": near, "limit": limit})
+    response = requests.get(f"{_DOCTORS_URL}/{doctor_id}/slots", params=params, timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+
+def hold_slot(slot_id: str, session_id: str) -> dict:
+    """
+    Reserve a slot for this conversation while the patient confirms.
+    Raises SlotUnavailableError if someone else holds or has booked it.
+    """
+    response = requests.post(
+        f"{_SLOTS_URL}/{slot_id}/hold", json={"session_id": session_id}, timeout=10
+    )
+    if response.status_code == 409:
+        raise SlotUnavailableError(slot_id)
+    response.raise_for_status()
+    return response.json()
+
+
+def release_slot(slot_id: str, session_id: str) -> bool:
+    """Give a held slot back. Safe to call more than once."""
+    response = requests.post(
+        f"{_SLOTS_URL}/{slot_id}/release", json={"session_id": session_id}, timeout=10
+    )
+    response.raise_for_status()
+    return bool(response.json().get("released"))
+
+
 def create_appointment(
     session_id: str,
     patient_uhid: str,
-    doctor_name: str,
-    appointment_datetime: str,
+    doctor_name: str | None = None,
+    appointment_datetime: str | None = None,
     status: str = "pending",
     booking_info: dict | None = None,
+    slot_id: str | None = None,
 ) -> dict:
     """
     Create an appointment against Team C's ai_appointments table.
-    appointment_datetime must be an ISO 8601 string (e.g.
-    '2026-08-28T10:30:00'). patient_uhid and doctor_name are required
-    and cannot be empty per Team C's schema.
+
+    Preferred: pass slot_id (a slot this session is holding). The doctor and
+    time then come from the slot, and the slot is locked for everyone else.
+    Raises SlotUnavailableError if the slot is no longer ours.
+
+    Without slot_id, doctor_name and appointment_datetime are required
+    (ISO 8601, e.g. '2026-08-28T10:30:00+05:30') and nothing is locked.
+
+    If the appointment was saved but Team C could not send the WhatsApp
+    confirmation (it answers 502 "Appointment saved, ..."), the booking is
+    still real, so this returns {"notification_failed": True} instead of raising.
     """
+    payload = {
+        "session_id": session_id,
+        "patient_uhid": patient_uhid,
+        "status": status,
+        "booking_info": booking_info,
+    }
+    if slot_id:
+        payload["slot_id"] = slot_id
+    else:
+        payload["doctor_name"] = doctor_name
+        payload["appointment_datetime"] = appointment_datetime
+    response = requests.post(_APPOINTMENTS_URL, json=payload, timeout=10)
+    if response.status_code == 409:
+        raise SlotUnavailableError(slot_id or "")
+    if response.status_code == 502 and "Appointment saved" in response.text:
+        return {"notification_failed": True}
+    response.raise_for_status()
+    return response.json()
+
+
+def cancel_appointment(appointment_id: str, session_id: str) -> dict:
+    """Cancel an appointment made by this session and free its slot."""
     response = requests.post(
-        _APPOINTMENTS_URL,
-        json={
-            "session_id": session_id,
-            "patient_uhid": patient_uhid,
-            "doctor_name": doctor_name,
-            "appointment_datetime": appointment_datetime,
-            "status": status,
-            "booking_info": booking_info,
-        },
+        f"{_APPOINTMENTS_URL}/{appointment_id}/cancel",
+        json={"session_id": session_id},
         timeout=10,
     )
     response.raise_for_status()

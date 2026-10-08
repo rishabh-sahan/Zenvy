@@ -66,3 +66,16 @@ def require_staff(
     if authentication.role != "staff":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
     return authentication
+
+def get_optional_staff(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> Authentication | None:
+    """The logged-in staff member if a valid staff token was sent, else None.
+
+    A token that is present but invalid still gets a 401.
+    """
+    if credentials is None:
+        return None
+    authentication = get_current_authentication(credentials, db)
+    return authentication if authentication.role == "staff" else None

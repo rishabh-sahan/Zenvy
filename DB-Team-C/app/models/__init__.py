@@ -4,6 +4,9 @@ from app.models.ai_appointment import AIAppointment
 from app.models.escalation import Escalation
 from app.models.audit_log import AuditLog
 from app.models.authentication import Authentication
+from app.models.hospital import Hospital
+from app.models.doctor import Doctor, DoctorSchedule
+from app.models.doctor_slot import DoctorSlot, SlotStatus
 
 __all__ = [
     "Session",
@@ -13,4 +16,9 @@ __all__ = [
     "Escalation",
     "AuditLog",
     "Authentication",
+    "Hospital",
+    "Doctor",
+    "DoctorSchedule",
+    "DoctorSlot",
+    "SlotStatus",
 ]

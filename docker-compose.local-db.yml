@@ -1,0 +1,46 @@
+# A throwaway local Postgres, so you can run and test everything WITHOUT touching
+# Supabase.
+#
+# 1) Only the database (for the Postgres race test):
+#      docker compose -f docker-compose.yml -f docker-compose.local-db.yml up -d local-postgres
+#
+# 2) The whole stack against the local database (team-c is pointed at it
+#    instead of the DATABASE_URL in DB-Team-C/.env):
+#      docker compose -f docker-compose.yml -f docker-compose.local-db.yml up -d --build
+#      docker compose -f docker-compose.yml -f docker-compose.local-db.yml exec team-c python -m app.db.init_db
+#      docker compose -f docker-compose.yml -f docker-compose.local-db.yml exec team-c python -m app.db.seed_doctors
+#
+# Throw it away (data included):
+#      docker compose -f docker-compose.yml -f docker-compose.local-db.yml down -v
+#
+# The credentials below are for this disposable local database only.
+services:
+  local-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zenvy
+      POSTGRES_PASSWORD: zenvy_local_only
+      POSTGRES_DB: zenvy_local
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zenvy -d zenvy_local"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - local-postgres-data:/var/lib/postgresql/data
+
+  # Only applies when this file is combined with docker-compose.yml.
+  team-c:
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+psycopg://zenvy:zenvy_local_only@local-postgres:5432/zenvy_local
+    depends_on:
+      local-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  local-postgres-data:

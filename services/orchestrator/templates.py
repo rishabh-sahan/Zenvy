@@ -40,6 +40,28 @@ TEMPLATES = {
         "hi": "क्षमा करें, सिस्टम की समस्या के कारण बुकिंग पूरी नहीं हो सकी। कृपया फिर से कोशिश करें या फ्रंट डेस्क से संपर्क करें।",
         "kn": "ಕ್ಷಮಿಸಿ, ಸಿಸ್ಟಂ ಸಮಸ್ಯೆಯಿಂದಾಗಿ ಬುಕಿಂಗ್ ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಫ್ರಂಟ್ ಡೆಸ್ಕ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ.",
     },
+    # --- Added with slot locking. Kannada/Hindi are first drafts: they still need
+    # --- a native-speaker review (see the note at the top of this file).
+    "SLOT_TAKEN": {
+        "en": "Sorry, {doctor} is not available at {time} on {date}. Free times that day: {alternatives}. Which one would you like?",
+        "hi": "क्षमा करें, {doctor} {date} को {time} बजे उपलब्ध नहीं हैं। उस दिन खाली समय: {alternatives}। आप कौन सा चुनेंगे?",
+        "kn": "ಕ್ಷಮಿಸಿ, {doctor} ಅವರು {date} ರಂದು {time} ಗಂಟೆಗೆ ಲಭ್ಯವಿಲ್ಲ. ಆ ದಿನ ಖಾಲಿ ಇರುವ ಸಮಯಗಳು: {alternatives}. ನೀವು ಯಾವುದನ್ನು ಆಯ್ಕೆ ಮಾಡುತ್ತೀರಿ?",
+    },
+    "SLOT_DAY_FULL": {
+        "en": "Sorry, {doctor} has no free appointments on {date}. Which other date would suit you?",
+        "hi": "क्षमा करें, {doctor} के पास {date} को कोई खाली अपॉइंटमेंट नहीं है। आपके लिए कौन सी दूसरी तारीख ठीक रहेगी?",
+        "kn": "ಕ್ಷಮಿಸಿ, {doctor} ಅವರಿಗೆ {date} ರಂದು ಖಾಲಿ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್‌ಗಳಿಲ್ಲ. ನಿಮಗೆ ಬೇರೆ ಯಾವ ದಿನಾಂಕ ಸೂಕ್ತ?",
+    },
+    "DOCTOR_NOT_FOUND": {
+        "en": "Sorry, I couldn't find a doctor matching that. Please tell me the doctor's name or the department you need.",
+        "hi": "क्षमा करें, मुझे इस नाम का कोई डॉक्टर नहीं मिला। कृपया डॉक्टर का नाम या आवश्यक विभाग बताइए।",
+        "kn": "ಕ್ಷಮಿಸಿ, ಆ ಹೆಸರಿನ ವೈದ್ಯರು ನನಗೆ ಸಿಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ವೈದ್ಯರ ಹೆಸರು ಅಥವಾ ನಿಮಗೆ ಬೇಕಾದ ವಿಭಾಗವನ್ನು ತಿಳಿಸಿ.",
+    },
+    "DOCTOR_AMBIGUOUS": {
+        "en": "I found more than one match: {options}. Which doctor would you like? You can say the number.",
+        "hi": "मुझे एक से अधिक डॉक्टर मिले: {options}। आप किस डॉक्टर से मिलना चाहेंगे? आप नंबर बता सकते हैं।",
+        "kn": "ನನಗೆ ಒಂದಕ್ಕಿಂತ ಹೆಚ್ಚು ವೈದ್ಯರು ಸಿಕ್ಕಿದ್ದಾರೆ: {options}. ನೀವು ಯಾವ ವೈದ್ಯರನ್ನು ಭೇಟಿಯಾಗಲು ಬಯಸುತ್ತೀರಿ? ನೀವು ಸಂಖ್ಯೆಯನ್ನು ಹೇಳಬಹುದು.",
+    },
     "CANCELLED": {
         "en": "No problem, I've cancelled that booking request. Let me know if you'd like to start over.",
         "hi": "कोई बात नहीं, मैंने वह बुकिंग रद्द कर दी है। यदि आप फिर से शुरू करना चाहें तो बताइए।",

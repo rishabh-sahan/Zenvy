@@ -15,7 +15,48 @@ This is a FastAPI conversation service. **Redis** holds active runtime session s
 - `POST /api/v1/sessions/{session_id}/turns`
 - `GET /api/v1/sessions/{session_id}/turns`
 - `POST /api/v1/appointments`
+- `POST /api/v1/appointments/{appointment_id}/cancel`
 - `GET /api/v1/appointments/session/{session_id}`
+- `GET /api/v1/doctors?query=&hospital_id=&city=`
+- `GET /api/v1/doctors/{doctor_id}`
+- `GET /api/v1/doctors/{doctor_id}/slots?date=YYYY-MM-DD[&near=HH:MM&limit=3]`
+- `POST /api/v1/slots/{slot_id}/hold`
+- `POST /api/v1/slots/{slot_id}/release`
+
+### Doctors, slots and double-booking
+
+Every bookable time is a row in `doctor_slots` (generated on demand from each
+doctor's weekly schedule, 14 days ahead, IST). Booking is two steps and each
+step is one atomic database statement, so two patients can never get the same
+slot:
+
+1. `POST /slots/{slot_id}/hold` with `{"session_id": ...}` reserves the slot
+   for that conversation for `SLOT_HOLD_SECONDS` (default 300). Anyone else
+   gets `409 slot_unavailable`; the slot is no longer listed as free.
+2. `POST /appointments` with `{"session_id", "patient_uhid", "slot_id"}` turns
+   the held slot into a booked one and creates the appointment in a single
+   transaction. Doctor and time come from the slot. Not held by this session
+   -> `409 slot_unavailable`.
+
+`POST /slots/{slot_id}/release` gives a hold back, and
+`POST /appointments/{id}/cancel` (staff token, or the booking `session_id`)
+cancels an appointment and frees its slot. A hold that expires is treated as
+free. A partial unique index on `ai_appointments(slot_id)` is a last safety net.
+
+`POST /appointments` without `slot_id` still works (older callers); set
+`REQUIRE_SLOT_FOR_BOOKING=true` to make the slot lock mandatory.
+
+Setup after applying migrations 008-009:
+
+```bash
+python -m app.db.seed_doctors
+# optional dummy staff logins for the seeded doctors (no default password):
+SEED_DOCTOR_PASSWORD='choose-one' python -m app.db.seed_doctors
+```
+
+Tests: `python -m pytest` (SQLite). The real-Postgres concurrency tests need a
+throwaway database, see `tests/test_slots_postgres.py` and
+`../docker-compose.local-db.yml`.
 
 Audit records are written automatically for user registration and appointment
 creation. Audit endpoints require a staff bearer token. Existing users can be

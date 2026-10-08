@@ -14,6 +14,14 @@ class Settings:
     AUTH_TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "local-development-secret")
     AUTH_TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "3600"))
 
+    # Slot booking. A held slot is reserved for one patient for this long while
+    # they confirm; slots are generated this many days ahead.
+    SLOT_HOLD_SECONDS = int(os.getenv("SLOT_HOLD_SECONDS", "300"))
+    BOOKING_HORIZON_DAYS = int(os.getenv("BOOKING_HORIZON_DAYS", "14"))
+    # When true, POST /appointments without a slot_id is rejected, so every
+    # booking goes through the slot lock. Off by default so older callers keep working.
+    REQUIRE_SLOT_FOR_BOOKING = os.getenv("REQUIRE_SLOT_FOR_BOOKING", "false").lower() == "true"
+
     META_WHATSAPP_ACCESS_TOKEN = os.getenv("META_WHATSAPP_ACCESS_TOKEN")
     META_WHATSAPP_PHONE_NUMBER_ID = os.getenv("META_WHATSAPP_PHONE_NUMBER_ID")
     META_WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("META_WHATSAPP_BUSINESS_ACCOUNT_ID")
