@@ -598,3 +598,37 @@ def test_an_unclear_answer_does_not_book_or_cancel(team_c, say, answer):
     reply = say("s1", answer, confirms_booking=None)
     assert "Just to confirm" in reply
     assert team_c.appointments == [] and len(team_c.held) == 1
+
+
+# ---------------------------------------------------------------------------
+# "today" is the hospital's day (India), not the server's UTC day
+# ---------------------------------------------------------------------------
+
+def test_today_is_the_indian_date_even_while_utc_is_still_yesterday():
+    from datetime import datetime, timezone
+    from services.orchestrator.entity_extraction import hospital_today
+
+    # 19:21 UTC on the 8th is 00:51 on the 9th in India.
+    assert hospital_today(datetime(2026, 10, 8, 19, 21, tzinfo=timezone.utc)).isoformat() == "2026-10-09"
+    # 18:29 UTC is still 23:59 on the 8th in India.
+    assert hospital_today(datetime(2026, 10, 8, 18, 29, tzinfo=timezone.utc)).isoformat() == "2026-10-08"
+    # Midday agrees on both clocks.
+    assert hospital_today(datetime(2026, 10, 8, 6, 0, tzinfo=timezone.utc)).isoformat() == "2026-10-08"
+
+
+def test_the_language_model_is_told_the_indian_date(monkeypatch):
+    import services.orchestrator.entity_extraction as extraction
+
+    monkeypatch.setattr(extraction, "hospital_today", lambda now=None: __import__("datetime").date(2026, 10, 9))
+    sent = {}
+
+    class Reply:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": "{}"}}]}
+
+    monkeypatch.setattr(extraction.requests, "post", lambda url, headers=None, json=None, timeout=None: sent.update(json=json) or Reply())
+    extraction.extract_booking_fields("book tomorrow")
+    assert "2026-10-09" in sent["json"]["messages"][0]["content"]

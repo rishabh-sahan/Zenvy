@@ -19,7 +19,7 @@ This module extracts information only from the CURRENT user message.
 import json
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, TypedDict
 
@@ -703,6 +703,17 @@ def _extract_uhid(text: str) -> Optional[str]:
 # EXTRACTION FUNCTION
 # =========================================================
 
+# The hospital runs on India time (IST, UTC+5:30). "Today" and "tomorrow" must
+# mean that day, not the server's UTC day: between 00:00 and 05:30 IST the UTC
+# date is still yesterday, which made "tomorrow" land on today.
+HOSPITAL_TZ = timezone(timedelta(hours=5, minutes=30))
+
+
+def hospital_today(now: datetime | None = None) -> date:
+    """Today's date in India. `now` (an aware datetime) is for tests."""
+    return (now or datetime.now(timezone.utc)).astimezone(HOSPITAL_TZ).date()
+
+
 def extract_booking_fields(
     user_text: str,
 ) -> ExtractedFields:
@@ -727,7 +738,7 @@ def extract_booking_fields(
         return fallback
 
     system_prompt = EXTRACTION_SYSTEM_PROMPT.format(
-        today=date.today().isoformat()
+        today=hospital_today().isoformat()
     )
 
     try:

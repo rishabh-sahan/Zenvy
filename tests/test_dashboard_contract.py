@@ -105,3 +105,20 @@ def test_the_doctor_page_does_not_offer_to_overrule_a_patients_refusal():
 def test_the_patient_dashboard_shows_recording_consent_without_building_html_from_data():
     card = PAGE[PAGE.index("function renderMyAppointment"):PAGE.index("async function setRecordingConsent")]
     assert "innerHTML" not in card and "textContent" in card
+
+
+def test_chat_messages_are_sent_as_the_form_fields_the_gateway_reads():
+    # /channels/web/ask reads Form(text, language, session_id, auth_id). Sending
+    # JSON with a "message" field made the gateway answer 422, and the page then
+    # showed a canned reply for every message.
+    chat = PAGE[PAGE.index("async function sendChat()"):PAGE.index("function addBotMessage")]
+    assert 'chatForm.append("text", message)' in chat
+    assert 'chatForm.append("language", "en")' in chat
+    assert 'chatForm.append("session_id", sessionId)' in chat and 'chatForm.append("auth_id", authId)' in chat
+    assert "JSON.stringify" not in chat
+
+
+def test_a_server_error_is_not_hidden_behind_a_canned_demo_reply():
+    chat = PAGE[PAGE.index("async function sendChat()"):PAGE.index("function addBotMessage")]
+    assert "failure.http = response.status" in chat
+    assert "if (error.http)" in chat and "couldn't answer that just now" in chat

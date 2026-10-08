@@ -3253,41 +3253,43 @@ async function sendChat() {
 
   try {
 
+    /*
+      The gateway reads FORM fields: text, language, session_id, auth_id.
+      (This used to send JSON with a "message" field, which the gateway
+      rejected with 422, so every chat message got the canned demo reply
+      below and Zenvy never actually answered or booked anything.)
+    */
+    const chatForm = new FormData();
+
+    chatForm.append("text", message);
+
+    chatForm.append("language", "en");
+
+    if (sessionId) {
+      chatForm.append("session_id", sessionId);
+    }
+
+    if (authId) {
+      chatForm.append("auth_id", authId);
+    }
+
     const response =
       await fetch(
         "/channels/web/ask",
         {
-
           method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-
-            message,
-
-            session_id:
-              sessionId,
-
-            auth_id:
-              authId,
-
-            language:
-              "en"
-
-          })
-
+          body: chatForm
         }
       );
 
     if (!response.ok) {
 
-      throw new Error(
-        "Chat failed"
-      );
+      // The server answered, but with an error: say so, do not pretend.
+      const failure = new Error("Chat failed");
+
+      failure.http = response.status;
+
+      throw failure;
 
     }
 
@@ -3298,9 +3300,21 @@ async function sendChat() {
 
   } catch (error) {
 
+    if (error.http) {
+
+      console.error("Chat request failed with HTTP", error.http);
+
+      addBotMessage(
+        "Sorry, I couldn't answer that just now. Please try again in a moment."
+      );
+
+      return;
+
+    }
+
     /*
-      Local demo response so the UI can still
-      demonstrate the doctor discovery flow.
+      Zenvy's server could not be reached at all. Local demo response so
+      the UI can still demonstrate the doctor discovery flow.
     */
 
     const lower =
