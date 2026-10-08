@@ -312,6 +312,84 @@ def test_an_unclear_choice_between_doctors_repeats_the_list(team_c, say):
     assert _state("s1")["state"] == "ASK_DOCTOR"
 
 
+def test_a_doctor_named_first_is_settled_before_date_and_time_are_asked(team_c, say):
+    """The spoken flow: doctor -> which one? -> date -> time -> confirm -> yes."""
+    team_c.doctors = [
+        _doctor("d1", "Dr. Suresh Reddy", hospital="Kaveri Specialty Hospital", city="mysore"),
+        _doctor("d2", "Dr. Suresh Reddy", hospital="Silicon City Specialty Hospital", city="bangalore"),
+    ]
+    reply = say("s1", "I want to book with Dr Suresh Reddy", wants_to_book=True, doctor_name="Suresh Reddy")
+    assert "1) Dr. Suresh Reddy" in reply and "2) Dr. Suresh Reddy" in reply
+
+    reply = say("s1", "The one in Mysuru")
+    assert "date" in reply.lower()
+    assert _state("s1")["doctor"]["doctor_id"] == "d1"
+
+    reply = say("s1", "tomorrow", appointment_date=DAY)
+    assert "time" in reply.lower()
+    # Nothing is asked about the doctor again.
+    reply = say("s1", "ten thirty", appointment_time="10:30")
+    assert "Just to confirm" in reply and "Dr. Suresh Reddy" in reply
+
+    reply = say("s1", "yes please", confirms_booking=True)
+    assert "confirmed" in reply.lower()
+    assert [a["slot_id"] for a in team_c.appointments] == [team_c.slot_id("d1", DAY, "10:30")]
+
+
+def test_a_date_said_while_choosing_between_doctors_is_not_lost(team_c, say):
+    team_c.doctors = [
+        _doctor("d1", "Dr. Suresh Reddy", hospital="Kaveri Specialty Hospital", city="mysore"),
+        _doctor("d2", "Dr. Suresh Reddy", hospital="Silicon City Specialty Hospital", city="bangalore"),
+    ]
+    say("s1", "book Dr Suresh Reddy", wants_to_book=True, doctor_name="Suresh Reddy")
+
+    reply = say("s1", "tomorrow please", appointment_date=DAY)
+    assert "1) Dr. Suresh Reddy" in reply  # still needs the doctor
+    assert _state("s1")["slots"]["appointment_date"] == DAY
+
+    reply = say("s1", "number two")
+    assert _state("s1")["doctor"]["doctor_id"] == "d2"
+    assert "time" in reply.lower()  # date was remembered, so it goes straight to the time
+
+
+def test_a_place_said_with_the_doctor_name_is_used_straight_away(team_c, say):
+    team_c.doctors = [
+        _doctor("d1", "Dr. Priya Sharma", hospital="Mysuru Multispeciality Hospital", city="mysore"),
+        _doctor("d2", "Dr. Priya Sharma", hospital="Bengaluru Multispeciality Centre", city="bangalore"),
+    ]
+    reply = say("s1", "I need Dr Priya Sharma in Bengaluru", wants_to_book=True, doctor_name="Priya Sharma")
+    assert _state("s1")["doctor"]["doctor_id"] == "d2"
+    assert "date" in reply.lower()  # no "which doctor?" question
+
+
+def test_a_stray_number_in_the_first_sentence_never_picks_a_doctor(team_c, say):
+    team_c.doctors = [
+        _doctor("d1", "Dr. Priya Sharma", hospital="Mysuru Multispeciality Hospital", city="mysore"),
+        _doctor("d2", "Dr. Priya Sharma", hospital="Bengaluru Multispeciality Centre", city="bangalore"),
+    ]
+    reply = say("s1", "I need 1 appointment with Dr Priya Sharma", wants_to_book=True, doctor_name="Priya Sharma")
+    assert "1) Dr. Priya Sharma" in reply and "2) Dr. Priya Sharma" in reply
+    assert "doctor" not in _state("s1")
+
+
+def test_an_unknown_doctor_in_the_first_sentence_is_rejected_straight_away(team_c, say):
+    reply = say("s1", "book Dr Zzz", wants_to_book=True, doctor_name="Zzz Nobody")
+    assert "couldn't find a doctor" in reply
+    assert _state("s1")["state"] == "ASK_DOCTOR"
+
+
+def test_a_department_or_name_alone_never_loops_back_to_the_doctor_question(team_c, say):
+    say("s1", "book", wants_to_book=True)
+    assert _state("s1")["state"] == "ASK_DOCTOR"
+    say("s1", "Arjun Rao", doctor_name="Arjun Rao")
+    assert _state("s1")["state"] == "ASK_DATE"
+    say("s1", "tomorrow", appointment_date=DAY)
+    assert _state("s1")["state"] == "ASK_TIME"
+    assert _state("s1")["doctor"]["doctor_id"] == "d1"
+    say("s1", "10:30", appointment_time="10:30")
+    assert _state("s1")["state"] == "CONFIRM"
+
+
 def test_saying_no_releases_the_slot_for_others(team_c, say):
     say("alice", "x", wants_to_book=True, doctor_name="Arjun Rao",
         appointment_date=DAY, appointment_time="10:30")
@@ -491,3 +569,32 @@ def test_client_slot_listing_passes_near_and_limit(monkeypatch):
     assert seen["params"] == {"date": DAY, "near": "10:30", "limit": 3}
     conversation_client.get_free_slots("d1", DAY)
     assert seen["params"] == {"date": DAY}
+
+
+@pytest.mark.parametrize("answer", [
+    "Yes", "yes.", "Yeah", "okay", "Sure, go ahead", "book it", "haan", "हाँ", "ठीक है", "ಹೌದು", "ಸರಿ",
+])
+def test_a_plain_yes_confirms_even_if_the_nlu_returns_nothing(team_c, say, answer):
+    say("s1", "x", wants_to_book=True, doctor_name="Arjun Rao",
+        appointment_date=DAY, appointment_time="10:30")
+    reply = say("s1", answer, confirms_booking=None)
+    assert "confirmed" in reply.lower()
+    assert len(team_c.appointments) == 1
+
+
+@pytest.mark.parametrize("answer", ["No", "nope", "cancel it", "don't book", "nahi", "नहीं", "ಬೇಡ"])
+def test_a_plain_no_cancels_even_if_the_nlu_returns_nothing(team_c, say, answer):
+    say("s1", "x", wants_to_book=True, doctor_name="Arjun Rao",
+        appointment_date=DAY, appointment_time="10:30")
+    reply = say("s1", answer, confirms_booking=None)
+    assert "cancelled" in reply.lower()
+    assert team_c.held == {} and team_c.appointments == []
+
+
+@pytest.mark.parametrize("answer", ["hmm", "what time was it", "yes no", ""])
+def test_an_unclear_answer_does_not_book_or_cancel(team_c, say, answer):
+    say("s1", "x", wants_to_book=True, doctor_name="Arjun Rao",
+        appointment_date=DAY, appointment_time="10:30")
+    reply = say("s1", answer, confirms_booking=None)
+    assert "Just to confirm" in reply
+    assert team_c.appointments == [] and len(team_c.held) == 1

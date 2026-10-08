@@ -1579,26 +1579,38 @@ async function loginUser() {
 
   try {
 
+    /*
+      The gateway reads the phone number as a FORM field. (This used to be
+      sent as JSON, which the gateway rejected with 400, so every login
+      silently fell into demo mode and the patient was never registered.)
+    */
+    const loginForm = new FormData();
+    loginForm.append("phone_no", phone);
+
     const response =
       await fetch("/channels/web/login", {
-
         method: "POST",
-
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-          phone_no: phone
-        })
-
+        body: loginForm
       });
 
     if (!response.ok) {
 
-      throw new Error(
-        "Login service unavailable"
-      );
+      let message = "Login service unavailable";
+
+      try {
+        const error = await response.json();
+        if (typeof error.detail === "string") {
+          message = error.detail;
+        } else if (Array.isArray(error.detail)) {
+          message = "Please enter a valid phone number.";
+        }
+      } catch (ignored) {}
+
+      const loginError = new Error(message);
+      // 4xx = the number itself was rejected: tell the patient instead of
+      // pretending to log in.
+      loginError.rejected = response.status >= 400 && response.status < 500;
+      throw loginError;
 
     }
 
@@ -1623,21 +1635,31 @@ async function loginUser() {
       authId
     );
 
-    sessionId =
-      data.session_id || sessionId;
+    /* A fresh login starts a fresh conversation. */
+    sessionId = data.session_id || null;
 
-    if (sessionId) {
-
-      localStorage.setItem(
-        "zenvy_session_id",
-        sessionId
-      );
-
-    }
+    try {
+      if (sessionId) {
+        localStorage.setItem("zenvy_session_id", sessionId);
+      } else {
+        localStorage.removeItem("zenvy_session_id");
+      }
+    } catch (ignored) {}
 
     showDashboard();
 
   } catch (error) {
+
+    if (error.rejected) {
+
+      showToast(error.message);
+
+      button.disabled = false;
+      button.textContent = "Continue to Zenvy →";
+
+      return;
+
+    }
 
     /*
       Temporary standalone fallback.
@@ -2555,6 +2577,44 @@ async function sendVoice(blob) {
       contentType.includes("audio")
     ) {
 
+      /*
+        A voice reply is audio, so the gateway returns the conversation
+        session in headers instead of a JSON body. It MUST be kept, or every
+        spoken turn starts a brand-new conversation and the booking flow
+        asks the same questions again forever.
+      */
+      const headerSession =
+        response.headers.get("X-Session-Id");
+
+      if (headerSession) {
+
+        sessionId = headerSession;
+
+        try {
+          localStorage.setItem(
+            "zenvy_session_id",
+            sessionId
+          );
+        } catch (ignored) {}
+
+      }
+
+      const readHeader = (name) => {
+        try {
+          return decodeURIComponent(
+            response.headers.get(name) || ""
+          );
+        } catch (ignored) {
+          return "";
+        }
+      };
+
+      const spokenByPatient = readHeader("X-Transcript");
+      const spokenByZenvy = readHeader("X-Reply-Text");
+
+      if (spokenByPatient) addUserMessage(spokenByPatient);
+      if (spokenByZenvy) addBotMessage(spokenByZenvy);
+
       const audioBlob =
         await response.blob();
 
@@ -2574,9 +2634,8 @@ async function sendVoice(blob) {
       );
 
       document.getElementById(
-        "aiResponse"
-      ).textContent =
-        "Zenvy responded with voice.";
+        "aiResponse").textContent =
+        spokenByZenvy || "Zenvy responded with voice.";
 
       document.getElementById(
         "aiResponse"

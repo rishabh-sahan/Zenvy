@@ -20,6 +20,7 @@ app/services/slot_service.py for how the lock itself works.
 
 import json
 import sys
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -137,6 +138,39 @@ def _first_missing_slot(slots: dict) -> str | None:
     return None
 
 
+# Plain answers to "Shall I book this?". The language model sometimes returns
+# nothing for a bare "Yes", so the confirmation step also understands these.
+_YES_WORDS = {
+    "yes", "yeah", "yep", "yup", "ok", "okay", "sure", "confirm", "confirmed",
+    "correct", "right", "proceed", "please", "fine",
+    "haan", "han", "haa", "ji", "theek", "thik", "sahi", "houdu", "howdu", "sari",
+    "हाँ", "हां", "जी", "ठीक", "सही", "बुक",
+    "ಹೌದು", "ಸರಿ", "ಆಯಿತು", "ಓಕೆ",
+}
+_YES_PHRASES = ("go ahead", "book it", "do it", "that's fine", "that works")
+_NO_WORDS = {
+    "no", "nope", "nah", "cancel", "stop", "dont", "don't", "nahi", "nahin", "mat",
+    "नहीं", "नही", "मत", "रद्द",
+    "ಇಲ್ಲ", "ಬೇಡ",
+}
+
+
+def _plain_yes_no(text: str) -> bool | None:
+    """True for a plain yes, False for a plain no, None if unclear or mixed."""
+    # Keep letters, digits AND combining marks: Hindi/Kannada vowel signs are
+    # marks, and dropping them would cut words like "हाँ" into pieces.
+    cleaned = "".join(
+        ch if (unicodedata.category(ch)[0] in "LMN" or ch in "' ") else " "
+        for ch in (text or "").lower()
+    )
+    words = set(cleaned.split())
+    said_yes = bool(words & _YES_WORDS) or any(phrase in cleaned for phrase in _YES_PHRASES)
+    said_no = bool(words & _NO_WORDS)
+    if said_yes == said_no:
+        return None
+    return said_yes
+
+
 def _normalize_time(value: str) -> str:
     """'9:30', '09:30' or '09:30:00' -> '09:30' (how Team C's slots are compared)."""
     hours, _, rest = str(value).strip().partition(":")
@@ -167,12 +201,18 @@ def _doctor_option(number: int, doctor: dict) -> str:
     )
 
 
-def _pick_candidate(user_text: str, candidates: list[dict]) -> dict | None:
+def _pick_candidate(
+    user_text: str, candidates: list[dict], allow_number: bool = True
+) -> dict | None:
     """
     Which of the doctors we just listed did the patient choose?
 
     They may name the hospital or city, or give the number ("2", "second",
     "number two"). Returns the doctor only if the answer points at exactly one.
+
+    allow_number=False is for a sentence that was NOT an answer to our list
+    ("book Dr Priya Sharma in Bengaluru"): there only a hospital or city counts,
+    because a stray "1" or "2" in it would otherwise pick a doctor by accident.
     """
     text = (user_text or "").lower().strip()
     if not text:
@@ -188,6 +228,9 @@ def _pick_candidate(user_text: str, candidates: list[dict]) -> dict | None:
     by_place = [c for c in candidates if mentions_place(c)]
     if len(by_place) == 1:
         return by_place[0]
+
+    if not allow_number:
+        return None
 
     # 2. A number. Digits and "first".."fifth" are clear on their own. Number
     #    words ("one") are only trusted when they are the whole answer or follow
@@ -273,6 +316,64 @@ def _offer_other_times(
     return reply
 
 
+def _resolve_doctor(
+    session_id: str, short_lang: str, entry: dict, user_text: str = ""
+) -> str | None:
+    """
+    Turn the doctor name or department the patient said into a real doctor,
+    as soon as they say it (not after the date and time).
+
+    Returns None when the doctor is settled (stored in entry["doctor"]; the
+    caller saves the state). Returns a reply when the conversation has to stop
+    and ask: no such doctor, several matches, or Team C unreachable.
+    """
+    slots = entry["slots"]
+
+    if entry.get("doctor") or entry.get("candidates") or not slots.get("doctor_name"):
+        return None
+
+    try:
+        matches = find_doctors(slots["doctor_name"])
+    except Exception as e:
+        print(f"[Orchestrator] Could not look up doctors: {e}")
+        _delete_session_state(session_id)
+        return render_template("BOOKING_FAILED", short_lang)
+
+    print(f"[Orchestrator] Doctor matches for {slots['doctor_name']!r}: {len(matches)}")
+
+    if not matches:
+        slots["doctor_name"] = None
+        entry["state"] = "ASK_DOCTOR"
+        _set_session_state(session_id, entry)
+        return render_template("DOCTOR_NOT_FOUND", short_lang)
+
+    if len(matches) > 1:
+        shown = [_doctor_summary(d) for d in matches[:MAX_DOCTOR_OPTIONS]]
+
+        # "Dr Priya Sharma in Bengaluru": the place was said in the same breath.
+        said_place = _pick_candidate(user_text, shown, allow_number=False)
+        if said_place is not None:
+            entry["doctor"] = said_place
+            slots["doctor_name"] = said_place["name"]
+            return None
+
+        entry["candidates"] = shown
+        entry["state"] = "ASK_DOCTOR"
+        _set_session_state(session_id, entry)
+        return _ask_which_doctor(short_lang, entry["candidates"])
+
+    entry["doctor"] = _doctor_summary(matches[0])
+    return None
+
+
+def _ask_which_doctor(short_lang: str, candidates: list[dict]) -> str:
+    return render_template(
+        "DOCTOR_AMBIGUOUS",
+        short_lang,
+        options="; ".join(_doctor_option(i + 1, d) for i, d in enumerate(candidates)),
+    )
+
+
 def _resolve_and_confirm(session_id: str, short_lang: str, entry: dict) -> str:
     """
     Doctor, date and time are all filled in. Find the real doctor, hold the
@@ -281,34 +382,12 @@ def _resolve_and_confirm(session_id: str, short_lang: str, entry: dict) -> str:
     slots = entry["slots"]
 
     try:
-        # 1. Which doctor?
-        doctor = entry.get("doctor")
+        # 1. Which doctor? (Normally settled earlier, when it was first said.)
+        stop = _resolve_doctor(session_id, short_lang, entry)
+        if stop is not None:
+            return stop
 
-        if doctor is None:
-            matches = find_doctors(slots["doctor_name"])
-            print(f"[Orchestrator] Doctor matches for {slots['doctor_name']!r}: {len(matches)}")
-
-            if not matches:
-                slots["doctor_name"] = None
-                entry["state"] = "ASK_DOCTOR"
-                _set_session_state(session_id, entry)
-                return render_template("DOCTOR_NOT_FOUND", short_lang)
-
-            if len(matches) > 1:
-                shown = matches[:MAX_DOCTOR_OPTIONS]
-                entry["candidates"] = [_doctor_summary(d) for d in shown]
-                entry["state"] = "ASK_DOCTOR"
-                _set_session_state(session_id, entry)
-                return render_template(
-                    "DOCTOR_AMBIGUOUS",
-                    short_lang,
-                    options="; ".join(
-                        _doctor_option(i + 1, d) for i, d in enumerate(entry["candidates"])
-                    ),
-                )
-
-            doctor = _doctor_summary(matches[0])
-            entry["doctor"] = doctor
+        doctor = entry["doctor"]
 
         # 2. Is that exact time free?
         nearby = get_free_slots(
@@ -387,16 +466,20 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
 
         print(f"[Orchestrator] New booking slots: {slots}")
 
+        entry = {"state": "ASK_DOCTOR", "slots": slots}
+
+        # A doctor named in the very first sentence is looked up right away.
+        stop = _resolve_doctor(session_id, short_lang, entry, user_text)
+        if stop is not None:
+            return stop
+
         missing = _first_missing_slot(slots)
 
-        entry = {
-            "state": SLOT_TO_ASK_STATE[missing] if missing else "CONFIRM",
-            "slots": slots,
-        }
-
         if missing is None:
-            # Everything given in one go: check the doctor and hold the slot.
+            # Everything given in one go: hold the slot.
             return _resolve_and_confirm(session_id, short_lang, entry)
+
+        entry["state"] = SLOT_TO_ASK_STATE[missing]
 
         print(f"[Orchestrator] New state: {entry['state']}")
 
@@ -424,7 +507,13 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
 
     if state == "CONFIRM":
 
-        if extracted["confirms_booking"] is True:
+        answer = extracted["confirms_booking"]
+
+        if answer is None:
+            # The language model gave no clear answer: accept a plain yes/no.
+            answer = _plain_yes_no(user_text)
+
+        if answer is True:
 
             print("[Orchestrator] Booking confirmed")
 
@@ -433,7 +522,7 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
                 short_lang,
             )
 
-        elif extracted["confirms_booking"] is False:
+        elif answer is False:
 
             print("[Orchestrator] Booking cancelled")
 
@@ -466,6 +555,7 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
 
     # We listed several matching doctors: see which one they picked.
     candidates = existing.get("candidates")
+    still_choosing = False
 
     if candidates:
 
@@ -482,14 +572,9 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
             existing.pop("doctor", None)
 
         else:
-            # Still unclear: ask again with the same list.
-            return render_template(
-                "DOCTOR_AMBIGUOUS",
-                short_lang,
-                options="; ".join(
-                    _doctor_option(i + 1, d) for i, d in enumerate(candidates)
-                ),
-            )
+            # Still unclear. Keep anything else they said (a date, a time)
+            # and ask about the doctor again below.
+            still_choosing = True
 
     # Merge newly extracted information into existing slots.
     #
@@ -512,6 +597,15 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
             slots[slot_name] = extracted[slot_name]
 
     print(f"[Orchestrator] Updated slots: {slots}")
+
+    if still_choosing:
+        _set_session_state(session_id, existing)
+        return _ask_which_doctor(short_lang, candidates)
+
+    # A doctor named now (or changed) is looked up right away.
+    stop = _resolve_doctor(session_id, short_lang, existing, user_text)
+    if stop is not None:
+        return stop
 
     # Determine what is still missing.
     missing = _first_missing_slot(slots)
