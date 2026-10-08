@@ -7,6 +7,14 @@ from app.models.authentication import Authentication
 from app.models.hospital import Hospital
 from app.models.doctor import Doctor, DoctorSchedule
 from app.models.doctor_slot import DoctorSlot, SlotStatus
+from app.models.consultation import (
+    Consultation,
+    ConsultationConsent,
+    ConsultationNote,
+    ConsultationStatus,
+    ConsultationTurn,
+    NoteStatus,
+)
 
 __all__ = [
     "Session",
@@ -21,4 +29,10 @@ __all__ = [
     "DoctorSchedule",
     "DoctorSlot",
     "SlotStatus",
+    "Consultation",
+    "ConsultationConsent",
+    "ConsultationNote",
+    "ConsultationStatus",
+    "ConsultationTurn",
+    "NoteStatus",
 ]

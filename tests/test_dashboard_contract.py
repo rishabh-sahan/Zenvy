@@ -66,3 +66,42 @@ def test_logging_out_while_recording_does_not_upload_the_audio():
     assert "discardRecording = true" in logout
     stop_handler = PAGE[PAGE.index("mediaRecorder.onstop"):PAGE.index("await sendVoice(blob)")]
     assert "if (discardRecording)" in stop_handler
+
+
+# ---------------------------------------------------------------------------
+# doctor page
+# ---------------------------------------------------------------------------
+
+DOCTOR_PAGE = (Path(__file__).resolve().parent.parent / "services" / "gateway" / "static" / "doctor.html").read_text(
+    encoding="utf-8"
+)
+
+
+def test_the_doctor_page_never_writes_patient_text_as_html():
+    # Transcripts and notes come from speech and a language model: they must be
+    # shown as text, never parsed as HTML.
+    assert ".innerHTML" not in DOCTOR_PAGE
+    assert "insertAdjacentHTML" not in DOCTOR_PAGE
+    assert "document.write" not in DOCTOR_PAGE
+
+
+def test_the_doctor_token_lives_only_as_long_as_the_tab():
+    assert "sessionStorage.setItem(KEY, token)" in DOCTOR_PAGE
+    assert "localStorage" not in DOCTOR_PAGE
+
+
+def test_the_doctor_page_only_talks_to_the_gateway_doctor_api():
+    assert 'fetch("/doctor/api/" + path' in DOCTOR_PAGE
+    assert "http://" not in DOCTOR_PAGE.replace("http://www.w3.org", "")
+
+
+def test_the_doctor_page_does_not_offer_to_overrule_a_patients_refusal():
+    # The server refuses it too; the page must not even show the button.
+    assert 'a.consent_recorded_by === "patient"' in DOCTOR_PAGE
+    declined = DOCTOR_PAGE[DOCTOR_PAGE.index('if (a.consent_state === "declined") {'):]
+    assert "byPatient ? null" in declined[:600]
+
+
+def test_the_patient_dashboard_shows_recording_consent_without_building_html_from_data():
+    card = PAGE[PAGE.index("function renderMyAppointment"):PAGE.index("async function setRecordingConsent")]
+    assert "innerHTML" not in card and "textContent" in card

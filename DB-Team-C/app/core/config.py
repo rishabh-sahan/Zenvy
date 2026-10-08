@@ -22,6 +22,17 @@ class Settings:
     # booking goes through the slot lock. Off by default so older callers keep working.
     REQUIRE_SLOT_FOR_BOOKING = os.getenv("REQUIRE_SLOT_FOR_BOOKING", "false").lower() == "true"
 
+    # Consultation recordings. Audio is encrypted (AES-256-GCM) before it is
+    # written; the key is a base64 string of 32 random bytes. Generate one with:
+    #   python -c "import base64,os;print(base64.b64encode(os.urandom(32)).decode())"
+    # Without a key, uploading audio is refused rather than stored in the clear.
+    AUDIO_ENCRYPTION_KEY = os.getenv("AUDIO_ENCRYPTION_KEY")
+    AUDIO_STORAGE_DIR = os.getenv("AUDIO_STORAGE_DIR", "/data/audio")
+    MAX_AUDIO_BYTES = int(os.getenv("MAX_AUDIO_BYTES", str(120 * 1024 * 1024)))
+    # How long recordings are kept (RETENTION_POLICY.md). Approved notes are kept.
+    AUDIO_RETENTION_DAYS = int(os.getenv("AUDIO_RETENTION_DAYS", "30"))
+    TRANSCRIPT_RETENTION_DAYS = int(os.getenv("TRANSCRIPT_RETENTION_DAYS", "90"))
+
     META_WHATSAPP_ACCESS_TOKEN = os.getenv("META_WHATSAPP_ACCESS_TOKEN")
     META_WHATSAPP_PHONE_NUMBER_ID = os.getenv("META_WHATSAPP_PHONE_NUMBER_ID")
     META_WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("META_WHATSAPP_BUSINESS_ACCOUNT_ID")

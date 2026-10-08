@@ -91,6 +91,9 @@ services:
       - "8002:8002"
     env_file:
       - ./DB-Team-C/.env
+    volumes:
+      # Encrypted consultation recordings (see DB-Team-C/RETENTION_POLICY.md).
+      - consultation-audio:/data/audio
     environment:
       - REDIS_URL=redis://redis:6379/0
     depends_on:
@@ -103,3 +106,6 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+
+volumes:
+  consultation-audio:

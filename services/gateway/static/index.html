@@ -181,6 +181,59 @@ button {
   .user-phone, .brand-text span { display: none; }
 }
 
+.my-appts-card { padding: 24px; }
+
+.appt-refresh {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.my-appts { display: grid; gap: 10px; }
+
+.my-appts-empty { color: var(--muted); font-size: 13px; padding: 6px 2px; }
+
+.my-appt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,.03);
+}
+
+.my-appt .who { font-weight: 700; }
+.my-appt .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+.consent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.consent-state { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); }
+.consent-state.granted { background: rgba(52,211,153,.16); color: #9be9c7; }
+.consent-state.declined { background: rgba(248,113,113,.16); color: #fecaca; }
+
+.consent-btn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.consent-btn.allow:hover { background: rgba(52,211,153,.2); border-color: rgba(52,211,153,.5); }
+.consent-btn.deny:hover { background: rgba(248,113,113,.2); border-color: rgba(248,113,113,.5); }
+
+.consent-info { margin-top: 14px; color: var(--muted); font-size: 12px; }
+.consent-info summary { cursor: pointer; }
+.consent-info p { line-height: 1.5; margin: 8px 0 0; }
+
 /* =========================
    LOGIN
 ========================= */
@@ -1093,6 +1146,43 @@ button {
 
   </section>
 
+  <!-- MY APPOINTMENTS + RECORDING CONSENT -->
+  <section class="card my-appts-card">
+
+    <div class="card-title">
+
+      <div class="card-title-left">
+
+        <div class="icon-box">📅</div>
+
+        <div>
+          <h3>Your appointments</h3>
+          <p>Choose whether your doctor may record the consultation</p>
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        class="appt-refresh"
+        onclick="loadMyAppointments()"
+      >
+        Refresh
+      </button>
+
+    </div>
+
+    <div id="myAppointments" class="my-appts">
+      <div class="my-appts-empty">Loading…</div>
+    </div>
+
+    <details class="consent-info">
+      <summary>What does recording mean?</summary>
+      <p id="consentMessage">…</p>
+    </details>
+
+  </section>
+
   <!-- MAP -->
   <section class="card map-card">
 
@@ -1780,6 +1870,9 @@ function showDashboard() {
 
   document.getElementById("userChip").classList.remove("hidden");
 
+  loadMyAppointments();
+  loadConsentMessage();
+
   document
     .getElementById("loginPage")
     .classList.add("hidden");
@@ -1801,6 +1894,248 @@ function showDashboard() {
   }, 200);
 
   requestGPS();
+
+}
+
+
+/* =========================================================
+   MY APPOINTMENTS + RECORDING CONSENT
+========================================================= */
+
+const CONSENT_API = "/channels/web/consultation/";
+
+let refreshTimer = null;
+
+function scheduleAppointmentsRefresh() {
+
+  // A booking just happened (or was cancelled): show it in the list.
+  clearTimeout(refreshTimer);
+
+  refreshTimer = setTimeout(loadMyAppointments, 1500);
+
+}
+
+function showAppointmentsMessage(text) {
+
+  const box = document.getElementById("myAppointments");
+
+  box.replaceChildren();
+
+  const note = document.createElement("div");
+
+  note.className = "my-appts-empty";
+
+  note.textContent = text;
+
+  box.append(note);
+
+}
+
+function appointmentWhen(iso) {
+
+  return new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+
+}
+
+async function loadMyAppointments() {
+
+  const box = document.getElementById("myAppointments");
+
+  if (!box) return;
+
+  if (!authId) {
+
+    showAppointmentsMessage("Log in to see your appointments.");
+
+    return;
+
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        CONSENT_API +
+        "patients/" +
+        encodeURIComponent(authId) +
+        "/appointments"
+      );
+
+    if (!response.ok) {
+
+      showAppointmentsMessage(
+        "No appointments yet. Book one with Zenvy above."
+      );
+
+      return;
+
+    }
+
+    const items = await response.json();
+
+    if (!items.length) {
+
+      showAppointmentsMessage(
+        "No upcoming appointments. Ask Zenvy to book one."
+      );
+
+      return;
+
+    }
+
+    box.replaceChildren(...items.map(renderMyAppointment));
+
+  } catch (error) {
+
+    showAppointmentsMessage("Could not load your appointments.");
+
+  }
+
+}
+
+function renderMyAppointment(item) {
+
+  const row = document.createElement("div");
+
+  row.className = "my-appt";
+
+  const info = document.createElement("div");
+
+  const who = document.createElement("div");
+
+  who.className = "who";
+
+  who.textContent = item.doctor_name;
+
+  const sub = document.createElement("div");
+
+  sub.className = "sub";
+
+  sub.textContent =
+    appointmentWhen(item.appointment_datetime) +
+    (item.hospital_name ? " · " + item.hospital_name : "");
+
+  info.append(who, sub);
+
+  const actions = document.createElement("div");
+
+  actions.className = "consent-actions";
+
+  const state = document.createElement("span");
+
+  state.className = "consent-state " + item.consent_state;
+
+  state.textContent =
+    item.consent_state === "granted" ? "Recording allowed"
+    : item.consent_state === "declined" ? "Recording not allowed"
+    : "Recording: not decided";
+
+  actions.append(state);
+
+  if (item.consent_state !== "granted") {
+
+    actions.append(consentButton(item, true));
+
+  }
+
+  if (item.consent_state !== "declined") {
+
+    actions.append(consentButton(item, false));
+
+  }
+
+  row.append(info, actions);
+
+  return row;
+
+}
+
+function consentButton(item, allow) {
+
+  const button = document.createElement("button");
+
+  button.type = "button";
+
+  button.className = "consent-btn " + (allow ? "allow" : "deny");
+
+  button.textContent = allow ? "Allow recording" : "Don't allow";
+
+  button.addEventListener("click", () => setRecordingConsent(item.appointment_id, allow, button));
+
+  return button;
+
+}
+
+async function setRecordingConsent(appointmentId, allow, button) {
+
+  button.disabled = true;
+
+  try {
+
+    const response =
+      await fetch(
+        CONSENT_API +
+        "appointments/" +
+        encodeURIComponent(appointmentId) +
+        "/consent",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            consent_given: allow,
+            auth_id: authId,
+            language: "en"
+          })
+        }
+      );
+
+    if (!response.ok) {
+
+      throw new Error("Consent not saved");
+
+    }
+
+    showToast(
+      allow
+        ? "Thank you. Your doctor may record this consultation."
+        : "Understood. This consultation will not be recorded."
+    );
+
+  } catch (error) {
+
+    showToast("Could not save your choice. Please try again.");
+
+  }
+
+  loadMyAppointments();
+
+}
+
+async function loadConsentMessage() {
+
+  try {
+
+    const response =
+      await fetch(CONSENT_API + "consent-message?language=en");
+
+    if (response.ok) {
+
+      const data = await response.json();
+
+      document.getElementById("consentMessage").textContent =
+        data.message;
+
+    }
+
+  } catch (ignored) {}
 
 }
 
@@ -1876,6 +2211,9 @@ function logoutUser() {
   reply.classList.add("empty");
 
   document.getElementById("chatInput").value = "";
+
+  clearTimeout(refreshTimer);
+  showAppointmentsMessage("Log in to see your appointments.");
 
   // Back to the login screen.
   document.getElementById("userChip").classList.add("hidden");
@@ -3062,6 +3400,8 @@ async function sendChat() {
 ========================================================= */
 
 function addBotMessage(text) {
+
+  scheduleAppointmentsRefresh();
 
   const box =
     document.getElementById(

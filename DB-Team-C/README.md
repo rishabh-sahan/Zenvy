@@ -23,6 +23,21 @@ This is a FastAPI conversation service. **Redis** holds active runtime session s
 - `POST /api/v1/slots/{slot_id}/hold`
 - `POST /api/v1/slots/{slot_id}/release`
 
+### Consultation recording and the AI scribe
+
+- `POST /api/v1/appointments/{id}/consent` and `GET .../consent` - the patient (with their `auth_id`) or the treating doctor (staff token)
+- `GET /api/v1/consent-message?language=en|hi|kn`
+- `GET /api/v1/doctor/appointments` and `GET /api/v1/patients/{auth_id}/appointments`
+- `POST /api/v1/consultations`, `GET /api/v1/consultations/{id}`
+- `POST /api/v1/consultations/{id}/audio` (raw WAV, stored encrypted), `PUT .../transcript`, `PATCH .../status`, `PATCH .../turns/{turn_id}`
+- `POST .../notes` (a new version), `POST .../notes/{note_id}/approve`, `DELETE .../recording`
+
+Recording needs consent; only the treating doctor can open a consultation; notes
+are versioned and an approved version is locked. Set `AUDIO_ENCRYPTION_KEY`
+(`python -c "import base64,os;print(base64.b64encode(os.urandom(32)).decode())"`).
+Delete expired recordings with `python -m app.db.purge_recordings`. See
+`RETENTION_POLICY.md`. Migration `010_consultations.sql` adds the tables.
+
 ### Doctors, slots and double-booking
 
 Every bookable time is a row in `doctor_slots` (generated on demand from each

@@ -79,3 +79,16 @@ def get_optional_staff(
         return None
     authentication = get_current_authentication(credentials, db)
     return authentication if authentication.role == "staff" else None
+
+
+def require_doctor(
+    staff: Authentication = Depends(require_staff),
+    db: Session = Depends(get_db),
+):
+    """The Doctor record of the logged-in staff member (403 if they are not a doctor)."""
+    from app.models.doctor import Doctor
+
+    doctor = db.query(Doctor).filter(Doctor.auth_id == staff.auth_id, Doctor.is_active.is_(True)).first()
+    if doctor is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="A doctor account is required")
+    return doctor

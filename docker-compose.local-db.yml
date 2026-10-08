@@ -36,6 +36,9 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql+psycopg://zenvy:zenvy_local_only@local-postgres:5432/zenvy_local
+      # LOCAL TEST KEY ONLY - recordings made with it are only as safe as this file.
+      # Set AUDIO_ENCRYPTION_KEY in your shell (or DB-Team-C/.env) for anything real.
+      - AUDIO_ENCRYPTION_KEY=${AUDIO_ENCRYPTION_KEY:-OQB6SmSEH1Ef6CL9YsWKw+6s+CGhvBUWGhQV8omUBMI=}
     depends_on:
       local-postgres:
         condition: service_healthy

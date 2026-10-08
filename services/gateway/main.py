@@ -108,6 +108,11 @@ app = FastAPI(
     title="Zenvy Channel Gateway",
 )
 
+# Doctor page + consultation scribe API, and the patient's recording consent.
+from services.gateway.doctor_routes import router as doctor_router
+
+app.include_router(doctor_router)
+
 
 # =========================================================
 # SERVICE URLS

@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zenvy | Doctor</title>
+
+<style>
+:root {
+  --bg: #070914;
+  --panel: #10142a;
+  --panel-2: #161b36;
+  --border: rgba(255,255,255,.09);
+  --text: #f2f4ff;
+  --muted: #8e97bb;
+  --purple: #8b5cf6;
+  --cyan: #22d3ee;
+  --green: #34d399;
+  --amber: #fbbf24;
+  --red: #f87171;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(1200px 600px at 10% -10%, #1b1540 0%, transparent 60%), var(--bg);
+  color: var(--text);
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.hidden { display: none !important; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px; padding: 0 24px;
+  background: rgba(7,9,20,.82); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px;
+  background: linear-gradient(135deg, var(--purple), var(--cyan)); font-size: 20px;
+}
+.brand h1 { margin: 0; font-size: 18px; }
+.brand span { color: var(--muted); font-size: 11px; }
+.user { display: flex; align-items: center; gap: 10px; }
+.user .who { color: var(--muted); font-size: 12px; }
+
+.btn {
+  border: 1px solid var(--border); background: rgba(255,255,255,.06);
+  padding: 8px 14px; border-radius: 10px; font-weight: 600; font-size: 13px;
+  transition: .15s ease;
+}
+.btn:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: linear-gradient(135deg, var(--purple), #6d4de6); border-color: transparent; }
+.btn.good { background: rgba(52,211,153,.18); border-color: rgba(52,211,153,.5); color: #b7f5db; }
+.btn.danger { background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.45); color: #fecaca; }
+.btn.small { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+
+/* ---------- login ---------- */
+.login-wrap { display: grid; place-items: center; min-height: calc(100vh - 64px); padding: 20px; }
+.card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 24px;
+}
+.login-card { width: 100%; max-width: 400px; }
+.login-card h2 { margin: 0 0 6px; font-size: 22px; }
+.login-card p { margin: 0 0 18px; color: var(--muted); }
+label { display: block; margin: 12px 0 6px; color: var(--muted); font-size: 12px; }
+input[type=text], input[type=password], select, textarea {
+  width: 100%; padding: 11px 13px; border-radius: 10px;
+  border: 1px solid var(--border); background: #0c1024; outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: rgba(139,92,246,.8); }
+textarea { resize: vertical; min-height: 70px; line-height: 1.45; }
+textarea[readonly] { opacity: .8; }
+.login-card .btn { width: 100%; margin-top: 18px; padding: 12px; }
+.error { color: var(--red); margin-top: 12px; min-height: 18px; font-size: 13px; }
+
+/* ---------- layout ---------- */
+.layout {
+  display: grid; grid-template-columns: 340px 1fr; gap: 18px;
+  padding: 18px 24px; max-width: 1500px; margin: 0 auto;
+}
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; padding: 14px; } }
+
+.list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.list-head h2, .section h3 { margin: 0; font-size: 15px; }
+.appt {
+  border: 1px solid var(--border); background: var(--panel-2); border-radius: 12px;
+  padding: 12px; margin-bottom: 10px; cursor: pointer; transition: .15s ease;
+}
+.appt:hover { border-color: rgba(139,92,246,.5); }
+.appt.selected { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(139,92,246,.25); }
+.appt .when { font-weight: 700; }
+.appt .who { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
+.empty { color: var(--muted); padding: 18px 4px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 11px; padding: 3px 8px; border-radius: 999px;
+  background: rgba(255,255,255,.08); color: var(--muted);
+}
+.chip.ok { background: rgba(52,211,153,.16); color: #9be9c7; }
+.chip.warn { background: rgba(251,191,36,.16); color: #fde68a; }
+.chip.bad { background: rgba(248,113,113,.16); color: #fecaca; }
+
+.section { margin-bottom: 18px; }
+.section > .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.step {
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(139,92,246,.25); font-size: 12px; font-weight: 700;
+}
+.step.done { background: rgba(52,211,153,.3); }
+.note-line { color: var(--muted); margin: 6px 0 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.row select { width: auto; }
+
+.banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; font-size: 13px; }
+.banner.info { background: rgba(34,211,238,.1); border: 1px solid rgba(34,211,238,.3); }
+.banner.warn { background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.35); }
+.banner.bad { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.35); }
+.banner.ok { background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.35); }
+
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); display: inline-block; animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+.timer { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* ---------- transcript ---------- */
+.transcript { max-height: 340px; overflow-y: auto; padding-right: 4px; }
+.turn { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+.speaker {
+  flex: none; width: 74px; text-align: center; padding: 4px 0; border-radius: 8px;
+  font-size: 11px; font-weight: 700; border: 1px solid var(--border); cursor: pointer; background: transparent;
+}
+.speaker.doctor { background: rgba(139,92,246,.2); color: #d8c8ff; }
+.speaker.patient { background: rgba(34,211,238,.16); color: #a5f0fb; }
+.speaker.unknown { background: rgba(255,255,255,.08); }
+.turn .text { flex: 1; padding: 6px 10px; border-radius: 10px; background: var(--panel-2); line-height: 1.45; }
+.turn .text.edited { border-left: 3px solid var(--amber); }
+.turn .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.hint { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+
+/* ---------- note ---------- */
+.versions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.version {
+  padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: transparent; font-size: 12px;
+}
+.version.active { background: rgba(139,92,246,.25); border-color: var(--purple); }
+.version .tag { color: var(--green); margin-left: 4px; }
+
+.toast {
+  position: fixed; right: 20px; bottom: 20px; max-width: 360px; z-index: 50;
+  background: #1a1f3d; border: 1px solid var(--border); padding: 12px 16px; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+}
+</style>
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">🩺</div>
+    <div>
+      <h1>Zenvy Doctor</h1>
+      <span>Consultation notes</span>
+    </div>
+  </div>
+  <div id="userBox" class="user hidden">
+    <span id="whoAmI" class="who"></span>
+    <button class="btn small" onclick="logout()">Log out</button>
+  </div>
+</header>
+
+<!-- ============ LOGIN ============ -->
+<main id="loginView" class="login-wrap">
+  <form class="card login-card" onsubmit="login(event)">
+    <h2>Doctor sign in</h2>
+    <p>Sign in with your hospital staff account.</p>
+    <label for="phone">Phone number</label>
+    <input id="phone" type="text" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button id="loginBtn" class="btn primary" type="submit">Sign in</button>
+    <div id="loginError" class="error"></div>
+  </form>
+</main>
+
+<!-- ============ APP ============ -->
+<main id="appView" class="layout hidden">
+
+  <aside class="card">
+    <div class="list-head">
+      <h2>Your appointments</h2>
+      <button class="btn small" onclick="loadAppointments()">Refresh</button>
+    </div>
+    <div id="apptList"></div>
+  </aside>
+
+  <section id="workspace" class="card">
+    <div class="empty">Select an appointment to begin.</div>
+  </section>
+
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* =========================================================
+   STATE
+========================================================= */
+
+const KEY = "zenvy_doctor_token";
+const NAME_KEY = "zenvy_doctor_phone";
+
+let token = null;
+let appointments = [];
+let selectedId = null;       // appointment id
+let consultation = null;     // consultation detail (turns, notes) for the selected appointment
+let shownVersion = null;     // note version on screen
+let editing = false;         // editing a signed note (will become a new version)
+
+let pollTimer = null;
+let recorder = null;
+let recordStream = null;
+let recordChunks = [];
+let recordTimer = null;
+let recordStarted = 0;
+let busy = false;
+
+const FAILURES = {
+  no_speech: "No speech could be heard in the recording. Please record again.",
+  speech_to_text_failed: "The speech-to-text service was not available. Please try again in a moment.",
+  summary_failed: "The transcript is saved, but the note could not be written. Use \"Write note again\".",
+  summary_not_english: "The note could not be produced in English. Use \"Write note again\".",
+  audio_unreadable: "The recording could not be read. Please record again.",
+  unexpected_error: "Something went wrong while processing the recording. Please try again."
+};
+
+const STATUS_TEXT = {
+  created: "Ready to record",
+  audio_uploaded: "Recording stored securely",
+  transcribing: "Listening to the recording…",
+  transcribed: "Transcript ready",
+  summarising: "Writing the note…",
+  draft_ready: "Draft note ready for review",
+  note_approved: "Note approved",
+  failed: "Needs attention",
+  recording_deleted: "Recording deleted"
+};
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function el(tag, props, ...children) {
+  const node = document.createElement(tag);
+  Object.entries(props || {}).forEach(([k, v]) => {
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) node.setAttribute(k, v === true ? "" : v);
+  });
+  children.flat().forEach(c => {
+    if (c === null || c === undefined || c === false) return;
+    node.append(c.nodeType ? c : document.createTextNode(String(c)));
+  });
+  return node;
+}
+
+function toast(message) {
+  const t = document.getElementById("toast");
+  t.textContent = message;
+  t.classList.remove("hidden");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.add("hidden"), 4500);
+}
+
+function when(iso) {
+  return new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit", hour12: true
+  });
+}
+
+function messageFrom(detail, fallback) {
+  if (typeof detail === "string") return NICE[detail] || detail;
+  return fallback;
+}
+
+const NICE = {
+  consent_required: "The patient has not agreed to recording yet.",
+  patient_declined: "The patient declined recording; only they can change that.",
+  recording_exists: "A recording already exists. Delete it first to record again.",
+  not_latest_version: "Only the newest version can be approved.",
+  already_approved: "This version is already approved."
+};
+
+async function api(method, path, body, form) {
+  const headers = {};
+  if (token) headers.Authorization = "Bearer " + token;
+  let payload;
+  if (form) {
+    payload = form;
+  } else if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    payload = JSON.stringify(body);
+  }
+
+  let response;
+  try {
+    response = await fetch("/doctor/api/" + path, { method, headers, body: payload });
+  } catch (e) {
+    throw new Error("Could not reach the server.");
+  }
+
+  let data = null;
+  try { data = await response.json(); } catch (e) { /* no body */ }
+
+  if (response.status === 401 && path !== "auth/staff/login") {
+    logout("Your session ended. Please sign in again.");
+    throw new Error("Signed out");
+  }
+  if (!response.ok) {
+    throw new Error(messageFrom(data && data.detail, "Something went wrong (" + response.status + ")."));
+  }
+  return data;
+}
+
+/* =========================================================
+   LOGIN / LOGOUT
+========================================================= */
+
+async function login(event) {
+  event.preventDefault();
+  const button = document.getElementById("loginBtn");
+  const error = document.getElementById("loginError");
+  error.textContent = "";
+  button.disabled = true;
+  button.textContent = "Signing in…";
+  try {
+    const phone = document.getElementById("phone").value.trim();
+    const data = await api("POST", "auth/staff/login", {
+      phone_no: phone,
+      password: document.getElementById("password").value
+    });
+    token = data.access_token;
+    sessionStorage.setItem(KEY, token);
+    sessionStorage.setItem(NAME_KEY, phone);
+    document.getElementById("password").value = "";
+    startApp();
+  } catch (e) {
+    error.textContent = e.message === "Something went wrong (401)."
+      ? "Wrong phone number or password."
+      : e.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Sign in";
+  }
+}
+
+function logout(message) {
+  stopRecordingHard();
+  clearInterval(pollTimer);
+  token = null;
+  appointments = [];
+  selectedId = null;
+  consultation = null;
+  try { sessionStorage.removeItem(KEY); sessionStorage.removeItem(NAME_KEY); } catch (e) {}
+  document.getElementById("appView").classList.add("hidden");
+  document.getElementById("userBox").classList.add("hidden");
+  document.getElementById("loginView").classList.remove("hidden");
+  document.getElementById("workspace").replaceChildren(el("div", { class: "empty" }, "Select an appointment to begin."));
+  document.getElementById("apptList").replaceChildren();
+  if (message) {
+    document.getElementById("loginError").textContent = message;
+  }
+}
+
+function startApp() {
+  document.getElementById("loginView").classList.add("hidden");
+  document.getElementById("appView").classList.remove("hidden");
+  document.getElementById("userBox").classList.remove("hidden");
+  const phone = sessionStorage.getItem(NAME_KEY) || "";
+  document.getElementById("whoAmI").textContent = phone ? "Signed in: " + phone : "Signed in";
+  loadAppointments();
+}
+
+/* =========================================================
+   APPOINTMENTS
+========================================================= */
+
+async function loadAppointments() {
+  try {
+    appointments = await api("GET", "doctor/appointments");
+  } catch (e) {
+    if (e.message !== "Signed out") toast(e.message);
+    return;
+  }
+  renderAppointments();
+}
+
+function chipForConsent(a) {
+  if (a.consent_state === "granted") return el("span", { class: "chip ok" }, "Consent given");
+  if (a.consent_state === "declined") return el("span", { class: "chip bad" }, "Declined");
+  return el("span", { class: "chip warn" }, "No consent yet");
+}
+
+function renderAppointments() {
+  const list = document.getElementById("apptList");
+  if (!appointments.length) {
+    list.replaceChildren(el("div", { class: "empty" }, "No upcoming appointments."));
+    return;
+  }
+  list.replaceChildren(...appointments.map(a => {
+    const chips = [chipForConsent(a)];
+    if (a.consultation_status) {
+      const cls = a.consultation_status === "failed" ? "bad"
+        : a.consultation_status === "note_approved" ? "ok" : "";
+      chips.push(el("span", { class: "chip " + cls }, STATUS_TEXT[a.consultation_status] || a.consultation_status));
+    }
+    return el("div", {
+      class: "appt" + (a.appointment_id === selectedId ? " selected" : ""),
+      onclick: () => selectAppointment(a.appointment_id)
+    },
+      el("div", { class: "when" }, when(a.appointment_datetime)),
+      el("div", { class: "who" }, a.patient_label),
+      el("div", { class: "chips" }, chips)
+    );
+  }));
+}
+
+async function selectAppointment(id) {
+  stopRecordingHard();
+  clearInterval(pollTimer);
+  selectedId = id;
+  consultation = null;
+  shownVersion = null;
+  editing = false;
+  renderAppointments();
+  const a = appointments.find(x => x.appointment_id === id);
+  if (a && a.consultation_id) {
+    await loadConsultation(a.consultation_id);
+    if (consultation && ["audio_uploaded", "transcribing", "transcribed", "summarising"].includes(consultation.status)) {
+      pollConsultation();
+    }
+  }
+  renderWorkspace();
+}
+
+function currentAppointment() {
+  return appointments.find(a => a.appointment_id === selectedId);
+}
+
+async function refreshSelected() {
+  await loadAppointments();
+  if (consultation) await loadConsultation(consultation.consultation_id);
+  renderWorkspace();
+}
+
+/* =========================================================
+   CONSULTATION
+========================================================= */
+
+async function loadConsultation(id) {
+  try {
+    consultation = await api("GET", "consultations/" + id);
+    const notes = consultation.notes || [];
+    if (notes.length && (shownVersion === null || !notes.find(n => n.version === shownVersion))) {
+      shownVersion = notes[notes.length - 1].version;
+    }
+  } catch (e) {
+    if (e.message !== "Signed out") toast(e.message);
+  }
+}
+
+function pollConsultation() {
+  clearInterval(pollTimer);
+  const startedAt = Date.now();
+  pollTimer = setInterval(async () => {
+    if (!consultation) return clearInterval(pollTimer);
+    const before = consultation.status;
+    const notesBefore = (consultation.notes || []).length;
+    await loadConsultation(consultation.consultation_id);
+    if (!consultation) return clearInterval(pollTimer);
+
+    if (consultation.status !== before || (consultation.notes || []).length !== notesBefore) {
+      // jump to the newest version when a draft arrives
+      const notes = consultation.notes || [];
+      if (notes.length) shownVersion = notes[notes.length - 1].version;
+      await loadAppointments();
+      renderWorkspace();
+    }
+    const finished = ["draft_ready", "note_approved", "failed", "recording_deleted", "created"].includes(consultation.status);
+    if (finished || Date.now() - startedAt > 10 * 60 * 1000) {
+      clearInterval(pollTimer);
+      renderWorkspace();
+    }
+  }, 2500);
+}
+
+async function setConsent() {
+  const a = currentAppointment();
+  await guarded(async () => {
+    await api("POST", "appointments/" + a.appointment_id + "/consent", { consent_given: true });
+    toast("Verbal consent recorded.");
+    await loadAppointments();
+  });
+}
+
+async function startConsultation() {
+  const a = currentAppointment();
+  const mode = document.getElementById("mode").value;
+  await guarded(async () => {
+    const created = await api("POST", "consultations", { appointment_id: a.appointment_id, mode });
+    await loadAppointments();
+    await loadConsultation(created.consultation_id);
+  });
+}
+
+async function guarded(work) {
+  if (busy) return;
+  busy = true;
+  try {
+    await work();
+  } catch (e) {
+    if (e.message !== "Signed out") toast(e.message);
+  } finally {
+    busy = false;
+    renderWorkspace();
+  }
+}
+
+/* =========================================================
+   RECORDING
+========================================================= */
+
+function supportedMime() {
+  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+  return types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+}
+
+async function startRecording() {
+  try {
+    recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    toast("Microphone permission is needed to record.");
+    return;
+  }
+  recordChunks = [];
+  const mime = supportedMime();
+  recorder = new MediaRecorder(recordStream, mime ? { mimeType: mime } : undefined);
+  recorder.ondataavailable = e => { if (e.data.size) recordChunks.push(e.data); };
+  recorder.onstop = async () => {
+    recordStream.getTracks().forEach(t => t.stop());
+    clearInterval(recordTimer);
+    if (recorder.discard) return;
+    const blob = new Blob(recordChunks, { type: recorder.mimeType || "audio/webm" });
+    await uploadRecording(blob, "recording." + (blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "m4a" : "webm"));
+  };
+  recorder.start(1000);
+  recordStarted = Date.now();
+  recordTimer = setInterval(updateTimer, 500);
+  renderWorkspace();
+}
+
+function updateTimer() {
+  const t = document.getElementById("timer");
+  if (!t) return;
+  const s = Math.floor((Date.now() - recordStarted) / 1000);
+  t.textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+
+function stopRecording() {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+
+function stopRecordingHard() {
+  if (recorder && recorder.state !== "inactive") {
+    recorder.discard = true;
+    recorder.stop();
+  }
+  if (recordStream) recordStream.getTracks().forEach(t => t.stop());
+  clearInterval(recordTimer);
+  recorder = null;
+}
+
+async function pickFile(input) {
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (file) await uploadRecording(file, file.name);
+}
+
+async function uploadRecording(blob, name) {
+  recorder = null;
+  const form = new FormData();
+  form.append("file", blob, name);
+  await guarded(async () => {
+    toast("Uploading the recording…");
+    consultation = await api("POST", "consultations/" + consultation.consultation_id + "/audio", undefined, form);
+    await loadConsultation(consultation.consultation_id);
+    await loadAppointments();
+    pollConsultation();
+  });
+}
+
+async function deleteRecording() {
+  if (!confirm("Delete the recording and transcript? The notes are kept. This cannot be undone.")) return;
+  await guarded(async () => {
+    clearInterval(pollTimer);
+    await api("DELETE", "consultations/" + consultation.consultation_id + "/recording");
+    await loadConsultation(consultation.consultation_id);
+    await loadAppointments();
+    toast("Recording and transcript deleted.");
+  });
+}
+
+/* =========================================================
+   TRANSCRIPT
+========================================================= */
+
+async function flipSpeaker(turn) {
+  const next = turn.speaker === "doctor" ? "patient" : "doctor";
+  await guarded(async () => {
+    await api("PATCH", "consultations/" + consultation.consultation_id + "/turns/" + turn.turn_id, { speaker: next });
+    await loadConsultation(consultation.consultation_id);
+  });
+}
+
+async function saveTurnText(turn, text) {
+  text = text.trim();
+  if (!text || text === turn.text) return renderWorkspace();
+  await guarded(async () => {
+    await api("PATCH", "consultations/" + consultation.consultation_id + "/turns/" + turn.turn_id, { text });
+    await loadConsultation(consultation.consultation_id);
+  });
+}
+
+/* =========================================================
+   NOTE
+========================================================= */
+
+function noteOnScreen() {
+  const notes = (consultation && consultation.notes) || [];
+  return notes.find(n => n.version === shownVersion) || null;
+}
+
+function readFields() {
+  return {
+    chief_complaint: document.getElementById("f_chief").value.trim(),
+    discussion_points: document.getElementById("f_points").value.split("\n").map(s => s.trim()).filter(Boolean),
+    assessment: document.getElementById("f_assess").value.trim(),
+    plan: document.getElementById("f_plan").value.trim()
+  };
+}
+
+function isDirty() {
+  const note = noteOnScreen();
+  if (!note || !document.getElementById("f_chief")) return false;
+  const f = readFields();
+  return f.chief_complaint !== note.chief_complaint
+    || f.assessment !== note.assessment
+    || f.plan !== note.plan
+    || JSON.stringify(f.discussion_points) !== JSON.stringify(note.discussion_points);
+}
+
+function refreshNoteButtons() {
+  const note = noteOnScreen();
+  if (!note) return;
+  const notes = consultation.notes;
+  const latest = notes[notes.length - 1];
+  const dirty = isDirty();
+  const save = document.getElementById("saveBtn");
+  const approve = document.getElementById("approveBtn");
+  if (save) save.disabled = !dirty;
+  if (approve) approve.disabled = dirty || note.status === "approved" || note.version !== latest.version;
+}
+
+async function saveNote() {
+  const fields = readFields();
+  await guarded(async () => {
+    const saved = await api("POST", "consultations/" + consultation.consultation_id + "/notes", { ...fields, source: "doctor_edit" });
+    editing = false;
+    await loadConsultation(consultation.consultation_id);
+    shownVersion = saved.version;
+    await loadAppointments();
+    toast("Saved as version " + saved.version + ".");
+  });
+}
+
+async function approveNote() {
+  const note = noteOnScreen();
+  await guarded(async () => {
+    await api("POST", "consultations/" + consultation.consultation_id + "/notes/" + note.note_id + "/approve");
+    editing = false;
+    await loadConsultation(consultation.consultation_id);
+    await loadAppointments();
+    toast("Version " + note.version + " approved and locked.");
+  });
+}
+
+async function regenerate() {
+  if (isDirty() && !confirm("You have unsaved changes. Write a new draft anyway? (Your saved versions are kept.)")) return;
+  await guarded(async () => {
+    toast("Writing a new draft… this can take up to a minute.");
+    const saved = await api("POST", "consultations/" + consultation.consultation_id + "/regenerate");
+    await loadConsultation(consultation.consultation_id);
+    shownVersion = saved.version;
+    editing = false;
+    await loadAppointments();
+  });
+}
+
+function showVersion(version) {
+  shownVersion = version;
+  editing = false;
+  renderWorkspace();
+}
+
+/* =========================================================
+   WORKSPACE
+========================================================= */
+
+function section(number, title, done, ...body) {
+  return el("div", { class: "section" },
+    el("div", { class: "head" },
+      el("span", { class: "step" + (done ? " done" : "") }, done ? "✓" : String(number)),
+      el("h3", null, title)),
+    ...body);
+}
+
+function renderWorkspace() {
+  const box = document.getElementById("workspace");
+  const a = currentAppointment();
+  if (!a) {
+    box.replaceChildren(el("div", { class: "empty" }, "Select an appointment to begin."));
+    return;
+  }
+
+  const parts = [
+    el("h2", { style: "margin:0 0 4px" }, when(a.appointment_datetime)),
+    el("div", { class: "note-line" }, a.patient_label),
+    consentSection(a)
+  ];
+  if (a.consent_state === "granted") {
+    parts.push(recordingSection());
+  }
+  if (consultation && consultation.turns && consultation.turns.length) {
+    parts.push(transcriptSection());
+  }
+  if (consultation && consultation.notes && consultation.notes.length) {
+    parts.push(noteSection());
+  }
+  box.replaceChildren(...parts);
+  refreshNoteButtons();
+}
+
+/* ---------- 1. consent ---------- */
+
+function consentSection(a) {
+  if (a.consent_state === "granted") {
+    const by = a.consent_recorded_by === "patient" ? "The patient agreed on their own device."
+      : "You recorded the patient's verbal consent.";
+    return section(1, "Patient consent", true, el("div", { class: "banner ok" }, by));
+  }
+  if (a.consent_state === "declined") {
+    const byPatient = a.consent_recorded_by === "patient";
+    return section(1, "Patient consent", false,
+      el("div", { class: "banner bad" },
+        byPatient ? "The patient declined recording. Only they can change this on their own device."
+                  : "Recording was declined."),
+      byPatient ? null : el("button", { class: "btn good", onclick: setConsent, disabled: busy },
+        "Patient agrees verbally"));
+  }
+  return section(1, "Patient consent", false,
+    el("div", { class: "banner warn" },
+      "Recording is blocked until the patient agrees. They can allow it on their own dashboard, " +
+      "or you can record that they agreed verbally."),
+    el("button", { class: "btn good", onclick: setConsent, disabled: busy }, "Patient agrees verbally"));
+}
+
+/* ---------- 2. recording ---------- */
+
+function recordingSection() {
+  const kids = [];
+
+  if (!consultation) {
+    kids.push(
+      el("div", { class: "row" },
+        el("label", { for: "mode", style: "margin:0" }, "How is the consultation held?"),
+        el("select", { id: "mode" },
+          el("option", { value: "in_person" }, "In person"),
+          el("option", { value: "online" }, "Online"),
+          el("option", { value: "phone" }, "Phone call"))),
+      el("div", { style: "height:10px" }),
+      el("button", { class: "btn primary", onclick: startConsultation, disabled: busy }, "Start consultation"));
+    return section(2, "Consultation recording", false, ...kids);
+  }
+
+  const status = consultation.status;
+  kids.push(el("div", { class: "note-line" }, "Status: " + (STATUS_TEXT[status] || status) +
+    (consultation.audio_seconds ? " · " + Math.round(consultation.audio_seconds) + " s of audio" : "")));
+
+  if (status === "failed") {
+    kids.push(el("div", { class: "banner bad" },
+      FAILURES[consultation.failure_reason] || "The recording could not be processed."));
+  }
+  if (["transcribing", "summarising", "audio_uploaded"].includes(status)) {
+    kids.push(el("div", { class: "banner info" }, STATUS_TEXT[status] + " This page updates by itself."));
+  }
+
+  const recording = recorder && recorder.state === "recording";
+  const canRecord = ["created", "failed", "recording_deleted"].includes(status);
+
+  if (recording) {
+    kids.push(el("div", { class: "row" },
+      el("span", { class: "rec-dot" }),
+      el("span", { class: "timer", id: "timer" }, "00:00"),
+      el("button", { class: "btn danger", onclick: stopRecording }, "■ Stop and process")));
+  } else if (canRecord) {
+    kids.push(el("div", { class: "row" },
+      el("button", { class: "btn primary", onclick: startRecording, disabled: busy }, "● Start recording"),
+      el("label", { class: "btn", style: "margin:0;cursor:pointer" },
+        "Upload an audio file",
+        el("input", { type: "file", accept: "audio/*,video/webm", class: "hidden", onchange: e => pickFile(e.target) }))));
+  }
+
+  if (consultation.has_recording || (consultation.turns && consultation.turns.length)) {
+    kids.push(el("div", { style: "height:10px" }),
+      el("button", { class: "btn danger small", onclick: deleteRecording, disabled: busy },
+        "Delete recording and transcript"));
+  }
+  return section(2, "Consultation recording", ["transcribed", "summarising", "draft_ready", "note_approved"].includes(status), ...kids);
+}
+
+/* ---------- 3. transcript ---------- */
+
+function transcriptSection() {
+  const turns = consultation.turns.map(turn => {
+    const text = el("div", { class: "text" + (turn.edited ? " edited" : ""), title: "Double-click to correct the words" }, turn.text);
+    text.addEventListener("dblclick", () => {
+      const input = el("textarea", { rows: 2 });
+      input.value = turn.text;
+      input.addEventListener("blur", () => saveTurnText(turn, input.value));
+      text.replaceChildren(input);
+      input.focus();
+    });
+    return el("div", { class: "turn" },
+      el("button", {
+        class: "speaker " + turn.speaker, title: "Click if this line was said by the other person",
+        onclick: () => flipSpeaker(turn)
+      }, turn.speaker === "doctor" ? "Doctor" : turn.speaker === "patient" ? "Patient" : "Unknown"),
+      el("div", { style: "flex:1" }, text,
+        el("div", { class: "meta" }, (turn.language_code || "") + (turn.edited ? " · corrected" : ""))));
+  });
+  return section(3, "Transcript", true,
+    el("div", { class: "hint" },
+      "Who said what is a guess from the pauses. Click a Doctor/Patient label to fix it; double-click a line to correct the words. " +
+      "Use \"Write note again\" after corrections."),
+    el("div", { class: "transcript" }, turns));
+}
+
+/* ---------- 4. note ---------- */
+
+function noteSection() {
+  const notes = consultation.notes;
+  const latest = notes[notes.length - 1];
+  const note = noteOnScreen() || latest;
+  const signed = note.status === "approved";
+  const readonly = signed && !editing;
+
+  const versionButtons = notes.map(n =>
+    el("button", { class: "version" + (n.version === note.version ? " active" : ""), onclick: () => showVersion(n.version) },
+      "v" + n.version,
+      n.status === "approved" ? el("span", { class: "tag" }, "✓ approved") : el("span", { class: "tag", style: "color:var(--amber)" }, "draft"),
+      " · " + (n.source === "ai" ? "AI" : n.source === "ai_regenerated" ? "AI again" : "you")));
+
+  const kids = [el("div", { class: "versions" }, versionButtons)];
+
+  if (signed && note.version === latest.version) {
+    kids.push(el("div", { class: "banner ok" },
+      "Version " + note.version + " is approved and locked" + (note.approved_at ? " (" + when(note.approved_at) + ")" : "") +
+      ". Any change is saved as a new version."));
+  } else if (signed) {
+    kids.push(el("div", { class: "banner info" }, "An older approved version. A newer draft exists."));
+  } else if (note.version === latest.version) {
+    kids.push(el("div", { class: "banner warn" },
+      "Draft - not final until you approve it. Please check it against the consultation."));
+  } else {
+    kids.push(el("div", { class: "banner info" }, "An older draft. Only the newest version can be approved."));
+  }
+
+  const onInput = () => refreshNoteButtons();
+  const field = (id, label, value, rows) => [
+    el("label", { for: id }, label),
+    el("textarea", { id, rows, readonly: readonly, oninput: onInput }, value)
+  ];
+  const set = (id, value) => { /* fill textarea values below */ };
+
+  const box = el("div", null,
+    ...field("f_chief", "Chief complaint", "", 2),
+    ...field("f_points", "Key discussion points (one per line)", "", 5),
+    ...field("f_assess", "Assessment", "", 3),
+    ...field("f_plan", "Plan (treatment, medicines, tests, advice, follow-up)", "", 4));
+  kids.push(box);
+  // Set values after creation (textarea content, no HTML parsing).
+  queueMicrotask(() => {
+    const put = (id, v) => { const x = document.getElementById(id); if (x) x.value = v; };
+    put("f_chief", note.chief_complaint);
+    put("f_points", (note.discussion_points || []).join("\n"));
+    put("f_assess", note.assessment);
+    put("f_plan", note.plan);
+    refreshNoteButtons();
+  });
+
+  const buttons = [];
+  if (readonly && note.version === latest.version) {
+    buttons.push(el("button", { class: "btn", onclick: () => { editing = true; renderWorkspace(); } }, "Edit (saves a new version)"));
+  } else {
+    buttons.push(
+      el("button", { id: "saveBtn", class: "btn", onclick: saveNote, disabled: true }, "Save as new version"),
+      el("button", { id: "approveBtn", class: "btn good", onclick: approveNote, disabled: true }, "Approve this version"));
+  }
+  buttons.push(el("button", { class: "btn", onclick: regenerate, disabled: busy || !(consultation.turns || []).length }, "Write note again"));
+  kids.push(el("div", { style: "height:12px" }), el("div", { class: "row" }, buttons));
+
+  return section(4, "Consultation note (English)", signed && note.version === latest.version, ...kids);
+}
+
+/* =========================================================
+   START
+========================================================= */
+
+window.addEventListener("beforeunload", stopRecordingHard);
+
+(function init() {
+  try { token = sessionStorage.getItem(KEY); } catch (e) { token = null; }
+  if (token) startApp();
+})();
+</script>
+</body>
+</html>
