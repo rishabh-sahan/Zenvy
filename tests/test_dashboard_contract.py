@@ -42,3 +42,27 @@ def test_a_rejected_phone_number_is_reported_not_swallowed_by_demo_mode():
 def test_a_fresh_login_starts_a_fresh_conversation():
     login = PAGE[PAGE.index("async function loginUser()"):PAGE.index("function showDashboard()")]
     assert 'removeItem("zenvy_session_id")' in login
+
+
+def test_there_is_a_logout_button_shown_only_while_logged_in():
+    assert 'onclick="logoutUser()"' in PAGE
+    # Hidden until showDashboard() reveals it.
+    assert 'id="userChip" class="user-chip hidden"' in PAGE
+    show = PAGE[PAGE.index("function showDashboard()"):PAGE.index("function showDashboard()") + 700]
+    assert 'getElementById("userChip").classList.remove("hidden")' in show
+
+
+def test_logout_forgets_the_patient_and_the_conversation():
+    logout = PAGE[PAGE.index("function logoutUser()"):PAGE.index("function initMap()")]
+    for key in ("zenvy_session_id", "zenvy_auth_id", "zenvy_phone"):
+        assert f'localStorage.removeItem("{key}")' in logout
+    assert "sessionId = null" in logout and "authId = null" in logout and "phoneNumber = null" in logout
+    assert '"loginPage").classList.remove("hidden")' in logout
+    assert '"dashboard").classList.add("hidden")' in logout
+
+
+def test_logging_out_while_recording_does_not_upload_the_audio():
+    logout = PAGE[PAGE.index("function logoutUser()"):PAGE.index("function initMap()")]
+    assert "discardRecording = true" in logout
+    stop_handler = PAGE[PAGE.index("mediaRecorder.onstop"):PAGE.index("await sendVoice(blob)")]
+    assert "if (discardRecording)" in stop_handler

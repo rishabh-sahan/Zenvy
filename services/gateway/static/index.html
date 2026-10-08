@@ -136,6 +136,51 @@ button {
   box-shadow: 0 0 14px var(--green);
 }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+}
+
+.user-phone {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .3px;
+}
+
+.logout-btn {
+  border: 1px solid rgba(255,255,255,.14);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.logout-btn:hover {
+  background: rgba(239,68,68,.18);
+  border-color: rgba(239,68,68,.5);
+}
+
+@media (max-width: 640px) {
+  .topbar { padding: 0 14px; }
+  .topbar-right { gap: 10px; }
+  .user-phone, .brand-text span { display: none; }
+}
+
 /* =========================
    LOGIN
 ========================= */
@@ -861,9 +906,26 @@ button {
     </div>
   </div>
 
-  <div class="status">
-    <span class="status-dot"></span>
-    <span id="systemStatus">System Ready</span>
+  <div class="topbar-right">
+
+    <div class="status">
+      <span class="status-dot"></span>
+      <span id="systemStatus">System Ready</span>
+    </div>
+
+    <!-- Shown only while logged in -->
+    <div id="userChip" class="user-chip hidden">
+      <span id="userPhone" class="user-phone"></span>
+      <button
+        id="logoutBtn"
+        type="button"
+        class="logout-btn"
+        onclick="logoutUser()"
+      >
+        Log out
+      </button>
+    </div>
+
   </div>
 </header>
 
@@ -1284,6 +1346,8 @@ let mediaRecorder = null;
 let audioChunks = [];
 
 let isRecording = false;
+
+let discardRecording = false;
 
 let sessionId =
   localStorage.getItem("zenvy_session_id") || null;
@@ -1706,6 +1770,16 @@ async function loginUser() {
 
 function showDashboard() {
 
+  // Show who is logged in, and the Log out button (number partly hidden).
+  const digits = String(phoneNumber || "").replace(/\D/g, "");
+
+  document.getElementById("userPhone").textContent =
+    digits.length >= 4
+      ? "📱 ••••••" + digits.slice(-4)
+      : "📱 Logged in";
+
+  document.getElementById("userChip").classList.remove("hidden");
+
   document
     .getElementById("loginPage")
     .classList.add("hidden");
@@ -1727,6 +1801,95 @@ function showDashboard() {
   }, 200);
 
   requestGPS();
+
+}
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+let initialChatHtml = null;
+let initialTranscript = null;
+let initialAiResponse = null;
+
+window.addEventListener("load", () => {
+
+  // Remember how the conversation panels look when empty, to restore them.
+  initialChatHtml =
+    document.getElementById("chatBox").innerHTML;
+
+  initialTranscript =
+    document.getElementById("transcript").textContent;
+
+  initialAiResponse =
+    document.getElementById("aiResponse").textContent;
+
+});
+
+function logoutUser() {
+
+  // Stop a recording in progress and throw its audio away.
+  if (isRecording) {
+
+    discardRecording = true;
+
+    stopRecording();
+
+  }
+
+  // Stop any reply that is still playing.
+  const player = document.getElementById("audioPlayer");
+
+  try {
+    player.pause();
+    player.removeAttribute("src");
+    player.load();
+  } catch (ignored) {}
+
+  player.classList.add("hidden");
+
+  // Forget the patient and the conversation, on the page and in the browser.
+  sessionId = null;
+  authId = null;
+  phoneNumber = null;
+
+  try {
+    localStorage.removeItem("zenvy_session_id");
+    localStorage.removeItem("zenvy_auth_id");
+    localStorage.removeItem("zenvy_phone");
+  } catch (ignored) {}
+
+  // Empty the conversation panels so the next person starts clean.
+  if (initialChatHtml !== null) {
+    document.getElementById("chatBox").innerHTML = initialChatHtml;
+  }
+
+  const transcript = document.getElementById("transcript");
+  transcript.textContent =
+    initialTranscript || "Your speech transcript will appear here...";
+  transcript.classList.add("empty");
+
+  const reply = document.getElementById("aiResponse");
+  reply.textContent =
+    initialAiResponse || "Zenvy's response will appear here...";
+  reply.classList.add("empty");
+
+  document.getElementById("chatInput").value = "";
+
+  // Back to the login screen.
+  document.getElementById("userChip").classList.add("hidden");
+  document.getElementById("userPhone").textContent = "";
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("loginPage").classList.remove("hidden");
+
+  document.getElementById("phoneInput").value = "";
+
+  const loginButton = document.getElementById("loginBtn");
+  loginButton.disabled = false;
+  loginButton.textContent = "Continue to Zenvy →";
+
+  showToast("You have been logged out.");
 
 }
 
@@ -2409,6 +2572,16 @@ async function toggleRecording() {
           .forEach(
             track => track.stop()
           );
+
+        
+        // Logging out while recording: throw the audio away, do not send it.
+        if (discardRecording) {
+
+          discardRecording = false;
+
+          return;
+
+        }
 
         const blob =
           new Blob(
