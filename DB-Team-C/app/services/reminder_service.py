@@ -204,8 +204,34 @@ def cancel_pending(db: Session, appointment_id: str) -> int:
 # the message itself
 # ---------------------------------------------------------------------------
 
+def is_real_mobile(phone_no: str | None) -> bool:
+    """An Indian mobile number: 10 digits starting 6-9, with or without +91."""
+    digits = "".join(ch for ch in (phone_no or "") if ch.isdigit())
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    return len(digits) == 10 and digits[0] in "6789"
+
+
+def _bare(doctor_name: str) -> str:
+    """The approved templates already say "Dr." before the name."""
+    name = (doctor_name or "").strip()
+    for prefix in ("Dr.", "Dr "):
+        if name.startswith(prefix):
+            return name[len(prefix):].strip()
+    return name
+
+
+def _full_date(when: datetime) -> str:
+    return as_ist(when).strftime("%d %b %Y")
+
+
 def build_message(db: Session, reminder: Reminder, appointment: AIAppointment) -> tuple[str, str, list[tuple[str, str]]]:
-    """(text, Meta template name, template parameters) for one reminder."""
+    """(text, Meta template name, template parameters) for one reminder.
+
+    Parameter names must match the approved template exactly. Cancel and reschedule
+    use the templates that already exist in the Meta account (appointment_cancelled,
+    appointment_rescheduled); the rest are in WHATSAPP_TEMPLATES.md.
+    """
     when = appointment.appointment_datetime
     doctor = appointment.doctor_name
     day, clock, where = _day(when), _clock(when), _location(appointment)
@@ -218,42 +244,52 @@ def build_message(db: Session, reminder: Reminder, appointment: AIAppointment) -
             soon = "tomorrow" if kind == ReminderKind.reminder_24h.value else "in 2 hours"
             text = f"Reminder: your appointment with {doctor} is {soon} - {day} at {clock}, {where}."
             return text, settings.META_WHATSAPP_REMINDER_TEMPLATE_NAME, [
-                ("name", name), ("doctor", doctor), ("date", day), ("time", clock), ("location", where), ("when", soon)]
+                ("name", name), ("doctor_name", _bare(doctor)), ("when", soon),
+                ("date", day), ("time", clock), ("location", where)]
         if kind == ReminderKind.follow_up_booked.value:
             text = f"Your follow-up with {doctor} is booked for {day} at {clock}, {where}."
             return text, settings.META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME, [
-                ("name", name), ("doctor", doctor), ("date", day), ("time", clock), ("location", where)]
+                ("name", name), ("doctor_name", _bare(doctor)), ("date", day), ("time", clock), ("location", where)]
         if kind == ReminderKind.cancelled.value:
             text = f"Your appointment with {doctor} on {day} at {clock} has been cancelled."
             return text, settings.META_WHATSAPP_CANCELLED_TEMPLATE_NAME, [
-                ("name", name), ("doctor", doctor), ("date", day), ("time", clock)]
+                ("doctor_name", _bare(doctor)), ("patient_name", name),
+                ("appointment_date", _full_date(when)), ("appointment_time", clock)]
         if kind == ReminderKind.rescheduled.value:
             text = f"Your appointment with {doctor} has been moved to {day} at {clock}, {where}."
             return text, settings.META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME, [
-                ("name", name), ("doctor", doctor), ("date", day), ("time", clock), ("location", where)]
+                ("doctor_name", _bare(doctor)), ("patient_name", name),
+                ("new_date", _full_date(when)), ("new_time", clock)]
         text = f"Your appointment with {doctor} is on {day} at {clock}, {where}."
         return text, settings.META_WHATSAPP_REMINDER_TEMPLATE_NAME, [
-            ("name", name), ("doctor", doctor), ("date", day), ("time", clock), ("location", where), ("when", day)]
+            ("name", name), ("doctor_name", _bare(doctor)), ("when", day),
+            ("date", day), ("time", clock), ("location", where)]
 
-    # the doctor: always one short notice
+    # the doctor: one short notice (event, patient, date, time)
     who = patient_label(appointment)
     details = reminder.details or {}
     if kind == ReminderKind.booked.value:
-        what = "New follow-up" if details.get("follow_up") else "New appointment"
-        text = f"{what}: {who} on {day} at {clock}."
+        event = "New follow-up" if details.get("follow_up") else "New appointment"
+        text = f"{event}: {who} on {day} at {clock}."
     elif kind == ReminderKind.reminder_24h.value:
+        event = "Reminder: appointment tomorrow"
         text = f"Reminder: appointment tomorrow - {who}, {day} at {clock}."
     elif kind == ReminderKind.reminder_2h.value:
+        event = "Reminder: appointment in 2 hours"
         text = f"Reminder: appointment in 2 hours - {who}, {day} at {clock}."
     elif kind == ReminderKind.cancelled.value:
+        event = "Cancelled"
         text = f"Cancelled: {who} on {day} at {clock}."
     elif kind == ReminderKind.rescheduled.value:
         old = details.get("old_datetime")
         before = f" (was {_day(datetime.fromisoformat(old))} at {_clock(datetime.fromisoformat(old))})" if old else ""
+        event = "Rescheduled" + (f" from {_day(datetime.fromisoformat(old))} at {_clock(datetime.fromisoformat(old))}" if old else "")
         text = f"Rescheduled: {who} is now on {day} at {clock}{before}."
     else:
+        event = "Appointment update"
         text = f"Appointment update: {who} on {day} at {clock}."
-    return text, settings.META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME, [("message", text)]
+    return text, settings.META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME, [
+        ("event", event), ("patient", who), ("date", day), ("time", clock)]
 
 
 # ---------------------------------------------------------------------------
@@ -320,6 +356,11 @@ def _deliver(db: Session, reminder: Reminder, now: datetime) -> str:
             provider_message_id=f"mock-{uuid.uuid4().hex[:12]}", last_error=None,
         )
         return ReminderStatus.sent.value
+
+    if not is_real_mobile(recipient.phone_no):
+        # seeded doctor logins (+9100000000NN) and test numbers: not a WhatsApp user, do not call Meta
+        _finish(db, reminder, ReminderStatus.skipped.value, mode="live", last_error="not a real mobile number")
+        return ReminderStatus.skipped.value
 
     try:
         message_id = whatsapp_service.send_template(recipient.phone_no, template, parameters)

@@ -33,8 +33,8 @@ class Settings:
     PURGE_INTERVAL_HOURS = int(os.getenv("PURGE_INTERVAL_HOURS", "24"))
     META_WHATSAPP_REMINDER_TEMPLATE_NAME = os.getenv("META_WHATSAPP_REMINDER_TEMPLATE_NAME", "zenvy_appointment_reminder")
     META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME = os.getenv("META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME", "zenvy_followup_booked")
-    META_WHATSAPP_CANCELLED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_CANCELLED_TEMPLATE_NAME", "zenvy_appointment_cancelled")
-    META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME", "zenvy_appointment_rescheduled")
+    META_WHATSAPP_CANCELLED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_CANCELLED_TEMPLATE_NAME", "appointment_cancelled")
+    META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME", "appointment_rescheduled")
     META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME = os.getenv("META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME", "zenvy_doctor_notice")
 
     # Consultation recordings. Audio is encrypted (AES-256-GCM) before it is

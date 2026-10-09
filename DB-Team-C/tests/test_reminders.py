@@ -245,10 +245,10 @@ def test_live_mode_sends_the_approved_template_with_named_parameters(world, live
     patient_message = next(item for item in sent if item[0] == world["phone"])
     assert patient_message[1] == settings.META_WHATSAPP_REMINDER_TEMPLATE_NAME
     parameters = patient_message[2]
-    assert parameters["doctor"] == world["doctor"]["name"] and parameters["when"] == "tomorrow"
-    assert {"name", "doctor", "date", "time", "location", "when"} <= set(parameters)
+    assert world["doctor"]["name"].endswith(parameters["doctor_name"]) and parameters["when"] == "tomorrow"
+    assert set(parameters) == {"name", "doctor_name", "when", "date", "time", "location"}
     doctor_message = next(item for item in sent if item[1] == settings.META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME)
-    assert set(doctor_message[2]) == {"message"}
+    assert set(doctor_message[2]) == {"event", "patient", "date", "time"}
     row = by_kind(world["appointment_id"])[("patient", "reminder_24h")]
     assert row.status == "sent" and row.mode == "live" and row.provider_message_id == "wamid.1" or row.provider_message_id.startswith("wamid.")
 
@@ -434,3 +434,48 @@ def test_only_the_treating_doctor_can_read_the_history(world):
     assert client.get(url, headers=world["other"]["headers"]).status_code == 403
     assert client.get(url).status_code == 401
     assert client.get("/api/v1/appointments/missing/history", headers=world["doctor"]["headers"]).status_code == 404
+
+
+def test_cancel_and_reschedule_use_the_templates_already_approved_in_meta_with_their_exact_parameters(world):
+    """appointment_cancelled / appointment_rescheduled exist and are APPROVED in the Meta account;
+    Meta rejects a send whose named parameters differ from the template."""
+    from app.models.reminder import Reminder
+
+    session = db()
+    appointment = session.get(AIAppointment, world["appointment_id"])
+    for kind, template, names in [
+        ("cancelled", "appointment_cancelled", {"doctor_name", "patient_name", "appointment_date", "appointment_time"}),
+        ("rescheduled", "appointment_rescheduled", {"doctor_name", "patient_name", "new_date", "new_time"}),
+    ]:
+        reminder = Reminder(appointment_id=appointment.appointment_id, recipient_type="patient", kind=kind)
+        text, name, parameters = reminder_service.build_message(session, reminder, appointment)
+        assert name == template and {key for key, _ in parameters} == names
+        values = dict(parameters)
+        assert not values["doctor_name"].startswith("Dr")        # the template already says "Dr."
+    session.close()
+
+
+@pytest.mark.parametrize("phone,real", [
+    ("9353113908", True), ("+919353113908", True), ("919353113908", True),
+    ("+910000000001", False),            # seeded doctor login
+    ("1234567890", False),               # test numbers start with 1
+    ("12345", False), ("", False), (None, False),
+])
+def test_only_real_indian_mobile_numbers_are_sent_to_in_live_mode(phone, real):
+    assert reminder_service.is_real_mobile(phone) is real
+
+
+def test_live_mode_skips_placeholder_numbers_without_calling_meta(world, live):
+    sent, _ = live
+    session = db()
+    appointment = session.get(AIAppointment, world["appointment_id"])
+    appointment.patient_phone_no = "1234567890"
+    from app.models.authentication import Authentication
+    patient = session.query(Authentication).filter(Authentication.phone_no == world["phone"]).first()
+    patient.phone_no = "1234567890"
+    session.commit()
+    reminder_service.process_due(session, appointment_id=world["appointment_id"], now=due_now(world, 24))
+    session.close()
+    assert [m for m in sent if m[0] == "1234567890"] == []
+    row = by_kind(world["appointment_id"])[("patient", "reminder_24h")]
+    assert row.status == "skipped" and "real mobile" in row.last_error

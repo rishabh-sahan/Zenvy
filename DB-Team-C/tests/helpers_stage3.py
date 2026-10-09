@@ -45,7 +45,7 @@ def make_doctor(session, label="Doc"):
     """A doctor with a staff login who works 08:00-20:00 IST every day."""
     suffix = uuid.uuid4().hex[:8]
     staff = Authentication(
-        name=f"Dr {label}", phone_no=f"+9100{uuid.uuid4().int % 10**8:08d}",
+        name=f"Dr {label}", phone_no=f"+919{uuid.uuid4().int % 10**9:09d}",
         password_hash=hash_password("not-used-here"), role="staff",
     )
     hospital = Hospital(hospital_id=f"hos-{suffix}", name=f"Hospital {suffix}", city="mysore")
