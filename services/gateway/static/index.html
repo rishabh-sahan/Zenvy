@@ -230,6 +230,24 @@ button {
 .consent-btn.allow:hover { background: rgba(52,211,153,.2); border-color: rgba(52,211,153,.5); }
 .consent-btn.deny:hover { background: rgba(248,113,113,.2); border-color: rgba(248,113,113,.5); }
 
+.med-prescription { border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px 16px; background: rgba(255,255,255,.03); }
+.med-prescription h4 { margin: 0 0 4px; font-size: 14px; }
+.med-prescription .from { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+.med-item { padding: 10px 0; border-top: 1px solid rgba(255,255,255,.08); }
+.med-item:first-of-type { border-top: 0; }
+.med-item .name { font-weight: 700; }
+.med-item .how, .med-item .next { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.med-item .next b { color: #c4b5fd; font-weight: 600; }
+.dose-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.dose-pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--muted); }
+.dose-pill.taken { background: rgba(52,211,153,.18); color: #9be9c7; }
+.dose-pill.missed { background: rgba(248,113,113,.16); color: #fecaca; }
+.dose-take { border: 1px solid rgba(52,211,153,.5); background: rgba(52,211,153,.16); color: #b7f5db;
+  padding: 5px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; }
+.dose-take:disabled { opacity: .5; cursor: not-allowed; }
+.med-note { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 9px 12px; border-radius: 12px;
+  background: rgba(139,92,246,.16); font-size: 13px; }
+.med-note button { border: 0; background: transparent; color: #c4b5fd; cursor: pointer; font-size: 12px; }
 .appt-panel {
   flex-basis: 100%;
   margin-top: 4px;
@@ -1214,6 +1232,40 @@ button {
 
   </section>
 
+  <!-- MY MEDICINES -->
+  <section class="card my-appts-card" id="medicinesCard">
+
+    <div class="card-title">
+
+      <div class="card-title-left">
+
+        <div class="icon-box">💊</div>
+
+        <div>
+          <h3>Your medicines</h3>
+          <p>The medicines your doctor prescribed, and when to take them</p>
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        class="appt-refresh"
+        onclick="loadMyMedicines()"
+      >
+        Refresh
+      </button>
+
+    </div>
+
+    <div id="medNotes" class="my-appts"></div>
+
+    <div id="myMedicines" class="my-appts">
+      <div class="my-appts-empty">Loading…</div>
+    </div>
+
+  </section>
+
   <!-- MAP -->
   <section class="card map-card">
 
@@ -1478,6 +1530,8 @@ let authId =
 
 let phoneNumber =
   localStorage.getItem("zenvy_phone") || null;
+
+let medicinesTimer = null;   // refreshes "Your medicines" every minute
 
 
 /* =========================================================
@@ -1879,8 +1933,10 @@ function showDashboard() {
 
   document.getElementById("userChip").classList.remove("hidden");
 
-  loadMyAppointments();
+  loadMyAppointments().finally(loadMyMedicines);
   loadConsentMessage();
+  clearInterval(medicinesTimer);
+  medicinesTimer = setInterval(loadMyMedicines, 60000);
 
   document
     .getElementById("loginPage")
@@ -1921,6 +1977,232 @@ function scheduleAppointmentsRefresh() {
   clearTimeout(refreshTimer);
 
   refreshTimer = setTimeout(loadMyAppointments, 1500);
+
+}
+
+function showMedicinesMessage(text) {
+
+  const box = document.getElementById("myMedicines");
+
+  box.replaceChildren(el("div", "my-appts-empty", text));
+
+}
+
+function doseClock(iso) {
+
+  return new Date(iso).toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false
+  });
+
+}
+
+function nextDoseText(iso) {
+
+  const day = new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const today = hospitalToday();
+
+  if (day === today) return "today at " + doseClock(iso);
+
+  if (day === addDays(today, 1)) return "tomorrow at " + doseClock(iso);
+
+  return new Date(iso).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" })
+    + " at " + doseClock(iso);
+
+}
+
+const FOOD_WORDS = { before: "before food", after: "after food", with: "with food" };
+
+function medicineHow(item) {
+
+  const bits = [];
+
+  if (item.dose_text) bits.push(item.dose_text);
+
+  if (item.as_needed) bits.push("only when needed");
+  else if ((item.dose_times || []).length) bits.push((item.dose_times || []).join(", "));
+
+  if (FOOD_WORDS[item.food]) bits.push(FOOD_WORDS[item.food]);
+
+  return bits.join(" · ");
+
+}
+
+function renderMedicine(item) {
+
+  const row = el("div", "med-item");
+
+  row.append(el("div", "name", [item.drug_name, item.strength].filter(Boolean).join(" ")));
+
+  const how = medicineHow(item);
+
+  if (how) row.append(el("div", "how", how));
+
+  if (item.instructions) row.append(el("div", "how", item.instructions));
+
+  if (item.next_dose_at) {
+
+    const next = el("div", "next", "Next dose: ");
+    next.append(el("b", null, nextDoseText(item.next_dose_at)));
+    next.append(document.createTextNode(" · " + item.remaining_doses + " dose" + (item.remaining_doses === 1 ? "" : "s") + " left"));
+    row.append(next);
+
+  }
+
+  if ((item.today || []).length) {
+
+    const doses = el("div", "dose-row");
+
+    item.today.forEach(dose => {
+
+      if (dose.status === "scheduled" && dose.can_mark) {
+
+        const take = el("button", "dose-take", "I took " + doseClock(dose.due_at) + " dose");
+        take.type = "button";
+        take.addEventListener("click", () => takeDose(dose.dose_id, take));
+        doses.append(take);
+
+      } else {
+
+        const label = doseClock(dose.due_at) + (dose.status === "taken" ? " · taken" : dose.status === "missed" ? " · missed" : "");
+        doses.append(el("span", "dose-pill " + dose.status, label));
+
+      }
+
+    });
+
+    row.append(doses);
+
+  }
+
+  return row;
+
+}
+
+async function takeDose(doseId, button) {
+
+  button.disabled = true;
+
+  try {
+
+    const response = await fetch(
+      CONSENT_API + "patients/" + encodeURIComponent(authId) + "/doses/" + encodeURIComponent(doseId) + "/taken",
+      { method: "POST" }
+    );
+
+    if (response.ok) {
+
+      showToast("Noted. Thank you.");
+
+    } else {
+
+      showToast(response.status === 409 ? "That dose can't be marked yet." : "Sorry, that didn't work. Please try again.");
+
+    }
+
+  } catch (error) {
+
+    showToast("Sorry, that didn't work. Please try again.");
+
+  }
+
+  loadMyMedicines();
+
+}
+
+async function dismissMedNotes(ids) {
+
+  try {
+
+    await fetch(CONSENT_API + "patients/" + encodeURIComponent(authId) + "/messages/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids })
+    });
+
+  } catch (ignored) {}
+
+  loadMyMedicines();
+
+}
+
+async function loadMyMedicines() {
+
+  const box = document.getElementById("myMedicines");
+  const notes = document.getElementById("medNotes");
+
+  if (!box) return;
+
+  if (!authId || !ACCOUNT_ID.test(authId)) {
+
+    showMedicinesMessage("Log in to see your medicines.");
+
+    return;
+
+  }
+
+  let data;
+
+  try {
+
+    const response = await fetch(CONSENT_API + "patients/" + encodeURIComponent(authId) + "/medications");
+
+    if (!response.ok) {
+
+      showMedicinesMessage("No medicines yet. They appear here after your doctor signs your prescription.");
+
+      return;
+
+    }
+
+    data = await response.json();
+
+  } catch (error) {
+
+    showMedicinesMessage("Could not load your medicines. Please try again.");
+
+    return;
+
+  }
+
+  notes.replaceChildren(...(data.messages || []).map(message => {
+
+    const note = el("div", "med-note");
+    note.append(el("span", null, message.text));
+    const dismiss = el("button", null, "Dismiss");
+    dismiss.type = "button";
+    dismiss.addEventListener("click", () => dismissMedNotes([message.message_id]));
+    note.append(dismiss);
+    return note;
+
+  }));
+
+  if (!(data.prescriptions || []).length) {
+
+    showMedicinesMessage("No medicines yet. They appear here after your doctor signs your prescription.");
+
+    return;
+
+  }
+
+  box.replaceChildren(...data.prescriptions.map(prescription => {
+
+    const card = el("div", "med-prescription");
+
+    card.append(el("h4", null, "From " + (prescription.doctor_name || "your doctor")));
+
+    if (prescription.signed_at) {
+
+      card.append(el("div", "from", "Signed " + new Date(prescription.signed_at).toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric"
+      })));
+
+    }
+
+    prescription.items.forEach(item => card.append(renderMedicine(item)));
+
+    return card;
+
+  }));
 
 }
 
@@ -2539,6 +2821,11 @@ function logoutUser() {
   sessionId = null;
   authId = null;
   phoneNumber = null;
+
+  // The next person must not see this patient's medicines.
+  clearInterval(medicinesTimer);
+  showMedicinesMessage("Log in to see your medicines.");
+  document.getElementById("medNotes").replaceChildren();
 
   try {
     localStorage.removeItem("zenvy_session_id");

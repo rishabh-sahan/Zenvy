@@ -90,6 +90,7 @@ def _ensure(
     kind: str,
     send_at: datetime,
     details: dict | None = None,
+    dose_id: str = "",
 ) -> Reminder | None:
     """Create the row unless this exact message already exists. Does NOT commit."""
     existing = (
@@ -98,6 +99,7 @@ def _ensure(
             Reminder.appointment_id == appointment_id,
             Reminder.recipient_type == recipient_type,
             Reminder.kind == kind,
+            Reminder.dose_id == dose_id,
         )
         .first()
     )
@@ -109,6 +111,7 @@ def _ensure(
         recipient_type=recipient_type,
         recipient_auth_id=recipient_auth_id,
         kind=kind,
+        dose_id=dose_id,
         send_at=as_utc(send_at),
         status=ReminderStatus.pending.value,
         attempts=0,
@@ -193,7 +196,11 @@ def cancel_pending(db: Session, appointment_id: str) -> int:
     """Stop every message that has not been sent yet for this appointment."""
     result = db.execute(
         update(Reminder)
-        .where(Reminder.appointment_id == appointment_id, Reminder.status == ReminderStatus.pending.value)
+        .where(
+            Reminder.appointment_id == appointment_id,
+            Reminder.status == ReminderStatus.pending.value,
+            Reminder.kind != ReminderKind.medication.value,   # medicines go on after a visit is over
+        )
         .values(status=ReminderStatus.cancelled.value)
     )
     db.commit()
@@ -236,6 +243,17 @@ def build_message(db: Session, reminder: Reminder, appointment: AIAppointment) -
     doctor = appointment.doctor_name
     day, clock, where = _day(when), _clock(when), _location(appointment)
     kind = reminder.kind
+
+    if kind == ReminderKind.medication.value:
+        auth = db.get(Authentication, reminder.recipient_auth_id) if reminder.recipient_auth_id else None
+        name = (auth.name if auth and auth.name else "there")
+        item = reminder.details or {}
+        medicine = " ".join(part for part in (item.get("drug_name"), item.get("strength")) if part) or "your medicine"
+        dose = item.get("dose_text") or "1 dose"
+        food = {"before": "before food", "after": "after food", "with": "with food"}.get(item.get("food"), "as advised")
+        text = f"Time to take your medicine: {medicine}, {dose}, {food}."
+        return text, settings.META_WHATSAPP_MEDICATION_TEMPLATE_NAME, [
+            ("name", name), ("medicine", medicine), ("dose", dose), ("food", food)]
 
     if reminder.recipient_type == "patient":
         auth = db.get(Authentication, reminder.recipient_auth_id) if reminder.recipient_auth_id else None
@@ -329,12 +347,24 @@ def _deliver(db: Session, reminder: Reminder, now: datetime) -> str:
         _finish(db, reminder, ReminderStatus.skipped.value, last_error="appointment not found")
         return ReminderStatus.skipped.value
 
+    is_medication = reminder.kind == ReminderKind.medication.value
+    if is_medication:
+        from app.models.prescription import DoseStatus, MedicationDose
+
+        dose = db.get(MedicationDose, reminder.dose_id)
+        if dose is None or dose.status != DoseStatus.scheduled.value:
+            _finish(db, reminder, ReminderStatus.cancelled.value, last_error="dose already taken or cancelled")
+            return ReminderStatus.cancelled.value
+        if as_utc(dose.due_at) < now - timedelta(hours=settings.MISSED_AFTER_HOURS):
+            _finish(db, reminder, ReminderStatus.skipped.value, last_error="too late for this dose")
+            return ReminderStatus.skipped.value
+
     is_change_notice = reminder.kind in CHANGE_NOTICES
     cancelled = appointment.status == AppointmentStatus.cancelled
-    if cancelled and not is_change_notice:
+    if cancelled and not is_change_notice and not is_medication:
         _finish(db, reminder, ReminderStatus.cancelled.value, last_error="appointment was cancelled")
         return ReminderStatus.cancelled.value
-    if not is_change_notice and as_utc(appointment.appointment_datetime) <= now:
+    if not is_change_notice and not is_medication and as_utc(appointment.appointment_datetime) <= now:
         _finish(db, reminder, ReminderStatus.skipped.value, last_error="appointment already started")
         return ReminderStatus.skipped.value
 

@@ -35,6 +35,11 @@ class Settings:
     META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME = os.getenv("META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME", "zenvy_followup_booked")
     META_WHATSAPP_CANCELLED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_CANCELLED_TEMPLATE_NAME", "appointment_cancelled")
     META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME", "appointment_rescheduled")
+    # Medication: a dose nobody marked taken within this many hours counts as missed; a prescription
+    # item with no duration is scheduled for this many days.
+    MISSED_AFTER_HOURS = int(os.getenv("MISSED_AFTER_HOURS", "3"))
+    MEDICATION_DEFAULT_DAYS = int(os.getenv("MEDICATION_DEFAULT_DAYS", "7"))
+    META_WHATSAPP_MEDICATION_TEMPLATE_NAME = os.getenv("META_WHATSAPP_MEDICATION_TEMPLATE_NAME", "zenvy_medication_reminder")
     META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME = os.getenv("META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME", "zenvy_doctor_notice")
 
     # Consultation recordings. Audio is encrypted (AES-256-GCM) before it is

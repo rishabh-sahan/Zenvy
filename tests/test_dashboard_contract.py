@@ -171,3 +171,70 @@ def test_a_stored_identity_that_is_not_a_real_account_is_repaired_by_logging_in_
     load = PAGE[PAGE.index("async function loadMyAppointments"):PAGE.index("async function loadMyAppointments") + 1500]
     assert "ACCOUNT_ID.test(authId)" in load and "repairAccount()" in load
     assert "response.status === 404" in load
+
+
+# ---- Stage 4/5: prescriptions, the doctor Assistant, "Your medicines" -----------------------
+
+def test_the_doctor_page_signs_a_prescription_only_when_the_doctor_presses_sign():
+    """Nothing in the page (including the Assistant) may sign: only the Sign button's handler does."""
+    assert DOCTOR_PAGE.count("/prescription/sign") == 1
+    sign = DOCTOR_PAGE[DOCTOR_PAGE.index("async function signRx()"):DOCTOR_PAGE.index("async function draftRxFromRecording")]
+    assert "/prescription/sign" in sign
+    assistant = DOCTOR_PAGE[DOCTOR_PAGE.index("async function askAssistant"):DOCTOR_PAGE.index("function startAssistant")]
+    assert "signRx" not in assistant and "/sign" not in assistant and "approveNote" not in assistant
+
+
+def test_sign_stays_disabled_while_there_are_unsaved_edits():
+    buttons = DOCTOR_PAGE[DOCTOR_PAGE.index("function refreshRxButtons()"):DOCTOR_PAGE.index("function rxInput(")]
+    assert "sign.disabled = busy || rxDirty" in buttons and "save.disabled = busy || !rxDirty" in buttons
+
+
+def test_a_drafted_medicine_is_shown_as_needing_verification():
+    assert "from recording - please verify" in DOCTOR_PAGE
+    assert "Nothing is sent to the patient until you sign" in DOCTOR_PAGE
+
+
+def test_unsaved_prescription_edits_are_not_thrown_away_by_a_refresh():
+    load = DOCTOR_PAGE[DOCTOR_PAGE.index("async function loadPrescription()"):DOCTOR_PAGE.index("function rowFromItem")]
+    assert "if (!rxDirty) rxRows = null" in load
+
+
+def test_the_assistant_only_talks_to_the_gateway_assistant_route_with_the_open_appointment():
+    assistant = DOCTOR_PAGE[DOCTOR_PAGE.index("async function askAssistant"):DOCTOR_PAGE.index("function startAssistant")]
+    assert 'api("POST", "assistant"' in assistant
+    assert "appointment_id: selectedId" in assistant and "consultation_id: consultation" in assistant
+
+
+def test_the_assistant_and_prescription_text_never_becomes_html():
+    assert "innerHTML" not in DOCTOR_PAGE
+    assistant = DOCTOR_PAGE[DOCTOR_PAGE.index("function addAssistantMessage"):DOCTOR_PAGE.index("function setUpdatesBadge")]
+    assert "el(\"div\", { class: \"asst-msg \" + who }, text)" in assistant
+
+
+def test_signing_out_clears_the_doctors_prescription_and_assistant():
+    logout = DOCTOR_PAGE[DOCTOR_PAGE.index("function logout(message)"):DOCTOR_PAGE.index("function startApp()")]
+    assert "clearInterval(updatesTimer)" in logout and 'getElementById("asstLog").replaceChildren()' in logout
+
+
+def test_your_medicines_asks_only_for_this_patients_own_medicines_and_builds_no_html_from_data():
+    card = PAGE[PAGE.index("function showMedicinesMessage"):PAGE.index("function showAppointmentsMessage")]
+    assert 'CONSENT_API + "patients/" + encodeURIComponent(authId) + "/medications"' in card
+    assert "ACCOUNT_ID.test(authId)" in card
+    assert "innerHTML" not in card and "textContent" in card or "el(" in card
+
+
+def test_marking_a_dose_taken_uses_the_patients_own_id_and_the_dose_route():
+    take = PAGE[PAGE.index("async function takeDose"):PAGE.index("async function dismissMedNotes")]
+    assert '"/doses/" + encodeURIComponent(doseId) + "/taken"' in take and "encodeURIComponent(authId)" in take
+    assert 'method: "POST"' in take
+
+
+def test_only_a_dose_the_server_says_can_be_marked_gets_the_button():
+    card = PAGE[PAGE.index("function renderMedicine"):PAGE.index("async function takeDose")]
+    assert 'dose.status === "scheduled" && dose.can_mark' in card
+
+
+def test_logging_out_hides_the_previous_patients_medicines():
+    logout = PAGE[PAGE.index("function logoutUser()"):]
+    logout = logout[:logout.index("localStorage.removeItem")]
+    assert "clearInterval(medicinesTimer)" in logout and 'showMedicinesMessage("Log in to see your medicines.")' in logout

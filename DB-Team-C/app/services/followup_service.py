@@ -21,7 +21,7 @@ from app.models.ai_appointment import AIAppointment, AppointmentStatus
 from app.models.consultation import Consultation, ConsultationNote
 from app.models.doctor import Doctor
 from app.models.follow_up import FollowUp, FollowUpStatus
-from app.services import reminder_service
+from app.services import agent_service, reminder_service
 from app.services.audit_service import write_audit_log
 from app.services.slot_service import (
     IST,
@@ -345,6 +345,10 @@ def book_follow_up(db: Session, consultation: Consultation, doctor_auth_id: str)
     except Exception:  # noqa: BLE001 - the booking itself is done
         log.exception("Could not queue follow-up reminders")
         db.rollback()
+    agent_service.emit(
+        db, "follow_up_booked", appointment_id=appointment.appointment_id,
+        dedupe_key=f"follow-up:{appointment.appointment_id}",
+    )
     write_audit_log(
         db,
         action="follow_up_booked",

@@ -37,6 +37,7 @@ class DoctorAppointmentResponse(BaseModel):
     consultation_id: Optional[str] = None
     consultation_status: Optional[str] = None
     note_status: Optional[str] = None
+    prescription_status: Optional[str] = None     # draft | signed | superseded | None
 
 
 class PatientAppointmentResponse(BaseModel):

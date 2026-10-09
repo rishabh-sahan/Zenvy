@@ -133,6 +133,46 @@ TEMPLATES = {
         "hi": "क्षमा करें, सिस्टम की समस्या के कारण अपॉइंटमेंट में बदलाव नहीं हो सका। कृपया फिर से कोशिश करें या फ्रंट डेस्क से संपर्क करें।",
         "kn": "ಕ್ಷಮಿಸಿ, ಸಿಸ್ಟಂ ಸಮಸ್ಯೆಯಿಂದಾಗಿ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಫ್ರಂಟ್ ಡೆಸ್ಕ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ.",
     },
+    "MED_NOT_LOGGED_IN": {
+        "en": "Please log in first so I can look up your medicines.",
+        "hi": "कृपया पहले लॉग इन करें ताकि मैं आपकी दवाइयाँ देख सकूँ।",
+        "kn": "ದಯವಿಟ್ಟು ಮೊದಲು ಲಾಗಿನ್ ಮಾಡಿ, ಆಗ ನಾನು ನಿಮ್ಮ ಔಷಧಗಳನ್ನು ನೋಡಬಹುದು.",
+    },
+    "MED_NONE": {
+        "en": "I don't see any medicines prescribed by your doctor right now.",
+        "hi": "अभी आपके डॉक्टर द्वारा लिखी कोई दवा मुझे नहीं दिख रही है।",
+        "kn": "ಈಗ ನಿಮ್ಮ ವೈದ್ಯರು ಬರೆದುಕೊಟ್ಟ ಯಾವುದೇ ಔಷಧ ನನಗೆ ಕಾಣಿಸುತ್ತಿಲ್ಲ.",
+    },
+    "MED_LIST": {
+        "en": "Your medicines: {medicines}. Please follow your doctor's instructions.",
+        "hi": "आपकी दवाइयाँ: {medicines}। कृपया अपने डॉक्टर के निर्देशों का पालन करें।",
+        "kn": "ನಿಮ್ಮ ಔಷಧಗಳು: {medicines}. ದಯವಿಟ್ಟು ನಿಮ್ಮ ವೈದ್ಯರ ಸೂಚನೆಗಳನ್ನು ಪಾಲಿಸಿ.",
+    },
+    "MED_NEXT": {
+        "en": "Your next dose is {medicine}, {dose}, {when}.",
+        "hi": "आपकी अगली खुराक {medicine}, {dose}, {when} है।",
+        "kn": "ನಿಮ್ಮ ಮುಂದಿನ ಡೋಸ್ {medicine}, {dose}, {when}.",
+    },
+    "MED_NEXT_NONE": {
+        "en": "You have no upcoming doses scheduled.",
+        "hi": "आपकी कोई आने वाली खुराक निर्धारित नहीं है।",
+        "kn": "ನಿಮಗೆ ಮುಂದಿನ ಯಾವುದೇ ಡೋಸ್ ನಿಗದಿಯಾಗಿಲ್ಲ.",
+    },
+    "MED_TAKEN": {
+        "en": "Noted. I've marked {medicines} as taken.",
+        "hi": "ठीक है। मैंने {medicines} को ली हुई के रूप में दर्ज कर लिया है।",
+        "kn": "ಸರಿ. ನಾನು {medicines} ತೆಗೆದುಕೊಂಡಿದ್ದೀರಿ ಎಂದು ದಾಖಲಿಸಿದ್ದೇನೆ.",
+    },
+    "MED_TAKEN_NONE": {
+        "en": "I don't see a dose due right now to mark as taken.",
+        "hi": "अभी कोई खुराक नहीं दिख रही जिसे ली हुई दर्ज किया जा सके।",
+        "kn": "ಈಗ ತೆಗೆದುಕೊಂಡಿದ್ದೀರಿ ಎಂದು ದಾಖಲಿಸಲು ಯಾವುದೇ ಡೋಸ್ ಕಾಣಿಸುತ್ತಿಲ್ಲ.",
+    },
+    "MED_FAILED": {
+        "en": "Sorry, I couldn't check your medicines just now. Please try again in a moment.",
+        "hi": "क्षमा करें, मैं अभी आपकी दवाइयाँ नहीं देख सका। कृपया थोड़ी देर बाद फिर कोशिश करें।",
+        "kn": "ಕ್ಷಮಿಸಿ, ನಿಮ್ಮ ಔಷಧಗಳನ್ನು ಈಗ ನೋಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    },
     "CANCELLED": {
         "en": "No problem, I've cancelled that booking request. Let me know if you'd like to start over.",
         "hi": "कोई बात नहीं, मैंने वह बुकिंग रद्द कर दी है। यदि आप फिर से शुरू करना चाहें तो बताइए।",

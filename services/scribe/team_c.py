@@ -40,6 +40,8 @@ class TeamC:
             except ValueError:
                 detail = response.text
             raise TeamCError(response.status_code, str(detail))
+        if response.status_code == 204 or not response.content:
+            return None
         return response.json()
 
     def get_consultation(self, consultation_id: str) -> dict:
@@ -65,3 +67,37 @@ class TeamC:
             "POST", f"/consultations/{consultation_id}/audio",
             data=wav_bytes, headers={"Content-Type": "audio/wav"},
         )
+
+    # -- prescriptions, follow-ups and the doctor agent's inbox -----------------------------------
+
+    def get_prescription(self, consultation_id: str) -> dict:
+        return self._call("GET", f"/consultations/{consultation_id}/prescription")
+
+    def put_prescription(self, consultation_id: str, items: list[dict], source: str) -> dict:
+        return self._call("PUT", f"/consultations/{consultation_id}/prescription", json={"items": items, "source": source})
+
+    def doctor_appointments(self) -> list[dict]:
+        return self._call("GET", "/doctor/appointments")
+
+    def patient_history(self, appointment_id: str) -> list[dict]:
+        return self._call("GET", f"/appointments/{appointment_id}/patient-history")
+
+    def messages(self, unread: bool = True) -> list[dict]:
+        return self._call("GET", "/agent/messages", params={"unread": "true" if unread else "false"})
+
+    def mark_messages_read(self, ids: list[str] | None = None) -> dict:
+        return self._call("POST", "/agent/messages/read", json={"ids": ids})
+
+    def get_follow_up(self, consultation_id: str) -> dict | None:
+        return self._call("GET", f"/consultations/{consultation_id}/follow-up")
+
+    def put_follow_up(self, consultation_id: str, day: str, at: str | None) -> dict:
+        return self._call("PUT", f"/consultations/{consultation_id}/follow-up", json={"date": day, "time": at})
+
+    def record_action(self, tool: str, summary: str | None, appointment_id: str | None = None, result: str = "ok") -> None:
+        """Audit line for the doctor agent. Never raises."""
+        try:
+            self._call("POST", "/agents/actions", json={
+                "agent": "doctor", "tool": tool, "summary": summary, "appointment_id": appointment_id, "result": result})
+        except Exception as exc:  # noqa: BLE001 - auditing must not break the assistant
+            print(f"[DoctorAgent] Could not record the action {tool!r}: {exc}")

@@ -275,3 +275,45 @@ def _detail(response) -> str:
         return str(response.json().get("detail", "refused"))
     except ValueError:
         return "refused"
+
+
+# ---------------------------------------------------------------------------
+# medicines (Your medicines card, chat and voice)
+# ---------------------------------------------------------------------------
+
+def get_my_medications(auth_id: str) -> dict:
+    """
+    The patient's signed medicines, each with its next dose and today's doses, plus unread notes
+    from the coordinator. Raises NotLoggedIn if Team C has no such patient.
+    """
+    response = requests.get(f"{TEAM_C_BASE_URL}/api/v1/patients/{auth_id}/medications", timeout=10)
+    if response.status_code == 404:
+        raise NotLoggedIn(auth_id)
+    response.raise_for_status()
+    return response.json()
+
+
+def mark_my_doses_taken(auth_id: str) -> dict:
+    """"I took my medicine": marks the doses of the latest dose time. Returns {taken, medicines}."""
+    response = requests.post(f"{TEAM_C_BASE_URL}/api/v1/patients/{auth_id}/doses/taken", timeout=10)
+    if response.status_code == 404:
+        raise NotLoggedIn(auth_id)
+    response.raise_for_status()
+    return response.json()
+
+
+def record_agent_action(
+    agent: str, tool: str, summary: str | None = None, auth_id: str | None = None,
+    appointment_id: str | None = None, token: str | None = None, result: str = "ok",
+) -> None:
+    """Write one line to the agents' audit trail. Never raises: auditing must not break a conversation."""
+    try:
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        requests.post(
+            f"{TEAM_C_BASE_URL}/api/v1/agents/actions",
+            json={"agent": agent, "tool": tool, "summary": summary, "auth_id": auth_id,
+                  "appointment_id": appointment_id, "result": result},
+            headers=headers, timeout=5,
+        )
+    except requests.exceptions.RequestException as exc:
+        print(f"[Agents] Could not record the action {tool!r}: {exc}")

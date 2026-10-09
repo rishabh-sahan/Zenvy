@@ -11,7 +11,7 @@ Failure reasons stored on the consultation (shown to the doctor):
 """
 import threading
 
-from services.scribe import audio, summarize, transcribe
+from services.scribe import audio, medication, summarize, transcribe
 from services.scribe.team_c import TeamC, TeamCError
 
 # One run per consultation at a time (a double click must not start two).
@@ -31,6 +31,18 @@ def _safe_status(team_c: TeamC, consultation_id: str, status: str, reason: str |
         team_c.set_status(consultation_id, status, reason)
     except TeamCError as exc:
         print(f"[Scribe] Could not set status {status!r}: {exc}")
+
+
+def _draft_medicines(team_c: TeamC, consultation_id: str, turns: list[dict], note: dict, chat=None) -> None:
+    """A draft prescription from the same transcript. Best effort: the note is already saved, so a
+    problem here only means the doctor fills in the Prescription card by hand."""
+    try:
+        items, dropped = medication.extract_medications(turns, note.get("plan", ""), chat=chat)
+        if items:
+            team_c.put_prescription(consultation_id, items, "transcript")
+            print(f"[Scribe] {consultation_id}: drafted {len(items)} medicine(s)" + (f", left out {dropped}" if dropped else ""))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[Scribe] {consultation_id}: no medicine draft ({exc})")
 
 
 def process_recording(
@@ -87,6 +99,7 @@ def process_recording(
         except summarize.SummaryError as exc:
             raise PipelineFailure(exc.code, str(exc)) from exc
         team_c.add_note(consultation_id, note, "ai")
+        _draft_medicines(team_c, consultation_id, turns, note, chat)
         return "draft_ready"
 
     except PipelineFailure as failure:

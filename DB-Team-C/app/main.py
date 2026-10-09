@@ -9,6 +9,7 @@ from app.api.routes.audit_logs import router as audit_logs_router
 from app.api.routes.authentication import router as authentication_router
 from app.api.routes.doctors import router as doctors_router
 from app.api.routes.consultations import router as consultations_router
+from app.api.routes.prescriptions import router as prescriptions_router
 from app.core.config import settings
 from app.services.scheduler import scheduler
 from app.services.session_store import get_session_store
@@ -35,6 +36,7 @@ app.include_router(audit_logs_router)
 app.include_router(authentication_router)
 app.include_router(doctors_router)
 app.include_router(consultations_router)
+app.include_router(prescriptions_router)
 
 @app.get("/healthz")
 def health_check():

@@ -53,6 +53,7 @@ from services.conversation_client import (
     reschedule_my_appointment,
 )
 from services.orchestrator.entity_extraction import extract_booking_fields, hospital_today
+from services.agents import patient_agent
 from services.orchestrator.intent_rules import detect_change_intent, wants_to_stop
 from services.orchestrator.slot_parsing import parse_date, parse_time
 from services.orchestrator.templates import render_template
@@ -776,6 +777,11 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
     # If there is no active booking and the user isn't trying
     # to book anything, send the question to the normal LLM.
     if existing is None and not extracted["wants_to_book"]:
+        # "What medicines do I take?", "when is my next dose?", "I took my tablet": the patient agent.
+        medicine = patient_agent.detect_medicine_intent(user_text)
+        if medicine:
+            print(f"[Orchestrator] Routing to the patient agent ({medicine})")
+            return patient_agent.handle(_patient_id(session_id), short_lang, medicine)
         print("[Orchestrator] Routing to normal LLM")
         return generate_reply(user_text, short_lang)
 

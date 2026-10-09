@@ -7,7 +7,7 @@ from app.models.ai_appointment import AIAppointment, AppointmentStatus
 from app.models.consultation import Consultation
 from app.models.doctor_slot import DoctorSlot
 from app.schemas.ai_appointment import AIAppointmentCreate
-from app.services import reminder_service
+from app.services import agent_service, reminder_service
 from app.services.slot_service import (
     SlotNotFoundError,
     as_utc,
@@ -147,6 +147,10 @@ def cancel_appointment(
     except Exception:  # noqa: BLE001 - the cancellation itself is already done
         log.exception("Could not queue cancellation notices")
         db.rollback()
+    agent_service.emit(
+        db, "appointment_cancelled", appointment_id=appointment.appointment_id,
+        dedupe_key=f"cancelled:{appointment.appointment_id}",
+    )
     return appointment
 
 
@@ -216,6 +220,11 @@ def reschedule_appointment(
         reminder_service.schedule_for_appointment(db, replacement)
         reminder_service.notify_change(
             db, replacement, "rescheduled", {"old_datetime": as_utc(old_datetime).isoformat()}
+        )
+        agent_service.emit(
+            db, "appointment_rescheduled", appointment_id=replacement.appointment_id,
+            payload={"old_datetime": as_utc(old_datetime).isoformat(), "old_appointment_id": appointment.appointment_id},
+            dedupe_key=f"rescheduled:{replacement.appointment_id}",
         )
     except Exception:  # noqa: BLE001 - the move itself is already done
         log.exception("Could not finish rescheduling follow-ups")

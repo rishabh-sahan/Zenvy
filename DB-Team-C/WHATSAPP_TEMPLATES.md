@@ -20,9 +20,10 @@ skipped without calling Meta (`skipped`, "not a real mobile number").
 | Patient: cancelled | `appointment_cancelled` | **Approved** (already existed) | `doctor_name`, `patient_name`, `appointment_date`, `appointment_time` |
 | Patient: rescheduled | `appointment_rescheduled` | **Approved** (already existed) | `doctor_name`, `patient_name`, `new_date`, `new_time` |
 | Patient: booking confirmation | `zenvy_appointment_confirmation` | **Approved** (unchanged) | `name`, `doctor`, `date`, `time`, `location`, `id` |
-| Patient: 24 h and 2 h reminder | `zenvy_appointment_reminder` | Submitted, pending review | `name`, `doctor_name`, `when`, `date`, `time`, `location` |
-| Patient: follow-up booked | `zenvy_followup_booked` | Submitted, pending review | `name`, `doctor_name`, `date`, `time`, `location` |
-| Doctor: every notice and reminder | `zenvy_doctor_notice` | Submitted, pending review | `event`, `patient`, `date`, `time` |
+| Patient: 24 h and 2 h reminder | `zenvy_appointment_reminder` | **Approved** | `name`, `doctor_name`, `when`, `date`, `time`, `location` |
+| Patient: follow-up booked | `zenvy_followup_booked` | **Approved** | `name`, `doctor_name`, `date`, `time`, `location` |
+| Doctor: every notice and reminder | `zenvy_doctor_notice` | **Approved** | `event`, `patient`, `date`, `time` |
+| Patient: time to take a dose | `zenvy_medication_reminder` | Submitted, pending review | `name`, `medicine`, `dose`, `food` |
 
 `doctor_name` is sent **without** "Dr." because the templates already say "Dr.".
 Template names can be changed with the `META_WHATSAPP_*_TEMPLATE_NAME` settings.
@@ -49,6 +50,12 @@ on the doctor page). Check approval in Meta WhatsApp Manager, or list them with 
 > Zenvy appointment update: {{event}}. Patient: {{patient}}. Date: {{date}}. Time: {{time}}. Please check your Zenvy dashboard for details.
 
 The doctor sees only the **last four digits** of the patient's phone number.
+
+**zenvy_medication_reminder** - one message per scheduled dose (`{{food}}` is "before food", "after food", "with food" or "as advised"):
+
+> Hello {{name}}, it is time to take your medicine: {{medicine}}, {{dose}}, {{food}}. Please follow your doctor's instructions.
+
+The message names the medicine and dose the doctor signed. It never contains a diagnosis.
 
 ## Existing approved templates this project reuses
 

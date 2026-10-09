@@ -4,6 +4,7 @@ note and the pipeline's handling of failures. No network: speech-to-text, the
 language model and Team C are replaced by fakes.
 """
 import io
+import json
 import math
 import shutil
 import struct
@@ -557,3 +558,67 @@ def test_a_failed_regeneration_reports_why(team_c):
         pipeline.regenerate_note("c1", "token", team_c=team_c, chat=chat)
     assert caught.value.code == "summary_failed"
     assert team_c.notes == []
+
+
+# ---------------------------------------------------------------------------
+# the medicine draft that follows the note
+# ---------------------------------------------------------------------------
+
+class PrescribingTeamC(FakeTeamC):
+    def __init__(self):
+        super().__init__()
+        self.prescriptions = []
+
+    def put_prescription(self, cid, items, source):
+        self.prescriptions.append((items, source))
+        return {"status": "draft"}
+
+
+def chat_for_both(medicines):
+    def chat(messages):
+        if "clinical scribe" in messages[0]["content"]:
+            return GOOD
+        return json.dumps({"medicines": medicines})
+    return chat
+
+
+def test_a_medicine_draft_is_saved_after_the_note(team_c=None):
+    team_c = PrescribingTeamC()
+    run(team_c, chat=chat_for_both([{"drug_name": "paracetamol", "frequency_text": "twice a day"}]))
+    (items, source), = team_c.prescriptions
+    assert source == "transcript" and items[0]["drug_name"] == "paracetamol" and items[0]["from_transcript"] is True
+    assert [s for s, _ in team_c.statuses] == ["transcribing", "summarising"]      # status flow unchanged
+
+
+def test_no_medicine_in_the_recording_saves_no_draft():
+    team_c = PrescribingTeamC()
+    assert run(team_c, chat=chat_for_both([])) == "draft_ready"
+    assert team_c.prescriptions == []
+
+
+def test_a_medicine_the_recording_never_mentioned_is_not_drafted():
+    team_c = PrescribingTeamC()
+    run(team_c, chat=chat_for_both([{"drug_name": "Amoxicillin"}]))
+    assert team_c.prescriptions == []
+
+
+def test_a_failing_medicine_step_never_fails_the_consultation():
+    team_c = PrescribingTeamC()
+
+    def chat(messages):
+        if "clinical scribe" in messages[0]["content"]:
+            return GOOD
+        raise summarize.SummaryError("summary_failed", "model down")
+
+    assert run(team_c, chat=chat) == "draft_ready"
+    assert len(team_c.notes) == 1 and team_c.prescriptions == []                 # the note is safe
+
+
+def test_a_team_c_error_while_saving_the_draft_never_fails_the_consultation():
+    class Refusing(PrescribingTeamC):
+        def put_prescription(self, cid, items, source):
+            raise TeamCError(500, "database down")
+
+    team_c = Refusing()
+    assert run(team_c, chat=chat_for_both([{"drug_name": "paracetamol"}])) == "draft_ready"
+    assert len(team_c.notes) == 1

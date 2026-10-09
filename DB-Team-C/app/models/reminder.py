@@ -15,6 +15,7 @@ class ReminderKind(str, enum.Enum):
     follow_up_booked = "follow_up_booked"
     cancelled = "cancelled"
     rescheduled = "rescheduled"
+    medication = "medication"              # time to take one dose (see medication_doses)
 
 
 class ReminderStatus(str, enum.Enum):
@@ -40,6 +41,7 @@ class Reminder(Base):
     recipient_type = Column(String, nullable=False)  # patient | doctor
     recipient_auth_id = Column(String, ForeignKey("authentication.auth_id"), nullable=True)
     kind = Column(String, nullable=False)
+    dose_id = Column(String, nullable=False, default="", server_default="")   # set for kind=medication
     send_at = Column(DateTime(timezone=True), nullable=False)
     status = Column(String, nullable=False, default=ReminderStatus.pending.value)
     attempts = Column(Integer, nullable=False, default=0)
@@ -52,6 +54,6 @@ class Reminder(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint("appointment_id", "recipient_type", "kind", name="uq_reminders_once"),
+        UniqueConstraint("appointment_id", "recipient_type", "kind", "dose_id", name="uq_reminders_once"),
         Index("idx_reminders_due", "status", "send_at"),
     )

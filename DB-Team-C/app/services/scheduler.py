@@ -2,7 +2,8 @@
 
 One small thread inside the Team-C service. Every REMINDER_POLL_SECONDS it:
 
-* sends the reminders that are due (reminder_service.process_due), and
+* sends the reminders that are due (reminder_service.process_due),
+* marks doses nobody took as missed, and runs the coordinator (agent_service.process_events), and
 * about once a day runs the retention purge (consultation_service.purge_expired).
 
 It is safe to run several copies: each reminder is claimed with a single
@@ -15,7 +16,7 @@ from datetime import datetime, timedelta
 
 from app.core.config import settings
 from app.db.database import SessionLocal
-from app.services import consultation_service, reminder_service
+from app.services import agent_service, consultation_service, prescription_service, reminder_service
 from app.services.slot_service import utcnow
 
 log = logging.getLogger("zenvy.scheduler")
@@ -34,13 +35,28 @@ class Scheduler:
     def tick(self, now: datetime | None = None) -> dict:
         """Do one pass of the work. Never raises."""
         now = now or utcnow()
-        result: dict = {"reminders": {}, "purged": None}
+        result: dict = {"reminders": {}, "purged": None, "agents": {}, "missed": 0}
         db = self._session_factory()
         try:
             try:
                 result["reminders"] = reminder_service.process_due(db, now)
             except Exception:  # noqa: BLE001
                 log.exception("Sending reminders failed")
+                db.rollback()
+
+            try:
+                missed = prescription_service.sweep_missed(db, now)
+                result["missed"] = sum(missed.values())
+                if missed:
+                    agent_service.check_adherence(db, missed, now)
+            except Exception:  # noqa: BLE001
+                log.exception("Missed-dose sweep failed")
+                db.rollback()
+
+            try:
+                result["agents"] = agent_service.process_all(db, now)
+            except Exception:  # noqa: BLE001
+                log.exception("Coordinator failed")
                 db.rollback()
 
             due_for_purge = (

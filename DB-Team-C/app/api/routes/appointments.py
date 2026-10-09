@@ -13,7 +13,7 @@ from app.schemas.ai_appointment import (
     AppointmentCancelRequest,
     AppointmentRescheduleRequest,
 )
-from app.services import reminder_service
+from app.services import agent_service, reminder_service
 from app.services.appointment_service import (
     CannotChange,
     cancel_appointment,
@@ -81,6 +81,10 @@ def create_appointment_endpoint(payload: AIAppointmentCreate, db: Session = Depe
         reminder_service.schedule_for_appointment(db, appointment)
     except Exception:  # noqa: BLE001 - never fail a booking because reminders could not be queued
         db.rollback()
+    agent_service.emit(
+        db, "appointment_booked", appointment_id=appointment.appointment_id,
+        dedupe_key=f"booked:{appointment.appointment_id}",
+    )
     if authentication is not None:
         try:
             send_appointment_notification(

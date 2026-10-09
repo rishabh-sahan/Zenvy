@@ -96,6 +96,13 @@ def test_the_doctor_page_is_served():
     ("DELETE", "consultations/c1/follow-up"),
     ("POST", "consultations/c1/follow-up/book"),
     ("GET", "appointments/a1/history"),
+    ("GET", "consultations/c1/prescription"),
+    ("PUT", "consultations/c1/prescription"),
+    ("POST", "consultations/c1/prescription/sign"),
+    ("POST", "consultations/c1/prescription/carry-forward"),
+    ("GET", "agent/messages"),
+    ("POST", "agent/messages/read"),
+    ("GET", "appointments/a1/patient-history"),
 ])
 def test_the_listed_routes_pass_through(upstream, method, path):
     response = client.request(method, f"/doctor/api/{path}", headers=AUTH, json={"x": 1} if method != "GET" and method != "DELETE" else None)
@@ -122,6 +129,14 @@ def test_the_listed_routes_pass_through(upstream, method, path):
     ("POST", "consultations/c1/follow-up"),     # only PUT / DELETE / GET and /book
     ("PATCH", "consultations/c1/follow-up"),
     ("POST", "appointments/a1/history"),
+    ("DELETE", "consultations/c1/prescription"),     # a signed prescription is never deleted
+    ("PATCH", "consultations/c1/prescription"),
+    ("GET", "consultations/c1/prescription/sign"),
+    ("POST", "agents/actions"),                      # the audit trail is written by the gateway, not the page
+    ("DELETE", "agent/messages"),
+    ("GET", "patients/p1/medications"),              # the patient's view, not the doctor page's
+    ("POST", "patients/p1/doses/taken"),
+    ("POST", "patients/p1/doses/d1/taken"),
 ])
 def test_everything_else_is_blocked(upstream, method, path):
     response = client.request(method, f"/doctor/api/{path}", headers=AUTH)
@@ -164,6 +179,10 @@ def test_team_c_being_down_is_a_clear_502(upstream):
     ("GET", "doctors/d-1/slots"),
     ("POST", "appointments/a-1/reschedule"),
     ("POST", "appointments/a-1/cancel"),
+    ("GET", "patients/p-1/medications"),
+    ("POST", "patients/p-1/doses/taken"),
+    ("POST", "patients/p-1/doses/d-1/taken"),
+    ("POST", "patients/p-1/messages/read"),
 ])
 def test_the_patient_can_reach_only_the_consent_routes(upstream, method, path):
     response = client.request(method, f"/channels/web/consultation/{path}", json={"consent_given": True} if method == "POST" else None)
@@ -181,6 +200,12 @@ def test_the_patient_can_reach_only_the_consent_routes(upstream, method, path):
     ("POST", "appointments"),
     ("GET", "doctors"),                  # the doctor list is not needed here
     ("DELETE", "appointments/a1/cancel"),
+    ("GET", "consultations/c1/prescription"),        # a patient never reads or signs a prescription here
+    ("POST", "consultations/c1/prescription/sign"),
+    ("GET", "agent/messages"),                       # the doctor's inbox
+    ("GET", "appointments/a1/patient-history"),
+    ("POST", "agents/actions"),
+    ("DELETE", "patients/p1/medications"),
 ])
 def test_the_patient_cannot_reach_clinical_routes(upstream, method, path):
     # 404 (not an allowed route) or 405 (not even an allowed method): either way, refused

@@ -44,6 +44,7 @@ from app.schemas.consultation import (
 )
 from app.services import consultation_service as svc
 from app.services import followup_service
+from app.services import prescription_service
 from app.services.appointment_service import change_blocker
 from app.services.crypto_service import EncryptionNotConfigured
 from app.services.slot_service import IST, as_ist, as_utc, utcnow
@@ -203,6 +204,7 @@ def doctor_appointments(db: Session = Depends(get_db), doctor: Doctor = Depends(
         consent = svc.current_consent(db, appointment.appointment_id)
         consultation = svc.get_consultation_for_appointment(db, appointment.appointment_id)
         last_note = svc.latest_note(consultation) if consultation else None
+        prescription = prescription_service.latest(db, consultation.consultation_id) if consultation else None
         result.append(
             DoctorAppointmentResponse(
                 appointment_id=appointment.appointment_id,
@@ -215,6 +217,7 @@ def doctor_appointments(db: Session = Depends(get_db), doctor: Doctor = Depends(
                 consultation_id=consultation.consultation_id if consultation else None,
                 consultation_status=consultation.status if consultation else None,
                 note_status=last_note.status if last_note else None,
+                prescription_status=prescription.status if prescription else None,
             )
         )
     return result
@@ -514,7 +517,10 @@ def appointment_history(appointment_id: str, db: Session = Depends(get_db), doct
     replaced_by = db.query(AIAppointment).filter(AIAppointment.rescheduled_from_id == appointment_id).first()
     follow_up_row = db.query(FollowUp).filter(FollowUp.appointment_id == appointment_id).first()
     reminders = (
-        db.query(Reminder).filter(Reminder.appointment_id == appointment_id).order_by(Reminder.send_at).all()
+        db.query(Reminder)
+        .filter(Reminder.appointment_id == appointment_id, Reminder.kind != "medication")
+        .order_by(Reminder.send_at)
+        .all()
     )
 
     events: list[HistoryEvent] = [

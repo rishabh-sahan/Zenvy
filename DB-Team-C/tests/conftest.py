@@ -70,3 +70,5 @@ def never_contact_whatsapp_for_real(monkeypatch):
                  "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "WABA_AUTH_TOKEN"):
         monkeypatch.setattr(settings, name, None, raising=False)
     monkeypatch.setattr(whatsapp_service.httpx, "post", refuse)
+    # DB-Team-C/.env may say REMINDER_MODE=live; tests must never depend on it (tests that need live set it themselves).
+    monkeypatch.setattr(settings, "REMINDER_MODE", "mock")

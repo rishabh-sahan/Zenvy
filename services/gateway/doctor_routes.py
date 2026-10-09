@@ -16,7 +16,10 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from services.scribe import audio, pipeline
+from pydantic import BaseModel
+
+from services.agents import doctor_agent
+from services.scribe import audio, medication, pipeline
 from services.scribe.team_c import TEAM_C_BASE_URL, TeamC, TeamCError
 
 router = APIRouter()
@@ -40,6 +43,13 @@ PROXY_RULES = [
     ({"GET", "PUT", "DELETE"}, rf"consultations/{ID}/follow-up"),
     ({"POST"}, rf"consultations/{ID}/follow-up/book"),
     ({"GET"}, rf"appointments/{ID}/history"),
+    # prescriptions and the doctor agent's inbox
+    ({"GET", "PUT"}, rf"consultations/{ID}/prescription"),
+    ({"POST"}, rf"consultations/{ID}/prescription/sign"),
+    ({"POST"}, rf"consultations/{ID}/prescription/carry-forward"),
+    ({"GET"}, rf"agent/messages"),
+    ({"POST"}, rf"agent/messages/read"),
+    ({"GET"}, rf"appointments/{ID}/patient-history"),
 ]
 PATIENT_RULES = [
     ({"GET"}, rf"consent-message"),
@@ -49,6 +59,11 @@ PATIENT_RULES = [
     ({"GET"}, rf"doctors/{ID}/slots"),
     ({"POST"}, rf"appointments/{ID}/reschedule"),
     ({"POST"}, rf"appointments/{ID}/cancel"),
+    # "Your medicines": the signed medicines, mark a dose taken, clear the coordinator's notes
+    ({"GET"}, rf"patients/{ID}/medications"),
+    ({"POST"}, rf"patients/{ID}/doses/taken"),
+    ({"POST"}, rf"patients/{ID}/doses/{ID}/taken"),
+    ({"POST"}, rf"patients/{ID}/messages/read"),
 ]
 
 
@@ -156,6 +171,55 @@ async def regenerate(consultation_id: str, request: Request):
     except pipeline.PipelineFailure as failure:
         status = 409 if failure.code == "no_transcript" else 502
         return JSONResponse(status_code=status, content={"detail": failure.code})
+
+
+@router.post("/doctor/api/consultations/{consultation_id}/prescription/draft")
+async def draft_prescription(consultation_id: str, request: Request):
+    """A DRAFT medicine list read from the transcript, for the doctor to check and sign."""
+    token = _bearer(request)
+    team_c = TeamC(token)
+
+    def work():
+        detail = team_c.get_consultation(consultation_id)
+        notes = detail.get("notes") or []
+        items, dropped = medication.extract_medications(detail.get("turns") or [], notes[-1].get("plan", "") if notes else "")
+        if not items:
+            return None, dropped
+        return team_c.put_prescription(consultation_id, items, "transcript"), dropped
+
+    try:
+        saved, dropped = await run_in_threadpool(work)
+    except TeamCError as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    except medication.MedicationError as exc:
+        status = 409 if exc.code == "no_transcript" else 502
+        return JSONResponse(status_code=status, content={"detail": exc.code})
+    if saved is None:
+        return JSONResponse(status_code=422, content={"detail": "no_medicines_found", "dropped": dropped})
+    return {**saved, "dropped": dropped}
+
+
+class AssistantIn(BaseModel):
+    message: str
+    appointment_id: str | None = None
+    consultation_id: str | None = None
+
+
+@router.post("/doctor/api/assistant")
+async def assistant(payload: AssistantIn, request: Request):
+    """The doctor agent: look-ups and drafts for this doctor. It never signs or approves anything."""
+    token = _bearer(request)
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=422, detail="Please type a question.")
+    if len(message) > 500:
+        raise HTTPException(status_code=422, detail="Please keep it under 500 characters.")
+    try:
+        return await run_in_threadpool(
+            doctor_agent.handle, message, token, payload.appointment_id, payload.consultation_id
+        )
+    except TeamCError as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @router.api_route("/doctor/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

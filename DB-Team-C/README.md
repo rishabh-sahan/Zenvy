@@ -67,6 +67,32 @@ Delete expired recordings with `python -m app.db.purge_recordings`. See
   afterwards. Only time-based phrases are recognised, in English.
 - Migration `011_followups_reminders.sql` adds the tables and columns.
 
+### Agents and medication
+
+Three agents work together; language models understand and draft, plain code does the work.
+
+* **Patient agent** (gateway, `services/agents/patient_agent.py`): answers "what medicines do I take?", "when is my next dose?"
+  and "I took my medicine" by chat or voice. It only repeats what the doctor signed.
+* **Doctor agent** (gateway, `services/agents/doctor_agent.py`, `POST /doctor/api/assistant`): the Assistant panel on the
+  doctor page. Schedule, what waits for approval, updates, a summary of this doctor's own earlier visits with the patient,
+  a draft prescription, a draft follow-up date. It never approves or signs.
+* **Coordinator** (Team C, `app/services/agent_service.py`): booking, cancel, reschedule, follow-up and signed-prescription
+  events are queued in `agent_events` (each claimed once, retried, deduplicated) and turned into messages for the doctor
+  and the patient (`agent_messages`). Everything the agents do is in `agent_actions`. It runs inside the existing scheduler.
+
+Medication flow: the scribe drafts a medicine list from the transcript (a medicine whose name is not in the transcript or the
+plan is thrown away) -> the doctor edits it in the **Prescription** card and signs -> the coordinator schedules a dose and a
+reminder for every dose time (08:00 / 14:00 / 21:00 style, editable) -> the patient sees **Your medicines** and taps "I took
+it" -> doses nobody marked within `MISSED_AFTER_HOURS` become "missed", and two missed doses in a day alert the doctor once.
+A change is a new signed version; the old version's remaining doses are cancelled.
+
+- `GET/PUT /consultations/{id}/prescription`, `POST .../prescription/sign`, `POST .../prescription/carry-forward` (the doctor)
+- `GET /patients/{auth_id}/medications`, `POST /patients/{auth_id}/doses/taken`, `POST .../doses/{dose_id}/taken`, `POST .../messages/read`
+- `GET /agent/messages`, `POST /agent/messages/read`, `GET /appointments/{id}/patient-history`, `POST /agents/actions`
+- Migrations `012_agents.sql` and `013_prescriptions.sql`. Settings: `MISSED_AFTER_HOURS` (3), `MEDICATION_DEFAULT_DAYS` (7),
+  `META_WHATSAPP_MEDICATION_TEMPLATE_NAME`.
+- Limits: no allergy or drug-interaction checking (the doctor is responsible); no medicine advice from any agent.
+
 ### Doctors, slots and double-booking
 
 Every bookable time is a row in `doctor_slots` (generated on demand from each
