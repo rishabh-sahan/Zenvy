@@ -1,0 +1,240 @@
+"""
+Guards for the web dashboard (services/gateway/static/index.html).
+
+The dashboard and the gateway talk through details that are easy to break
+without noticing, and both have broken before:
+
+* A spoken reply is audio, so the gateway returns the conversation session in
+  the X-Session-Id header. If the page does not keep it, every turn starts a
+  new conversation and booking asks the same questions forever.
+* /channels/web/login reads the phone number as a FORM field. Sending JSON gets
+  a 400, and the page then silently fell back to "demo mode".
+"""
+from pathlib import Path
+
+PAGE = (Path(__file__).resolve().parent.parent / "services" / "gateway" / "static" / "index.html").read_text(
+    encoding="utf-8"
+)
+
+
+def test_voice_replies_keep_the_session_from_the_header():
+    assert 'headers.get("X-Session-Id")' in PAGE
+    # ...and store it for the next turn.
+    audio_branch = PAGE[PAGE.index('contentType.includes("audio")'):]
+    assert 'localStorage.setItem' in audio_branch[: audio_branch.index("const audioBlob")]
+
+
+def test_voice_replies_show_the_transcript_and_reply_text():
+    assert '"X-Transcript"' in PAGE and '"X-Reply-Text"' in PAGE
+
+
+def test_login_sends_the_phone_number_as_a_form_field():
+    login = PAGE[PAGE.index("async function loginUser()"):PAGE.index("function showDashboard()")]
+    assert 'append("phone_no", phone)' in login
+    assert "JSON.stringify" not in login
+
+
+def test_a_rejected_phone_number_is_reported_not_swallowed_by_demo_mode():
+    login = PAGE[PAGE.index("async function loginUser()"):PAGE.index("function showDashboard()")]
+    assert "error.rejected" in login
+
+
+def test_a_fresh_login_starts_a_fresh_conversation():
+    login = PAGE[PAGE.index("async function loginUser()"):PAGE.index("function showDashboard()")]
+    assert 'removeItem("zenvy_session_id")' in login
+
+
+def test_there_is_a_logout_button_shown_only_while_logged_in():
+    assert 'onclick="logoutUser()"' in PAGE
+    # Hidden until showDashboard() reveals it.
+    assert 'id="userChip" class="user-chip hidden"' in PAGE
+    show = PAGE[PAGE.index("function showDashboard()"):PAGE.index("function showDashboard()") + 700]
+    assert 'getElementById("userChip").classList.remove("hidden")' in show
+
+
+def test_logout_forgets_the_patient_and_the_conversation():
+    logout = PAGE[PAGE.index("function logoutUser()"):PAGE.index("function initMap()")]
+    for key in ("zenvy_session_id", "zenvy_auth_id", "zenvy_phone"):
+        assert f'localStorage.removeItem("{key}")' in logout
+    assert "sessionId = null" in logout and "authId = null" in logout and "phoneNumber = null" in logout
+    assert '"loginPage").classList.remove("hidden")' in logout
+    assert '"dashboard").classList.add("hidden")' in logout
+
+
+def test_logging_out_while_recording_does_not_upload_the_audio():
+    logout = PAGE[PAGE.index("function logoutUser()"):PAGE.index("function initMap()")]
+    assert "discardRecording = true" in logout
+    stop_handler = PAGE[PAGE.index("mediaRecorder.onstop"):PAGE.index("await sendVoice(blob)")]
+    assert "if (discardRecording)" in stop_handler
+
+
+# ---------------------------------------------------------------------------
+# doctor page
+# ---------------------------------------------------------------------------
+
+DOCTOR_PAGE = (Path(__file__).resolve().parent.parent / "services" / "gateway" / "static" / "doctor.html").read_text(
+    encoding="utf-8"
+)
+
+
+def test_the_doctor_page_never_writes_patient_text_as_html():
+    # Transcripts and notes come from speech and a language model: they must be
+    # shown as text, never parsed as HTML.
+    assert ".innerHTML" not in DOCTOR_PAGE
+    assert "insertAdjacentHTML" not in DOCTOR_PAGE
+    assert "document.write" not in DOCTOR_PAGE
+
+
+def test_the_doctor_token_lives_only_as_long_as_the_tab():
+    assert "sessionStorage.setItem(KEY, token)" in DOCTOR_PAGE
+    assert "localStorage" not in DOCTOR_PAGE
+
+
+def test_the_doctor_page_only_talks_to_the_gateway_doctor_api():
+    assert 'fetch("/doctor/api/" + path' in DOCTOR_PAGE
+    assert "http://" not in DOCTOR_PAGE.replace("http://www.w3.org", "")
+
+
+def test_the_doctor_page_does_not_offer_to_overrule_a_patients_refusal():
+    # The server refuses it too; the page must not even show the button.
+    assert 'a.consent_recorded_by === "patient"' in DOCTOR_PAGE
+    declined = DOCTOR_PAGE[DOCTOR_PAGE.index('if (a.consent_state === "declined") {'):]
+    assert "byPatient ? null" in declined[:600]
+
+
+def test_the_patient_dashboard_shows_recording_consent_without_building_html_from_data():
+    card = PAGE[PAGE.index("function renderMyAppointment"):PAGE.index("async function setRecordingConsent")]
+    assert "innerHTML" not in card and "textContent" in card
+
+
+def test_chat_messages_are_sent_as_the_form_fields_the_gateway_reads():
+    # /channels/web/ask reads Form(text, language, session_id, auth_id). Sending
+    # JSON with a "message" field made the gateway answer 422, and the page then
+    # showed a canned reply for every message.
+    chat = PAGE[PAGE.index("async function sendChat()"):PAGE.index("function addBotMessage")]
+    assert 'chatForm.append("text", message)' in chat
+    assert 'chatForm.append("language", "en")' in chat
+    assert 'chatForm.append("session_id", sessionId)' in chat and 'chatForm.append("auth_id", authId)' in chat
+    assert "JSON.stringify" not in chat
+
+
+def test_a_server_error_is_not_hidden_behind_a_canned_demo_reply():
+    chat = PAGE[PAGE.index("async function sendChat()"):PAGE.index("function addBotMessage")]
+    assert "failure.http = response.status" in chat
+    assert "if (error.http)" in chat and "couldn't answer that just now" in chat
+
+
+# ---- Stage 3: reschedule / cancel buttons, follow-up card, history ----------------------
+
+def test_the_appointment_card_changes_appointments_only_through_the_gateway_routes_and_with_the_patients_id():
+    change = PAGE[PAGE.index("async function changeAppointment"):PAGE.index("function changeFailureText")]
+    assert 'CONSENT_API + "appointments/" + encodeURIComponent(appointmentId) + "/" + action' in change
+    assert "auth_id: authId" in change
+    # only these two actions exist
+    assert '"cancel"' in PAGE and '"reschedule"' in PAGE
+
+
+def test_cancel_and_reschedule_always_ask_before_acting():
+    assert "Yes, cancel it" in PAGE and "Keep it" in PAGE
+    assert "Yes, move it" in PAGE and "Pick another time" in PAGE
+
+
+def test_the_buttons_are_only_shown_when_the_server_says_the_appointment_can_change():
+    card = PAGE[PAGE.index("function renderMyAppointment"):PAGE.index("function closePanel")]
+    assert "if (item.can_change)" in card and "item.change_blocker" in card
+
+
+def test_a_slot_taken_in_the_meantime_sends_the_patient_back_to_pick_again():
+    assert 'result.detail === "slot_unavailable"' in PAGE
+
+
+def test_the_doctor_page_follow_up_calls_go_through_the_doctor_api_and_build_no_html_from_data():
+    for path in ('"/follow-up"', '"/follow-up/book"', '"/history"'):
+        assert path in DOCTOR_PAGE
+    follow_up = DOCTOR_PAGE[DOCTOR_PAGE.index("function followUpCard"):DOCTOR_PAGE.index("function showVersion")]
+    assert "innerHTML" not in follow_up
+
+
+def test_book_it_now_is_only_offered_after_the_note_is_approved():
+    assert "&& noteApproved" in DOCTOR_PAGE[DOCTOR_PAGE.index("function followUpCard"):]
+
+
+def test_the_page_never_invents_an_account_id_from_the_phone_number():
+    """Found live: with the database down, login fell into a 'demo mode' that saved the
+    phone number as the account id, so bookings and 'Your appointments' never matched."""
+    login = PAGE[PAGE.index("async function loginUser()"):PAGE.index("function showDashboard()")]
+    assert "data.auth_id;" in login and "|| phone" not in login and "authId = phone" not in login
+    assert "Demo mode" not in login
+
+
+def test_a_stored_identity_that_is_not_a_real_account_is_repaired_by_logging_in_again():
+    load = PAGE[PAGE.index("async function loadMyAppointments"):PAGE.index("async function loadMyAppointments") + 1500]
+    assert "ACCOUNT_ID.test(authId)" in load and "repairAccount()" in load
+    assert "response.status === 404" in load
+
+
+# ---- Stage 4/5: prescriptions, the doctor Assistant, "Your medicines" -----------------------
+
+def test_the_doctor_page_signs_a_prescription_only_when_the_doctor_presses_sign():
+    """Nothing in the page (including the Assistant) may sign: only the Sign button's handler does."""
+    assert DOCTOR_PAGE.count("/prescription/sign") == 1
+    sign = DOCTOR_PAGE[DOCTOR_PAGE.index("async function signRx()"):DOCTOR_PAGE.index("async function draftRxFromRecording")]
+    assert "/prescription/sign" in sign
+    assistant = DOCTOR_PAGE[DOCTOR_PAGE.index("async function askAssistant"):DOCTOR_PAGE.index("function startAssistant")]
+    assert "signRx" not in assistant and "/sign" not in assistant and "approveNote" not in assistant
+
+
+def test_sign_stays_disabled_while_there_are_unsaved_edits():
+    buttons = DOCTOR_PAGE[DOCTOR_PAGE.index("function refreshRxButtons()"):DOCTOR_PAGE.index("function rxInput(")]
+    assert "sign.disabled = busy || rxDirty" in buttons and "save.disabled = busy || !rxDirty" in buttons
+
+
+def test_a_drafted_medicine_is_shown_as_needing_verification():
+    assert "from recording - please verify" in DOCTOR_PAGE
+    assert "Nothing is sent to the patient until you sign" in DOCTOR_PAGE
+
+
+def test_unsaved_prescription_edits_are_not_thrown_away_by_a_refresh():
+    load = DOCTOR_PAGE[DOCTOR_PAGE.index("async function loadPrescription()"):DOCTOR_PAGE.index("function rowFromItem")]
+    assert "if (!rxDirty) rxRows = null" in load
+
+
+def test_the_assistant_only_talks_to_the_gateway_assistant_route_with_the_open_appointment():
+    assistant = DOCTOR_PAGE[DOCTOR_PAGE.index("async function askAssistant"):DOCTOR_PAGE.index("function startAssistant")]
+    assert 'api("POST", "assistant"' in assistant
+    assert "appointment_id: selectedId" in assistant and "consultation_id: consultation" in assistant
+
+
+def test_the_assistant_and_prescription_text_never_becomes_html():
+    assert "innerHTML" not in DOCTOR_PAGE
+    assistant = DOCTOR_PAGE[DOCTOR_PAGE.index("function addAssistantMessage"):DOCTOR_PAGE.index("function setUpdatesBadge")]
+    assert "el(\"div\", { class: \"asst-msg \" + who }, text)" in assistant
+
+
+def test_signing_out_clears_the_doctors_prescription_and_assistant():
+    logout = DOCTOR_PAGE[DOCTOR_PAGE.index("function logout(message)"):DOCTOR_PAGE.index("function startApp()")]
+    assert "clearInterval(updatesTimer)" in logout and 'getElementById("asstLog").replaceChildren()' in logout
+
+
+def test_your_medicines_asks_only_for_this_patients_own_medicines_and_builds_no_html_from_data():
+    card = PAGE[PAGE.index("function showMedicinesMessage"):PAGE.index("function showAppointmentsMessage")]
+    assert 'CONSENT_API + "patients/" + encodeURIComponent(authId) + "/medications"' in card
+    assert "ACCOUNT_ID.test(authId)" in card
+    assert "innerHTML" not in card and "textContent" in card or "el(" in card
+
+
+def test_marking_a_dose_taken_uses_the_patients_own_id_and_the_dose_route():
+    take = PAGE[PAGE.index("async function takeDose"):PAGE.index("async function dismissMedNotes")]
+    assert '"/doses/" + encodeURIComponent(doseId) + "/taken"' in take and "encodeURIComponent(authId)" in take
+    assert 'method: "POST"' in take
+
+
+def test_only_a_dose_the_server_says_can_be_marked_gets_the_button():
+    card = PAGE[PAGE.index("function renderMedicine"):PAGE.index("async function takeDose")]
+    assert 'dose.status === "scheduled" && dose.can_mark' in card
+
+
+def test_logging_out_hides_the_previous_patients_medicines():
+    logout = PAGE[PAGE.index("function logoutUser()"):]
+    logout = logout[:logout.index("localStorage.removeItem")]
+    assert "clearInterval(medicinesTimer)" in logout and 'showMedicinesMessage("Log in to see your medicines.")' in logout

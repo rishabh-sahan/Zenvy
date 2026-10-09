@@ -136,6 +136,153 @@ button {
   box-shadow: 0 0 14px var(--green);
 }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+}
+
+.user-phone {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .3px;
+}
+
+.logout-btn {
+  border: 1px solid rgba(255,255,255,.14);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.logout-btn:hover {
+  background: rgba(239,68,68,.18);
+  border-color: rgba(239,68,68,.5);
+}
+
+@media (max-width: 640px) {
+  .topbar { padding: 0 14px; }
+  .topbar-right { gap: 10px; }
+  .user-phone, .brand-text span { display: none; }
+}
+
+.my-appts-card { padding: 24px; }
+
+.appt-refresh {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.my-appts { display: grid; gap: 10px; }
+
+.my-appts-empty { color: var(--muted); font-size: 13px; padding: 6px 2px; }
+
+.my-appt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,.03);
+}
+
+.my-appt .who { font-weight: 700; }
+.my-appt .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+.consent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.consent-state { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); }
+.consent-state.granted { background: rgba(52,211,153,.16); color: #9be9c7; }
+.consent-state.declined { background: rgba(248,113,113,.16); color: #fecaca; }
+
+.consent-btn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.consent-btn.allow:hover { background: rgba(52,211,153,.2); border-color: rgba(52,211,153,.5); }
+.consent-btn.deny:hover { background: rgba(248,113,113,.2); border-color: rgba(248,113,113,.5); }
+
+.med-prescription { border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px 16px; background: rgba(255,255,255,.03); }
+.med-prescription h4 { margin: 0 0 4px; font-size: 14px; }
+.med-prescription .from { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+.med-item { padding: 10px 0; border-top: 1px solid rgba(255,255,255,.08); }
+.med-item:first-of-type { border-top: 0; }
+.med-item .name { font-weight: 700; }
+.med-item .how, .med-item .next { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.med-item .next b { color: #c4b5fd; font-weight: 600; }
+.dose-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.dose-pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--muted); }
+.dose-pill.taken { background: rgba(52,211,153,.18); color: #9be9c7; }
+.dose-pill.missed { background: rgba(248,113,113,.16); color: #fecaca; }
+.dose-take { border: 1px solid rgba(52,211,153,.5); background: rgba(52,211,153,.16); color: #b7f5db;
+  padding: 5px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; }
+.dose-take:disabled { opacity: .5; cursor: not-allowed; }
+.med-note { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 9px 12px; border-radius: 12px;
+  background: rgba(139,92,246,.16); font-size: 13px; }
+.med-note button { border: 0; background: transparent; color: #c4b5fd; cursor: pointer; font-size: 12px; }
+.appt-panel {
+  flex-basis: 100%;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 1px dashed rgba(255,255,255,.14);
+  border-radius: 14px;
+  background: rgba(255,255,255,.02);
+  font-size: 13px;
+}
+.appt-panel .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.appt-panel input[type=date] {
+  padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border);
+  background: rgba(255,255,255,.05); color: #fff; color-scheme: dark;
+}
+.slot-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.slot-btn {
+  border: 1px solid var(--border); background: rgba(255,255,255,.06); color: #fff;
+  padding: 7px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+}
+.slot-btn:hover { background: rgba(139,92,246,.25); border-color: rgba(139,92,246,.6); }
+.appt-tag {
+  margin-left: 8px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: rgba(34,211,238,.18); color: #a5f0fb;
+}
+.change-btn { border: 1px solid var(--border); background: rgba(255,255,255,.06); color: #fff;
+  padding: 7px 14px; border-radius: 999px; font-size: 12px; cursor: pointer; }
+.change-btn:hover:not(:disabled) { background: rgba(139,92,246,.22); border-color: rgba(139,92,246,.6); }
+.change-btn.danger:hover:not(:disabled) { background: rgba(248,113,113,.2); border-color: rgba(248,113,113,.5); }
+.change-btn:disabled { opacity: .5; cursor: not-allowed; }
+.cant-change { color: var(--muted); font-size: 12px; }
+
+.consent-info { margin-top: 14px; color: var(--muted); font-size: 12px; }
+.consent-info summary { cursor: pointer; }
+.consent-info p { line-height: 1.5; margin: 8px 0 0; }
+
 /* =========================
    LOGIN
 ========================= */
@@ -861,9 +1008,26 @@ button {
     </div>
   </div>
 
-  <div class="status">
-    <span class="status-dot"></span>
-    <span id="systemStatus">System Ready</span>
+  <div class="topbar-right">
+
+    <div class="status">
+      <span class="status-dot"></span>
+      <span id="systemStatus">System Ready</span>
+    </div>
+
+    <!-- Shown only while logged in -->
+    <div id="userChip" class="user-chip hidden">
+      <span id="userPhone" class="user-phone"></span>
+      <button
+        id="logoutBtn"
+        type="button"
+        class="logout-btn"
+        onclick="logoutUser()"
+      >
+        Log out
+      </button>
+    </div>
+
   </div>
 </header>
 
@@ -1027,6 +1191,77 @@ button {
         controls
       ></audio>
 
+    </div>
+
+  </section>
+
+  <!-- MY APPOINTMENTS + RECORDING CONSENT -->
+  <section class="card my-appts-card">
+
+    <div class="card-title">
+
+      <div class="card-title-left">
+
+        <div class="icon-box">📅</div>
+
+        <div>
+          <h3>Your appointments</h3>
+          <p>Choose whether your doctor may record the consultation</p>
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        class="appt-refresh"
+        onclick="loadMyAppointments()"
+      >
+        Refresh
+      </button>
+
+    </div>
+
+    <div id="myAppointments" class="my-appts">
+      <div class="my-appts-empty">Loading…</div>
+    </div>
+
+    <details class="consent-info">
+      <summary>What does recording mean?</summary>
+      <p id="consentMessage">…</p>
+    </details>
+
+  </section>
+
+  <!-- MY MEDICINES -->
+  <section class="card my-appts-card" id="medicinesCard">
+
+    <div class="card-title">
+
+      <div class="card-title-left">
+
+        <div class="icon-box">💊</div>
+
+        <div>
+          <h3>Your medicines</h3>
+          <p>The medicines your doctor prescribed, and when to take them</p>
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        class="appt-refresh"
+        onclick="loadMyMedicines()"
+      >
+        Refresh
+      </button>
+
+    </div>
+
+    <div id="medNotes" class="my-appts"></div>
+
+    <div id="myMedicines" class="my-appts">
+      <div class="my-appts-empty">Loading…</div>
     </div>
 
   </section>
@@ -1285,6 +1520,8 @@ let audioChunks = [];
 
 let isRecording = false;
 
+let discardRecording = false;
+
 let sessionId =
   localStorage.getItem("zenvy_session_id") || null;
 
@@ -1293,6 +1530,8 @@ let authId =
 
 let phoneNumber =
   localStorage.getItem("zenvy_phone") || null;
+
+let medicinesTimer = null;   // refreshes "Your medicines" every minute
 
 
 /* =========================================================
@@ -1579,37 +1818,47 @@ async function loginUser() {
 
   try {
 
+    /*
+      The gateway reads the phone number as a FORM field. (This used to be
+      sent as JSON, which the gateway rejected with 400, so every login
+      silently fell into demo mode and the patient was never registered.)
+    */
+    const loginForm = new FormData();
+    loginForm.append("phone_no", phone);
+
     const response =
       await fetch("/channels/web/login", {
-
         method: "POST",
-
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-          phone_no: phone
-        })
-
+        body: loginForm
       });
 
     if (!response.ok) {
 
-      throw new Error(
-        "Login service unavailable"
-      );
+      let message = "Login service unavailable";
+
+      try {
+        const error = await response.json();
+        if (typeof error.detail === "string") {
+          message = error.detail;
+        } else if (Array.isArray(error.detail)) {
+          message = "Please enter a valid phone number.";
+        }
+      } catch (ignored) {}
+
+      const loginError = new Error(message);
+      // 4xx = the number itself was rejected: tell the patient instead of
+      // pretending to log in.
+      loginError.rejected = response.status >= 400 && response.status < 500;
+      throw loginError;
 
     }
 
     const data =
       await response.json();
 
-    authId =
-      data.auth_id ||
-      data.user_id ||
-      data.id ||
-      phone;
+    if (!data.auth_id) throw new Error("Login service unavailable");
+
+    authId = data.auth_id;
 
     phoneNumber = phone;
 
@@ -1623,48 +1872,38 @@ async function loginUser() {
       authId
     );
 
-    sessionId =
-      data.session_id || sessionId;
+    /* A fresh login starts a fresh conversation. */
+    sessionId = data.session_id || null;
 
-    if (sessionId) {
-
-      localStorage.setItem(
-        "zenvy_session_id",
-        sessionId
-      );
-
-    }
+    try {
+      if (sessionId) {
+        localStorage.setItem("zenvy_session_id", sessionId);
+      } else {
+        localStorage.removeItem("zenvy_session_id");
+      }
+    } catch (ignored) {}
 
     showDashboard();
 
   } catch (error) {
 
+    if (error.rejected) {
+
+      showToast(error.message);
+
+      button.disabled = false;
+      button.textContent = "Continue to Zenvy →";
+
+      return;
+
+    }
+
     /*
-      Temporary standalone fallback.
-
-      This keeps the UI usable for your demo even if
-      Team-C authentication is not connected yet.
+      The server could not be reached. Do NOT pretend to be logged in: a made-up
+      identity (the phone number used as the account id) made every booking and
+      "Your appointments" lookup miss the real account.
     */
-
-    authId = phone;
-
-    phoneNumber = phone;
-
-    localStorage.setItem(
-      "zenvy_phone",
-      phoneNumber
-    );
-
-    localStorage.setItem(
-      "zenvy_auth_id",
-      authId
-    );
-
-    showDashboard();
-
-    showToast(
-      "Demo mode enabled — backend login is currently unavailable."
-    );
+    showToast("Can't reach the server right now. Please try again in a moment.");
 
   } finally {
 
@@ -1683,6 +1922,21 @@ async function loginUser() {
 ========================================================= */
 
 function showDashboard() {
+
+  // Show who is logged in, and the Log out button (number partly hidden).
+  const digits = String(phoneNumber || "").replace(/\D/g, "");
+
+  document.getElementById("userPhone").textContent =
+    digits.length >= 4
+      ? "📱 ••••••" + digits.slice(-4)
+      : "📱 Logged in";
+
+  document.getElementById("userChip").classList.remove("hidden");
+
+  loadMyAppointments().finally(loadMyMedicines);
+  loadConsentMessage();
+  clearInterval(medicinesTimer);
+  medicinesTimer = setInterval(loadMyMedicines, 60000);
 
   document
     .getElementById("loginPage")
@@ -1705,6 +1959,913 @@ function showDashboard() {
   }, 200);
 
   requestGPS();
+
+}
+
+
+/* =========================================================
+   MY APPOINTMENTS + RECORDING CONSENT
+========================================================= */
+
+const CONSENT_API = "/channels/web/consultation/";
+
+let refreshTimer = null;
+
+function scheduleAppointmentsRefresh() {
+
+  // A booking just happened (or was cancelled): show it in the list.
+  clearTimeout(refreshTimer);
+
+  refreshTimer = setTimeout(loadMyAppointments, 1500);
+
+}
+
+function showMedicinesMessage(text) {
+
+  const box = document.getElementById("myMedicines");
+
+  box.replaceChildren(el("div", "my-appts-empty", text));
+
+}
+
+function doseClock(iso) {
+
+  return new Date(iso).toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false
+  });
+
+}
+
+function nextDoseText(iso) {
+
+  const day = new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const today = hospitalToday();
+
+  if (day === today) return "today at " + doseClock(iso);
+
+  if (day === addDays(today, 1)) return "tomorrow at " + doseClock(iso);
+
+  return new Date(iso).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" })
+    + " at " + doseClock(iso);
+
+}
+
+const FOOD_WORDS = { before: "before food", after: "after food", with: "with food" };
+
+function medicineHow(item) {
+
+  const bits = [];
+
+  if (item.dose_text) bits.push(item.dose_text);
+
+  if (item.as_needed) bits.push("only when needed");
+  else if ((item.dose_times || []).length) bits.push((item.dose_times || []).join(", "));
+
+  if (FOOD_WORDS[item.food]) bits.push(FOOD_WORDS[item.food]);
+
+  return bits.join(" · ");
+
+}
+
+function renderMedicine(item) {
+
+  const row = el("div", "med-item");
+
+  row.append(el("div", "name", [item.drug_name, item.strength].filter(Boolean).join(" ")));
+
+  const how = medicineHow(item);
+
+  if (how) row.append(el("div", "how", how));
+
+  if (item.instructions) row.append(el("div", "how", item.instructions));
+
+  if (item.next_dose_at) {
+
+    const next = el("div", "next", "Next dose: ");
+    next.append(el("b", null, nextDoseText(item.next_dose_at)));
+    next.append(document.createTextNode(" · " + item.remaining_doses + " dose" + (item.remaining_doses === 1 ? "" : "s") + " left"));
+    row.append(next);
+
+  }
+
+  if ((item.today || []).length) {
+
+    const doses = el("div", "dose-row");
+
+    item.today.forEach(dose => {
+
+      if (dose.status === "scheduled" && dose.can_mark) {
+
+        const take = el("button", "dose-take", "I took " + doseClock(dose.due_at) + " dose");
+        take.type = "button";
+        take.addEventListener("click", () => takeDose(dose.dose_id, take));
+        doses.append(take);
+
+      } else {
+
+        const label = doseClock(dose.due_at) + (dose.status === "taken" ? " · taken" : dose.status === "missed" ? " · missed" : "");
+        doses.append(el("span", "dose-pill " + dose.status, label));
+
+      }
+
+    });
+
+    row.append(doses);
+
+  }
+
+  return row;
+
+}
+
+async function takeDose(doseId, button) {
+
+  button.disabled = true;
+
+  try {
+
+    const response = await fetch(
+      CONSENT_API + "patients/" + encodeURIComponent(authId) + "/doses/" + encodeURIComponent(doseId) + "/taken",
+      { method: "POST" }
+    );
+
+    if (response.ok) {
+
+      showToast("Noted. Thank you.");
+
+    } else {
+
+      showToast(response.status === 409 ? "That dose can't be marked yet." : "Sorry, that didn't work. Please try again.");
+
+    }
+
+  } catch (error) {
+
+    showToast("Sorry, that didn't work. Please try again.");
+
+  }
+
+  loadMyMedicines();
+
+}
+
+async function dismissMedNotes(ids) {
+
+  try {
+
+    await fetch(CONSENT_API + "patients/" + encodeURIComponent(authId) + "/messages/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids })
+    });
+
+  } catch (ignored) {}
+
+  loadMyMedicines();
+
+}
+
+async function loadMyMedicines() {
+
+  const box = document.getElementById("myMedicines");
+  const notes = document.getElementById("medNotes");
+
+  if (!box) return;
+
+  if (!authId || !ACCOUNT_ID.test(authId)) {
+
+    showMedicinesMessage("Log in to see your medicines.");
+
+    return;
+
+  }
+
+  let data;
+
+  try {
+
+    const response = await fetch(CONSENT_API + "patients/" + encodeURIComponent(authId) + "/medications");
+
+    if (!response.ok) {
+
+      showMedicinesMessage("No medicines yet. They appear here after your doctor signs your prescription.");
+
+      return;
+
+    }
+
+    data = await response.json();
+
+  } catch (error) {
+
+    showMedicinesMessage("Could not load your medicines. Please try again.");
+
+    return;
+
+  }
+
+  notes.replaceChildren(...(data.messages || []).map(message => {
+
+    const note = el("div", "med-note");
+    note.append(el("span", null, message.text));
+    const dismiss = el("button", null, "Dismiss");
+    dismiss.type = "button";
+    dismiss.addEventListener("click", () => dismissMedNotes([message.message_id]));
+    note.append(dismiss);
+    return note;
+
+  }));
+
+  if (!(data.prescriptions || []).length) {
+
+    showMedicinesMessage("No medicines yet. They appear here after your doctor signs your prescription.");
+
+    return;
+
+  }
+
+  box.replaceChildren(...data.prescriptions.map(prescription => {
+
+    const card = el("div", "med-prescription");
+
+    card.append(el("h4", null, "From " + (prescription.doctor_name || "your doctor")));
+
+    if (prescription.signed_at) {
+
+      card.append(el("div", "from", "Signed " + new Date(prescription.signed_at).toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric"
+      })));
+
+    }
+
+    prescription.items.forEach(item => card.append(renderMedicine(item)));
+
+    return card;
+
+  }));
+
+}
+
+function showAppointmentsMessage(text) {
+
+  const box = document.getElementById("myAppointments");
+
+  box.replaceChildren();
+
+  const note = document.createElement("div");
+
+  note.className = "my-appts-empty";
+
+  note.textContent = text;
+
+  box.append(note);
+
+}
+
+function appointmentWhen(iso) {
+
+  return new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+
+}
+
+const ACCOUNT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function repairAccount() {
+
+  // Log in again with the saved phone number to get the real account id.
+  if (!phoneNumber) return false;
+
+  try {
+
+    const form = new FormData();
+    form.append("phone_no", phoneNumber);
+
+    const response = await fetch("/channels/web/login", { method: "POST", body: form });
+
+    if (!response.ok) return false;
+
+    const data = await response.json();
+
+    if (!data.auth_id) return false;
+
+    authId = data.auth_id;
+
+    sessionId = data.session_id || null;
+
+    try {
+      localStorage.setItem("zenvy_auth_id", authId);
+      if (sessionId) localStorage.setItem("zenvy_session_id", sessionId);
+      else localStorage.removeItem("zenvy_session_id");
+    } catch (ignored) {}
+
+    return true;
+
+  } catch (error) {
+
+    return false;
+
+  }
+
+}
+
+async function loadMyAppointments(retried = false) {
+
+  const box = document.getElementById("myAppointments");
+
+  if (!box) return;
+
+  if (!authId) {
+
+    showAppointmentsMessage("Log in to see your appointments.");
+
+    return;
+
+  }
+
+  if (!ACCOUNT_ID.test(authId) && !retried && await repairAccount()) {
+
+    return loadMyAppointments(true);
+
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        CONSENT_API +
+        "patients/" +
+        encodeURIComponent(authId) +
+        "/appointments"
+      );
+
+    if (response.status === 404 && !retried && await repairAccount()) {
+
+      // "Patient not found": the stored account no longer exists (database reset).
+      return loadMyAppointments(true);
+
+    }
+
+    if (!response.ok) {
+
+      showAppointmentsMessage(
+        "No appointments yet. Book one with Zenvy above."
+      );
+
+      return;
+
+    }
+
+    const items = await response.json();
+
+    if (!items.length) {
+
+      showAppointmentsMessage(
+        "No upcoming appointments. Ask Zenvy to book one."
+      );
+
+      return;
+
+    }
+
+    box.replaceChildren(...items.map(renderMyAppointment));
+
+  } catch (error) {
+
+    showAppointmentsMessage("Could not load your appointments.");
+
+  }
+
+}
+
+const CHANGE_BLOCKERS = {
+  already_started: "This appointment has already started, so it can't be changed.",
+  has_consultation: "A consultation has already taken place for this appointment.",
+  not_reschedulable: "This appointment can only be changed at the front desk."
+};
+
+function el(tag, className, text) {
+
+  const node = document.createElement(tag);
+
+  if (className) node.className = className;
+
+  if (text !== undefined) node.textContent = text;
+
+  return node;
+
+}
+
+function hospitalToday() {
+
+  // today's date in India as YYYY-MM-DD
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+}
+
+function addDays(isoDate, days) {
+
+  const d = new Date(isoDate + "T00:00:00Z");
+
+  d.setUTCDate(d.getUTCDate() + days);
+
+  return d.toISOString().slice(0, 10);
+
+}
+
+function clockOf(iso) {
+
+  return new Date(iso).toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true
+  });
+
+}
+
+function renderMyAppointment(item) {
+
+  const row = el("div", "my-appt");
+
+  const info = el("div");
+
+  const who = el("div", "who", item.doctor_name);
+
+  if (item.appointment_type === "follow_up") {
+
+    who.append(el("span", "appt-tag", "Follow-up"));
+
+  }
+
+  const sub = el("div", "sub",
+    appointmentWhen(item.appointment_datetime) +
+    (item.hospital_name ? " · " + item.hospital_name : ""));
+
+  info.append(who, sub);
+
+  const actions = el("div", "consent-actions");
+
+  const state = el("span", "consent-state " + item.consent_state,
+    item.consent_state === "granted" ? "Recording allowed"
+    : item.consent_state === "declined" ? "Recording not allowed"
+    : "Recording: not decided");
+
+  actions.append(state);
+
+  if (item.consent_state !== "granted") {
+
+    actions.append(consentButton(item, true));
+
+  }
+
+  if (item.consent_state !== "declined") {
+
+    actions.append(consentButton(item, false));
+
+  }
+
+  // A slot for the panel that opens under the row (reschedule / cancel).
+  const panel = el("div", "appt-panel");
+  panel.hidden = true;
+
+  if (item.can_change) {
+
+    const reschedule = el("button", "change-btn", "Reschedule");
+    reschedule.type = "button";
+    reschedule.addEventListener("click", () => openReschedule(item, panel));
+
+    const cancel = el("button", "change-btn danger", "Cancel");
+    cancel.type = "button";
+    cancel.addEventListener("click", () => openCancel(item, panel));
+
+    // Rescheduling needs a doctor's slot; an old-style booking can only be cancelled here.
+    if (item.doctor_id) actions.append(reschedule);
+
+    actions.append(cancel);
+
+  } else if (item.change_blocker) {
+
+    actions.append(el("span", "cant-change", CHANGE_BLOCKERS[item.change_blocker] || "This appointment can't be changed."));
+
+  }
+
+  row.append(info, actions, panel);
+
+  return row;
+
+}
+
+function closePanel(panel) {
+
+  panel.hidden = true;
+
+  panel.replaceChildren();
+
+}
+
+function openCancel(item, panel) {
+
+  panel.hidden = false;
+
+  panel.replaceChildren();
+
+  panel.append(el("div", null,
+    "Cancel your appointment with " + item.doctor_name + " on " + appointmentWhen(item.appointment_datetime) + "?"));
+
+  const buttons = el("div", "row");
+
+  const yes = el("button", "change-btn danger", "Yes, cancel it");
+  yes.type = "button";
+  yes.addEventListener("click", async () => {
+
+    yes.disabled = true;
+
+    const result = await changeAppointment(item.appointment_id, "cancel", {});
+
+    if (result.ok) {
+
+      showToast("Your appointment was cancelled.");
+
+      loadMyAppointments();
+
+    } else {
+
+      showToast(changeFailureText(result));
+
+      yes.disabled = false;
+
+    }
+
+  });
+
+  const keep = el("button", "change-btn", "Keep it");
+  keep.type = "button";
+  keep.addEventListener("click", () => closePanel(panel));
+
+  buttons.append(yes, keep);
+
+  panel.append(buttons);
+
+}
+
+function openReschedule(item, panel) {
+
+  panel.hidden = false;
+
+  panel.replaceChildren();
+
+  panel.append(el("div", null, "Pick a new day. You will see the free times of " + item.doctor_name + "."));
+
+  const row = el("div", "row");
+
+  const dateInput = document.createElement("input");
+  dateInput.type = "date";
+  dateInput.min = hospitalToday();
+  dateInput.max = addDays(hospitalToday(), 13);
+
+  const show = el("button", "change-btn", "Show times");
+  show.type = "button";
+
+  const close = el("button", "change-btn", "Close");
+  close.type = "button";
+  close.addEventListener("click", () => closePanel(panel));
+
+  row.append(dateInput, show, close);
+
+  const slotsBox = el("div");
+
+  panel.append(row, slotsBox);
+
+  const loadSlots = async () => {
+
+    if (!dateInput.value) {
+
+      showToast("Please pick a date first.");
+
+      return;
+
+    }
+
+    slotsBox.replaceChildren(el("div", "cant-change", "Looking for free times…"));
+
+    try {
+
+      const response = await fetch(
+        CONSENT_API + "doctors/" + encodeURIComponent(item.doctor_id) +
+        "/slots?date=" + encodeURIComponent(dateInput.value)
+      );
+
+      if (!response.ok) throw new Error("slots");
+
+      const slots = (await response.json()).filter(sl => sl.slot_id !== item.slot_id);
+
+      if (!slots.length) {
+
+        slotsBox.replaceChildren(el("div", "cant-change", "No free times that day. Please try another date."));
+
+        return;
+
+      }
+
+      const grid = el("div", "slot-grid");
+
+      slots.forEach(slot => {
+
+        const button = el("button", "slot-btn", clockOf(slot.slot_start));
+        button.type = "button";
+        button.addEventListener("click", () => confirmReschedule(item, slot, panel, loadSlots));
+        grid.append(button);
+
+      });
+
+      slotsBox.replaceChildren(grid);
+
+    } catch (error) {
+
+      slotsBox.replaceChildren(el("div", "cant-change", "Could not load the free times. Please try again."));
+
+    }
+
+  };
+
+  show.addEventListener("click", loadSlots);
+
+  dateInput.addEventListener("change", loadSlots);
+
+}
+
+function confirmReschedule(item, slot, panel, reloadSlots) {
+
+  panel.replaceChildren();
+
+  const when_ = new Date(slot.slot_start).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit", hour12: true
+  });
+
+  panel.append(el("div", null,
+    "Move your appointment with " + item.doctor_name + " from " +
+    appointmentWhen(item.appointment_datetime) + " to " + when_ + "?"));
+
+  const buttons = el("div", "row");
+
+  const yes = el("button", "change-btn", "Yes, move it");
+  yes.type = "button";
+  yes.addEventListener("click", async () => {
+
+    yes.disabled = true;
+
+    const result = await changeAppointment(item.appointment_id, "reschedule", { slot_id: slot.slot_id });
+
+    if (result.ok) {
+
+      showToast("Done. Your appointment is now on " + when_ + ".");
+
+      loadMyAppointments();
+
+    } else if (result.detail === "slot_unavailable") {
+
+      showToast("Sorry, that time was just taken. Please pick another.");
+
+      openReschedule(item, panel);
+
+    } else {
+
+      showToast(changeFailureText(result));
+
+      yes.disabled = false;
+
+    }
+
+  });
+
+  const back = el("button", "change-btn", "Pick another time");
+  back.type = "button";
+  back.addEventListener("click", () => openReschedule(item, panel));
+
+  buttons.append(yes, back);
+
+  panel.append(buttons);
+
+}
+
+async function changeAppointment(appointmentId, action, extra) {
+
+  try {
+
+    const response = await fetch(
+      CONSENT_API + "appointments/" + encodeURIComponent(appointmentId) + "/" + action,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auth_id: authId, ...extra })
+      }
+    );
+
+    if (response.ok) return { ok: true };
+
+    let detail = "";
+
+    try { detail = (await response.json()).detail; } catch (ignored) {}
+
+    return { ok: false, status: response.status, detail: typeof detail === "string" ? detail : "" };
+
+  } catch (error) {
+
+    return { ok: false, status: 0, detail: "network" };
+
+  }
+
+}
+
+function changeFailureText(result) {
+
+  return CHANGE_BLOCKERS[result.detail] ||
+    (result.detail === "different_doctor" ? "A reschedule has to stay with the same doctor." : "") ||
+    "Sorry, that didn't work. Please try again.";
+
+}
+
+function consentButton(item, allow) {
+
+  const button = document.createElement("button");
+
+  button.type = "button";
+
+  button.className = "consent-btn " + (allow ? "allow" : "deny");
+
+  button.textContent = allow ? "Allow recording" : "Don't allow";
+
+  button.addEventListener("click", () => setRecordingConsent(item.appointment_id, allow, button));
+
+  return button;
+
+}
+
+async function setRecordingConsent(appointmentId, allow, button) {
+
+  button.disabled = true;
+
+  try {
+
+    const response =
+      await fetch(
+        CONSENT_API +
+        "appointments/" +
+        encodeURIComponent(appointmentId) +
+        "/consent",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            consent_given: allow,
+            auth_id: authId,
+            language: "en"
+          })
+        }
+      );
+
+    if (!response.ok) {
+
+      throw new Error("Consent not saved");
+
+    }
+
+    showToast(
+      allow
+        ? "Thank you. Your doctor may record this consultation."
+        : "Understood. This consultation will not be recorded."
+    );
+
+  } catch (error) {
+
+    showToast("Could not save your choice. Please try again.");
+
+  }
+
+  loadMyAppointments();
+
+}
+
+async function loadConsentMessage() {
+
+  try {
+
+    const response =
+      await fetch(CONSENT_API + "consent-message?language=en");
+
+    if (response.ok) {
+
+      const data = await response.json();
+
+      document.getElementById("consentMessage").textContent =
+        data.message;
+
+    }
+
+  } catch (ignored) {}
+
+}
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+let initialChatHtml = null;
+let initialTranscript = null;
+let initialAiResponse = null;
+
+window.addEventListener("load", () => {
+
+  // Remember how the conversation panels look when empty, to restore them.
+  initialChatHtml =
+    document.getElementById("chatBox").innerHTML;
+
+  initialTranscript =
+    document.getElementById("transcript").textContent;
+
+  initialAiResponse =
+    document.getElementById("aiResponse").textContent;
+
+});
+
+function logoutUser() {
+
+  // Stop a recording in progress and throw its audio away.
+  if (isRecording) {
+
+    discardRecording = true;
+
+    stopRecording();
+
+  }
+
+  // Stop any reply that is still playing.
+  const player = document.getElementById("audioPlayer");
+
+  try {
+    player.pause();
+    player.removeAttribute("src");
+    player.load();
+  } catch (ignored) {}
+
+  player.classList.add("hidden");
+
+  // Forget the patient and the conversation, on the page and in the browser.
+  sessionId = null;
+  authId = null;
+  phoneNumber = null;
+
+  // The next person must not see this patient's medicines.
+  clearInterval(medicinesTimer);
+  showMedicinesMessage("Log in to see your medicines.");
+  document.getElementById("medNotes").replaceChildren();
+
+  try {
+    localStorage.removeItem("zenvy_session_id");
+    localStorage.removeItem("zenvy_auth_id");
+    localStorage.removeItem("zenvy_phone");
+  } catch (ignored) {}
+
+  // Empty the conversation panels so the next person starts clean.
+  if (initialChatHtml !== null) {
+    document.getElementById("chatBox").innerHTML = initialChatHtml;
+  }
+
+  const transcript = document.getElementById("transcript");
+  transcript.textContent =
+    initialTranscript || "Your speech transcript will appear here...";
+  transcript.classList.add("empty");
+
+  const reply = document.getElementById("aiResponse");
+  reply.textContent =
+    initialAiResponse || "Zenvy's response will appear here...";
+  reply.classList.add("empty");
+
+  document.getElementById("chatInput").value = "";
+
+  clearTimeout(refreshTimer);
+  showAppointmentsMessage("Log in to see your appointments.");
+
+  // Back to the login screen.
+  document.getElementById("userChip").classList.add("hidden");
+  document.getElementById("userPhone").textContent = "";
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("loginPage").classList.remove("hidden");
+
+  document.getElementById("phoneInput").value = "";
+
+  const loginButton = document.getElementById("loginBtn");
+  loginButton.disabled = false;
+  loginButton.textContent = "Continue to Zenvy →";
+
+  showToast("You have been logged out.");
 
 }
 
@@ -2388,6 +3549,16 @@ async function toggleRecording() {
             track => track.stop()
           );
 
+        
+        // Logging out while recording: throw the audio away, do not send it.
+        if (discardRecording) {
+
+          discardRecording = false;
+
+          return;
+
+        }
+
         const blob =
           new Blob(
             audioChunks,
@@ -2555,6 +3726,44 @@ async function sendVoice(blob) {
       contentType.includes("audio")
     ) {
 
+      /*
+        A voice reply is audio, so the gateway returns the conversation
+        session in headers instead of a JSON body. It MUST be kept, or every
+        spoken turn starts a brand-new conversation and the booking flow
+        asks the same questions again forever.
+      */
+      const headerSession =
+        response.headers.get("X-Session-Id");
+
+      if (headerSession) {
+
+        sessionId = headerSession;
+
+        try {
+          localStorage.setItem(
+            "zenvy_session_id",
+            sessionId
+          );
+        } catch (ignored) {}
+
+      }
+
+      const readHeader = (name) => {
+        try {
+          return decodeURIComponent(
+            response.headers.get(name) || ""
+          );
+        } catch (ignored) {
+          return "";
+        }
+      };
+
+      const spokenByPatient = readHeader("X-Transcript");
+      const spokenByZenvy = readHeader("X-Reply-Text");
+
+      if (spokenByPatient) addUserMessage(spokenByPatient);
+      if (spokenByZenvy) addBotMessage(spokenByZenvy);
+
       const audioBlob =
         await response.blob();
 
@@ -2574,9 +3783,8 @@ async function sendVoice(blob) {
       );
 
       document.getElementById(
-        "aiResponse"
-      ).textContent =
-        "Zenvy responded with voice.";
+        "aiResponse").textContent =
+        spokenByZenvy || "Zenvy responded with voice.";
 
       document.getElementById(
         "aiResponse"
@@ -2683,41 +3891,43 @@ async function sendChat() {
 
   try {
 
+    /*
+      The gateway reads FORM fields: text, language, session_id, auth_id.
+      (This used to send JSON with a "message" field, which the gateway
+      rejected with 422, so every chat message got the canned demo reply
+      below and Zenvy never actually answered or booked anything.)
+    */
+    const chatForm = new FormData();
+
+    chatForm.append("text", message);
+
+    chatForm.append("language", "en");
+
+    if (sessionId) {
+      chatForm.append("session_id", sessionId);
+    }
+
+    if (authId) {
+      chatForm.append("auth_id", authId);
+    }
+
     const response =
       await fetch(
         "/channels/web/ask",
         {
-
           method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-
-            message,
-
-            session_id:
-              sessionId,
-
-            auth_id:
-              authId,
-
-            language:
-              "en"
-
-          })
-
+          body: chatForm
         }
       );
 
     if (!response.ok) {
 
-      throw new Error(
-        "Chat failed"
-      );
+      // The server answered, but with an error: say so, do not pretend.
+      const failure = new Error("Chat failed");
+
+      failure.http = response.status;
+
+      throw failure;
 
     }
 
@@ -2728,9 +3938,21 @@ async function sendChat() {
 
   } catch (error) {
 
+    if (error.http) {
+
+      console.error("Chat request failed with HTTP", error.http);
+
+      addBotMessage(
+        "Sorry, I couldn't answer that just now. Please try again in a moment."
+      );
+
+      return;
+
+    }
+
     /*
-      Local demo response so the UI can still
-      demonstrate the doctor discovery flow.
+      Zenvy's server could not be reached at all. Local demo response so
+      the UI can still demonstrate the doctor discovery flow.
     */
 
     const lower =
@@ -2830,6 +4052,8 @@ async function sendChat() {
 ========================================================= */
 
 function addBotMessage(text) {
+
+  scheduleAppointmentsRefresh();
 
   const box =
     document.getElementById(

@@ -14,6 +14,45 @@ class Settings:
     AUTH_TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "local-development-secret")
     AUTH_TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "3600"))
 
+    # Slot booking. A held slot is reserved for one patient for this long while
+    # they confirm; slots are generated this many days ahead.
+    SLOT_HOLD_SECONDS = int(os.getenv("SLOT_HOLD_SECONDS", "300"))
+    BOOKING_HORIZON_DAYS = int(os.getenv("BOOKING_HORIZON_DAYS", "14"))
+    # When true, POST /appointments without a slot_id is rejected, so every
+    # booking goes through the slot lock. Off by default so older callers keep working.
+    REQUIRE_SLOT_FOR_BOOKING = os.getenv("REQUIRE_SLOT_FOR_BOOKING", "false").lower() == "true"
+
+    # Reminders and notices (WhatsApp). "mock" writes the message to the database
+    # and the log but sends nothing; "live" sends through Meta using the template
+    # names below, which must be approved in your Meta account first
+    # (see WHATSAPP_TEMPLATES.md). Mock is the default on purpose.
+    REMINDER_MODE = os.getenv("REMINDER_MODE", "mock").lower()
+    SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
+    REMINDER_POLL_SECONDS = int(os.getenv("REMINDER_POLL_SECONDS", "30"))
+    REMINDER_RETRY_MINUTES = int(os.getenv("REMINDER_RETRY_MINUTES", "5"))
+    PURGE_INTERVAL_HOURS = int(os.getenv("PURGE_INTERVAL_HOURS", "24"))
+    META_WHATSAPP_REMINDER_TEMPLATE_NAME = os.getenv("META_WHATSAPP_REMINDER_TEMPLATE_NAME", "zenvy_appointment_reminder")
+    META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME = os.getenv("META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME", "zenvy_followup_booked")
+    META_WHATSAPP_CANCELLED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_CANCELLED_TEMPLATE_NAME", "appointment_cancelled")
+    META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME", "appointment_rescheduled")
+    # Medication: a dose nobody marked taken within this many hours counts as missed; a prescription
+    # item with no duration is scheduled for this many days.
+    MISSED_AFTER_HOURS = int(os.getenv("MISSED_AFTER_HOURS", "3"))
+    MEDICATION_DEFAULT_DAYS = int(os.getenv("MEDICATION_DEFAULT_DAYS", "7"))
+    META_WHATSAPP_MEDICATION_TEMPLATE_NAME = os.getenv("META_WHATSAPP_MEDICATION_TEMPLATE_NAME", "zenvy_medication_reminder")
+    META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME = os.getenv("META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME", "zenvy_doctor_notice")
+
+    # Consultation recordings. Audio is encrypted (AES-256-GCM) before it is
+    # written; the key is a base64 string of 32 random bytes. Generate one with:
+    #   python -c "import base64,os;print(base64.b64encode(os.urandom(32)).decode())"
+    # Without a key, uploading audio is refused rather than stored in the clear.
+    AUDIO_ENCRYPTION_KEY = os.getenv("AUDIO_ENCRYPTION_KEY")
+    AUDIO_STORAGE_DIR = os.getenv("AUDIO_STORAGE_DIR", "/data/audio")
+    MAX_AUDIO_BYTES = int(os.getenv("MAX_AUDIO_BYTES", str(120 * 1024 * 1024)))
+    # How long recordings are kept (RETENTION_POLICY.md). Approved notes are kept.
+    AUDIO_RETENTION_DAYS = int(os.getenv("AUDIO_RETENTION_DAYS", "30"))
+    TRANSCRIPT_RETENTION_DAYS = int(os.getenv("TRANSCRIPT_RETENTION_DAYS", "90"))
+
     META_WHATSAPP_ACCESS_TOKEN = os.getenv("META_WHATSAPP_ACCESS_TOKEN")
     META_WHATSAPP_PHONE_NUMBER_ID = os.getenv("META_WHATSAPP_PHONE_NUMBER_ID")
     META_WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("META_WHATSAPP_BUSINESS_ACCOUNT_ID")

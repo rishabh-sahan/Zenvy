@@ -112,3 +112,8 @@ def send_welcome_notification(phone_no: str, name: str = "there") -> str:
         settings.META_WHATSAPP_WELCOME_TEMPLATE_NAME,
         [("name", name)],
     )
+
+
+def send_template(phone_no: str, template_name: str, parameters: list[tuple[str, str]]) -> str:
+    """Send any approved template with named parameters (used by reminders and notices)."""
+    return _send_template_message(phone_no, template_name, parameters)

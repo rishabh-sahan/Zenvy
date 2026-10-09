@@ -8,9 +8,13 @@ from app.db.database import engine
 MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "db" / "migrations"
 
 
-def run_migrations() -> None:
-    """Apply each SQL migration once, in filename order."""
-    with engine.begin() as connection:
+def run_migrations(target_engine=None) -> None:
+    """Apply each SQL migration once, in filename order.
+
+    ``target_engine`` lets tests point at a throwaway database; by default the
+    app's DATABASE_URL engine is used.
+    """
+    with (target_engine or engine).begin() as connection:
         connection.execute(
             text(
                 """

@@ -3,7 +3,8 @@ HTTP client for Team C's authentication endpoint.
 
 Same boundary as services/conversation_client.py: Team A never queries the
 authentication table directly -- Team C owns the schema and exposes it over
-REST. This wraps POST /api/v1/auth/login.
+REST. This wraps POST /api/v1/auth/phone-login (the phone-only endpoint;
+the plain /auth/login is the password login used by staff/API clients).
 
 The web login is phone-number-only and self-registering: an unknown number is
 created on first use rather than rejected, so there is no separate signup step
@@ -15,7 +16,7 @@ import requests
 
 TEAM_C_BASE_URL = os.getenv("TEAM_C_BASE_URL", "http://127.0.0.1:8002")
 
-_LOGIN_URL = f"{TEAM_C_BASE_URL}/api/v1/auth/login"
+_LOGIN_URL = f"{TEAM_C_BASE_URL}/api/v1/auth/phone-login"
 
 
 class PhoneNotRegistered(Exception):
