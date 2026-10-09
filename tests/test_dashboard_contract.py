@@ -157,3 +157,17 @@ def test_the_doctor_page_follow_up_calls_go_through_the_doctor_api_and_build_no_
 
 def test_book_it_now_is_only_offered_after_the_note_is_approved():
     assert "&& noteApproved" in DOCTOR_PAGE[DOCTOR_PAGE.index("function followUpCard"):]
+
+
+def test_the_page_never_invents_an_account_id_from_the_phone_number():
+    """Found live: with the database down, login fell into a 'demo mode' that saved the
+    phone number as the account id, so bookings and 'Your appointments' never matched."""
+    login = PAGE[PAGE.index("async function loginUser()"):PAGE.index("function showDashboard()")]
+    assert "data.auth_id;" in login and "|| phone" not in login and "authId = phone" not in login
+    assert "Demo mode" not in login
+
+
+def test_a_stored_identity_that_is_not_a_real_account_is_repaired_by_logging_in_again():
+    load = PAGE[PAGE.index("async function loadMyAppointments"):PAGE.index("async function loadMyAppointments") + 1500]
+    assert "ACCOUNT_ID.test(authId)" in load and "repairAccount()" in load
+    assert "response.status === 404" in load

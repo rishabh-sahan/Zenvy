@@ -1802,11 +1802,9 @@ async function loginUser() {
     const data =
       await response.json();
 
-    authId =
-      data.auth_id ||
-      data.user_id ||
-      data.id ||
-      phone;
+    if (!data.auth_id) throw new Error("Login service unavailable");
+
+    authId = data.auth_id;
 
     phoneNumber = phone;
 
@@ -1847,31 +1845,11 @@ async function loginUser() {
     }
 
     /*
-      Temporary standalone fallback.
-
-      This keeps the UI usable for your demo even if
-      Team-C authentication is not connected yet.
+      The server could not be reached. Do NOT pretend to be logged in: a made-up
+      identity (the phone number used as the account id) made every booking and
+      "Your appointments" lookup miss the real account.
     */
-
-    authId = phone;
-
-    phoneNumber = phone;
-
-    localStorage.setItem(
-      "zenvy_phone",
-      phoneNumber
-    );
-
-    localStorage.setItem(
-      "zenvy_auth_id",
-      authId
-    );
-
-    showDashboard();
-
-    showToast(
-      "Demo mode enabled — backend login is currently unavailable."
-    );
+    showToast("Can't reach the server right now. Please try again in a moment.");
 
   } finally {
 
@@ -1976,7 +1954,47 @@ function appointmentWhen(iso) {
 
 }
 
-async function loadMyAppointments() {
+const ACCOUNT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function repairAccount() {
+
+  // Log in again with the saved phone number to get the real account id.
+  if (!phoneNumber) return false;
+
+  try {
+
+    const form = new FormData();
+    form.append("phone_no", phoneNumber);
+
+    const response = await fetch("/channels/web/login", { method: "POST", body: form });
+
+    if (!response.ok) return false;
+
+    const data = await response.json();
+
+    if (!data.auth_id) return false;
+
+    authId = data.auth_id;
+
+    sessionId = data.session_id || null;
+
+    try {
+      localStorage.setItem("zenvy_auth_id", authId);
+      if (sessionId) localStorage.setItem("zenvy_session_id", sessionId);
+      else localStorage.removeItem("zenvy_session_id");
+    } catch (ignored) {}
+
+    return true;
+
+  } catch (error) {
+
+    return false;
+
+  }
+
+}
+
+async function loadMyAppointments(retried = false) {
 
   const box = document.getElementById("myAppointments");
 
@@ -1990,6 +2008,12 @@ async function loadMyAppointments() {
 
   }
 
+  if (!ACCOUNT_ID.test(authId) && !retried && await repairAccount()) {
+
+    return loadMyAppointments(true);
+
+  }
+
   try {
 
     const response =
@@ -1999,6 +2023,13 @@ async function loadMyAppointments() {
         encodeURIComponent(authId) +
         "/appointments"
       );
+
+    if (response.status === 404 && !retried && await repairAccount()) {
+
+      // "Patient not found": the stored account no longer exists (database reset).
+      return loadMyAppointments(true);
+
+    }
 
     if (!response.ok) {
 
