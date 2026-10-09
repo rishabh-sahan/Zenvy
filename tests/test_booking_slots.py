@@ -161,7 +161,7 @@ def test_everything_in_one_message_holds_the_slot_then_yes_books_it(team_c, say)
     reply = say("s1", "book Dr Arjun tomorrow 10:30", wants_to_book=True,
                 doctor_name="Arjun Rao", appointment_date=DAY, appointment_time="10:30")
 
-    assert "Dr. Arjun Rao" in reply and DAY in reply and "10:30" in reply
+    assert "Dr. Arjun Rao" in reply and "Mon 04 Mar" in reply and DAY not in reply and "10:30" in reply
     slot = team_c.slot_id("d1", DAY, "10:30")
     assert team_c.held == {slot: "s1"}
     assert _state("s1")["state"] == "CONFIRM"
@@ -755,3 +755,8 @@ def test_speciality_and_specialty_spellings_are_the_same_hospital(team_c, say):
     ]
     say("s1", "book Dr Suresh Reddy at Kaveri Speciality Hospital", wants_to_book=True, doctor_name="Suresh Reddy")
     assert _state("s1")["doctor"]["doctor_id"] == "d1"
+
+
+def test_dates_shown_to_the_patient_are_readable_not_iso():
+    assert state_machine._nice_date("2030-03-04") == "Mon 04 Mar"
+    assert state_machine._nice_date(None) == "" and state_machine._nice_date("garbage") == "garbage"

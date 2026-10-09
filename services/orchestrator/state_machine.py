@@ -360,7 +360,7 @@ def _offer_other_times(
             "SLOT_DAY_FULL",
             short_lang,
             doctor=doctor["name"],
-            date=slots["appointment_date"],
+            date=_nice_date(slots["appointment_date"]),
         )
         slots["appointment_date"] = None
         slots["appointment_time"] = None
@@ -370,7 +370,7 @@ def _offer_other_times(
             "SLOT_TAKEN",
             short_lang,
             doctor=doctor["name"],
-            date=slots["appointment_date"],
+            date=_nice_date(slots["appointment_date"]),
             time=slots["appointment_time"],
             alternatives=_alternatives_text(nearby),
         )
@@ -500,6 +500,14 @@ def _when(appointment: dict) -> str:
     """"Sat 10 Oct at 11:00" (hospital time) for an appointment from Team C."""
     local = datetime.fromisoformat(appointment["appointment_datetime"]).astimezone(IST)
     return f"{local.strftime('%a %d %b')} at {local.strftime('%H:%M')}"
+
+
+def _nice_date(value: str | None) -> str:
+    """"2026-10-10" -> "Sat 10 Oct" for anything shown to the patient (stored dates stay ISO)."""
+    try:
+        return datetime.strptime(str(value), "%Y-%m-%d").strftime("%a %d %b")
+    except ValueError:
+        return str(value or "")
 
 
 def _appointment_options(items: list[dict]) -> str:
@@ -1008,7 +1016,7 @@ def _render_current_state(
                 short_lang,
                 doctor=target["doctor_name"],
                 old=target["when"],
-                date=slots["appointment_date"],
+                date=_nice_date(slots["appointment_date"]),
                 time=slots["appointment_time"],
             )
 
@@ -1021,7 +1029,7 @@ def _render_current_state(
             "CONFIRM",
             short_lang,
             doctor=doctor["name"] if doctor else slots["doctor_name"],
-            date=slots["appointment_date"],
+            date=_nice_date(slots["appointment_date"]),
             time=slots["appointment_time"],
         )
 
@@ -1148,7 +1156,7 @@ def _complete_booking(
         "RESCHED_DONE" if entry.get("flow") == "reschedule" else "CONFIRMED",
         short_lang,
         doctor=doctor["name"],
-        date=slots["appointment_date"],
+        date=_nice_date(slots["appointment_date"]),
         time=slots["appointment_time"],
     )
 

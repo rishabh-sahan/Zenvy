@@ -306,7 +306,7 @@ def test_rescheduling_asks_for_a_new_date_and_time_then_confirms(team_c, say):
 
     assert "time" in say("on 4th March", appointment_date=DAY).lower()
     reply = say("10:30", appointment_time="10:30")
-    assert f"move your appointment with Dr. Arjun Rao from Mon 04 Mar at 10:00 to {DAY} at 10:30" in reply
+    assert f"move your appointment with Dr. Arjun Rao from Mon 04 Mar at 10:00 to Mon 04 Mar at 10:30" in reply
     # the new time is held while the patient decides
     assert team_c.held == {team_c.slot_id("d1", DAY, "10:30"): "s1"}
     assert team_c.reschedule_calls == []
@@ -320,7 +320,7 @@ def test_a_full_reschedule_calls_team_c_once_with_the_new_slot_and_ends_the_flow
 
     slot_id = team_c.slot_id("d1", DAY, "11:00")
     assert team_c.reschedule_calls == [("apt-1", slot_id, AUTH, "s1")]
-    assert "Done" in reply and f"now on {DAY} at 11:00" in reply
+    assert "Done" in reply and "now on Mon 04 Mar at 11:00" in reply
     assert state() is None and team_c.held == {}
     # the old appointment is gone and a new one exists
     assert [a["appointment_id"] for a in team_c.appointments_of_patient if a["status"] != "cancelled"] == ["apt-new"]
