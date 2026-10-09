@@ -263,14 +263,34 @@ def _pick_candidate(
     if not text:
         return None
 
+    # People say "Speciality", the hospital may be written "Specialty".
+    def same_spelling(value: str) -> str:
+        return value.lower().replace("speciality", "specialty")
+
+    text = same_spelling(text)
+
     # 1. Hospital or city: "the one at Metro Health Hospital".
     def mentions_place(c: dict) -> bool:
-        if c["hospital_name"] and c["hospital_name"].lower() in text:
+        if c["hospital_name"] and same_spelling(c["hospital_name"]) in text:
             return True
         spellings = CITY_SPELLINGS.get(c["city"], (c["city"],)) if c["city"] else ()
         return any(name.lower() in text for name in spellings)
 
-    by_place = [c for c in candidates if mentions_place(c)]
+    # 0. The doctor's own name: "Dr. Suresh Reddy, pediatrician". The language model
+    #    sometimes keeps only the department ("Paediatrics") and drops the name, which
+    #    lists every pediatrician; the name in the sentence still settles it.
+    said = set(re.findall(r"[a-z]+", text))
+
+    def named(c: dict) -> bool:
+        parts = [w for w in re.findall(r"[a-z]+", c["name"].lower()) if w != "dr"]
+        return bool(parts) and all(w in said for w in parts)
+
+    by_name = [c for c in candidates if named(c)]
+    if len(by_name) == 1:
+        return by_name[0]
+    pool = by_name or candidates      # two hospitals with the same name: the place decides
+
+    by_place = [c for c in pool if mentions_place(c)]
     if len(by_place) == 1:
         return by_place[0]
 

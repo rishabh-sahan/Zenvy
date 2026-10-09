@@ -723,3 +723,35 @@ def test_changing_the_booking_is_never_taken_as_a_yes(team_c, say, answer):
     reply = say("s1", answer, confirms_booking=None)
     assert "Just to confirm" in reply
     assert team_c.appointments == []
+
+
+def test_a_doctor_named_in_the_sentence_wins_when_the_model_keeps_only_the_department(team_c, say, monkeypatch):
+    """Found live: 'Dr. Suresh Reddy, pediatrician' was read as just 'Paediatrics', which
+    listed every pediatrician and left the patient in a which-doctor loop."""
+    team_c.doctors = [
+        _doctor("d1", "Dr. Rahul Gowda", specialty="Pediatrician"),
+        _doctor("d2", "Dr. Sanjay Kumar", specialty="Pediatrician"),
+        _doctor("d3", "Dr. Suresh Reddy", specialty="Pediatrician"),
+    ]
+    monkeypatch.setattr(state_machine, "find_doctors", lambda query: list(team_c.doctors))   # the department matches everyone
+    reply = say("s1", "I need to book an appointment with Dr. Suresh Reddy, pediatrician",
+                wants_to_book=True, doctor_name="Paediatrics")
+    assert _state("s1")["doctor"]["doctor_id"] == "d3"
+    assert "date" in reply.lower()                                  # no "which doctor?" question
+
+
+def test_a_department_alone_still_asks_which_pediatrician(team_c, say, monkeypatch):
+    team_c.doctors = [_doctor("d1", "Dr. Rahul Gowda", specialty="Pediatrician"),
+                      _doctor("d2", "Dr. Sanjay Kumar", specialty="Pediatrician")]
+    monkeypatch.setattr(state_machine, "find_doctors", lambda query: list(team_c.doctors))
+    reply = say("s1", "I need a pediatrician", wants_to_book=True, doctor_name="Paediatrics")
+    assert "1) Dr. Rahul Gowda" in reply and "2) Dr. Sanjay Kumar" in reply
+
+
+def test_speciality_and_specialty_spellings_are_the_same_hospital(team_c, say):
+    team_c.doctors = [
+        _doctor("d1", "Dr. Suresh Reddy", hospital="Kaveri Specialty Hospital", city="mysore"),
+        _doctor("d2", "Dr. Suresh Reddy", hospital="Silicon City Specialty Hospital", city="bangalore"),
+    ]
+    say("s1", "book Dr Suresh Reddy at Kaveri Speciality Hospital", wants_to_book=True, doctor_name="Suresh Reddy")
+    assert _state("s1")["doctor"]["doctor_id"] == "d1"

@@ -17,6 +17,9 @@
 services:
   local-postgres:
     image: postgres:16-alpine
+    # Without this the database stays down after Docker Desktop or the PC restarts,
+    # and every booking fails (team-c cannot resolve "local-postgres").
+    restart: unless-stopped
     environment:
       POSTGRES_USER: zenvy
       POSTGRES_PASSWORD: zenvy_local_only
