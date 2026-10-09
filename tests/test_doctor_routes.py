@@ -91,6 +91,11 @@ def test_the_doctor_page_is_served():
     ("POST", "consultations/c1/notes"),
     ("POST", "consultations/c1/notes/n1/approve"),
     ("DELETE", "consultations/c1/recording"),
+    ("GET", "consultations/c1/follow-up"),
+    ("PUT", "consultations/c1/follow-up"),
+    ("DELETE", "consultations/c1/follow-up"),
+    ("POST", "consultations/c1/follow-up/book"),
+    ("GET", "appointments/a1/history"),
 ])
 def test_the_listed_routes_pass_through(upstream, method, path):
     response = client.request(method, f"/doctor/api/{path}", headers=AUTH, json={"x": 1} if method != "GET" and method != "DELETE" else None)
@@ -112,6 +117,11 @@ def test_the_listed_routes_pass_through(upstream, method, path):
     ("GET", "patients/p1/appointments"),    # patient route, not a doctor route
     ("GET", "doctors"),
     ("GET", "../../healthz"),
+    ("POST", "appointments/a1/reschedule"),    # moving an appointment is the patient's (or staff's) job
+    ("GET", "doctors/d1/slots"),
+    ("POST", "consultations/c1/follow-up"),     # only PUT / DELETE / GET and /book
+    ("PATCH", "consultations/c1/follow-up"),
+    ("POST", "appointments/a1/history"),
 ])
 def test_everything_else_is_blocked(upstream, method, path):
     response = client.request(method, f"/doctor/api/{path}", headers=AUTH)
@@ -151,6 +161,9 @@ def test_team_c_being_down_is_a_clear_502(upstream):
     ("GET", "consent-message"),
     ("GET", "patients/p-1/appointments"),
     ("POST", "appointments/a-1/consent"),
+    ("GET", "doctors/d-1/slots"),
+    ("POST", "appointments/a-1/reschedule"),
+    ("POST", "appointments/a-1/cancel"),
 ])
 def test_the_patient_can_reach_only_the_consent_routes(upstream, method, path):
     response = client.request(method, f"/channels/web/consultation/{path}", json={"consent_given": True} if method == "POST" else None)
@@ -163,9 +176,15 @@ def test_the_patient_can_reach_only_the_consent_routes(upstream, method, path):
     ("GET", "doctor/appointments"),
     ("POST", "consultations"),
     ("GET", "appointments/a1/consent"),  # reading consent needs auth_id: not offered here
+    ("GET", "appointments/a1/history"),
+    ("PUT", "consultations/c1/follow-up"),
+    ("POST", "appointments"),
+    ("GET", "doctors"),                  # the doctor list is not needed here
+    ("DELETE", "appointments/a1/cancel"),
 ])
 def test_the_patient_cannot_reach_clinical_routes(upstream, method, path):
-    assert client.request(method, f"/channels/web/consultation/{path}").status_code == 404
+    # 404 (not an allowed route) or 405 (not even an allowed method): either way, refused
+    assert client.request(method, f"/channels/web/consultation/{path}").status_code in (404, 405)
     assert "url" not in upstream
 
 

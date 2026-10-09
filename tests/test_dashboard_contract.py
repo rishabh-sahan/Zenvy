@@ -122,3 +122,38 @@ def test_a_server_error_is_not_hidden_behind_a_canned_demo_reply():
     chat = PAGE[PAGE.index("async function sendChat()"):PAGE.index("function addBotMessage")]
     assert "failure.http = response.status" in chat
     assert "if (error.http)" in chat and "couldn't answer that just now" in chat
+
+
+# ---- Stage 3: reschedule / cancel buttons, follow-up card, history ----------------------
+
+def test_the_appointment_card_changes_appointments_only_through_the_gateway_routes_and_with_the_patients_id():
+    change = PAGE[PAGE.index("async function changeAppointment"):PAGE.index("function changeFailureText")]
+    assert 'CONSENT_API + "appointments/" + encodeURIComponent(appointmentId) + "/" + action' in change
+    assert "auth_id: authId" in change
+    # only these two actions exist
+    assert '"cancel"' in PAGE and '"reschedule"' in PAGE
+
+
+def test_cancel_and_reschedule_always_ask_before_acting():
+    assert "Yes, cancel it" in PAGE and "Keep it" in PAGE
+    assert "Yes, move it" in PAGE and "Pick another time" in PAGE
+
+
+def test_the_buttons_are_only_shown_when_the_server_says_the_appointment_can_change():
+    card = PAGE[PAGE.index("function renderMyAppointment"):PAGE.index("function closePanel")]
+    assert "if (item.can_change)" in card and "item.change_blocker" in card
+
+
+def test_a_slot_taken_in_the_meantime_sends_the_patient_back_to_pick_again():
+    assert 'result.detail === "slot_unavailable"' in PAGE
+
+
+def test_the_doctor_page_follow_up_calls_go_through_the_doctor_api_and_build_no_html_from_data():
+    for path in ('"/follow-up"', '"/follow-up/book"', '"/history"'):
+        assert path in DOCTOR_PAGE
+    follow_up = DOCTOR_PAGE[DOCTOR_PAGE.index("function followUpCard"):DOCTOR_PAGE.index("function showVersion")]
+    assert "innerHTML" not in follow_up
+
+
+def test_book_it_now_is_only_offered_after_the_note_is_approved():
+    assert "&& noteApproved" in DOCTOR_PAGE[DOCTOR_PAGE.index("function followUpCard"):]

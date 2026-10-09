@@ -4,6 +4,13 @@ Appointment booking state machine.
 States:
 ASK_DOCTOR -> ASK_DATE -> ASK_TIME -> CONFIRM -> COMPLETED
 
+Cancel and reschedule (the patient's own appointments) share this machinery:
+
+    cancel:      CANCEL_PICK -> CANCEL_CONFIRM -> done
+    reschedule:  RESCHED_PICK -> ASK_DATE -> ASK_TIME -> CONFIRM -> done
+                 (the second half is the booking flow, with the doctor fixed)
+    either:      CHOOSE_ACTION first, if it is not clear which one was meant
+
 Appointment conversation state is stored in Redis per session_id so that
 it survives application/server restarts and can be shared across
 multiple gateway workers.
@@ -19,6 +26,7 @@ app/services/slot_service.py for how the lock itself works.
 """
 
 import json
+import re
 import sys
 import unicodedata
 from datetime import datetime, timedelta, timezone
@@ -31,14 +39,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from services.config import REDIS_URL
 from services.llm.client import generate_reply
 from services.conversation_client import (
+    ChangeRefused,
+    NotLoggedIn,
     SlotUnavailableError,
+    cancel_my_appointment,
     create_appointment,
     find_doctors,
     get_free_slots,
+    get_session,
     hold_slot,
+    list_my_appointments,
     release_slot,
+    reschedule_my_appointment,
 )
 from services.orchestrator.entity_extraction import extract_booking_fields, hospital_today
+from services.orchestrator.intent_rules import detect_change_intent, wants_to_stop
 from services.orchestrator.slot_parsing import parse_date, parse_time
 from services.orchestrator.templates import render_template
 
@@ -454,6 +469,243 @@ def _resolve_and_confirm(session_id: str, short_lang: str, entry: dict) -> str:
         return render_template("BOOKING_FAILED", short_lang)
 
 
+# ---------------------------------------------------------------------------
+# Cancel and reschedule the patient's own appointments
+# ---------------------------------------------------------------------------
+
+CHANGE_STATES = {"CHOOSE_ACTION", "CANCEL_PICK", "CANCEL_CONFIRM", "RESCHED_PICK"}
+
+
+def _when(appointment: dict) -> str:
+    """"Sat 10 Oct at 11:00" (hospital time) for an appointment from Team C."""
+    local = datetime.fromisoformat(appointment["appointment_datetime"]).astimezone(IST)
+    return f"{local.strftime('%a %d %b')} at {local.strftime('%H:%M')}"
+
+
+def _appointment_options(items: list[dict]) -> str:
+    return "; ".join(
+        f"{i + 1}) {item['doctor_name']} on {_when(item)}" for i, item in enumerate(items)
+    )
+
+
+def _patient_id(session_id: str) -> str | None:
+    """Who is chatting: the conversation's user (their auth_id once logged in)."""
+    try:
+        return get_session(session_id).get("user_id")
+    except Exception as e:
+        print(f"[Orchestrator] Could not read the session: {e}")
+        return None
+
+
+def _pick_appointment(user_text: str, items: list[dict]) -> dict | None:
+    """Which appointment did the patient mean? A number, "the Friday one", a doctor, a time."""
+    text = (user_text or "").lower().strip()
+    if not text or not items:
+        return None
+    if len(items) == 1:
+        return items[0]
+
+    ordinals = {"1": 0, "first": 0, "2": 1, "second": 1, "3": 2, "third": 2, "4": 3, "fourth": 3, "5": 4, "fifth": 4}
+    spelled = {"one": 0, "two": 1, "three": 2, "four": 3, "five": 4}
+    words = text.replace(")", " ").replace(".", " ").replace(",", " ").split()
+    for position, word in enumerate(words):
+        index = ordinals.get(word)
+        if index is None and word in spelled and (len(words) == 1 or (position and words[position - 1] in ("number", "option", "no"))):
+            index = spelled[word]
+        if word == "last":
+            index = len(items) - 1
+        if index is not None and index < len(items):
+            return items[index]
+
+    wanted_date = parse_date(user_text, hospital_today())
+    wanted_time = parse_time(user_text)
+    matches = []
+    for item in items:
+        local = datetime.fromisoformat(item["appointment_datetime"]).astimezone(IST)
+        if wanted_date and local.date().isoformat() != wanted_date:
+            continue
+        if wanted_time and local.strftime("%H:%M") != wanted_time:
+            continue
+        if not wanted_date and not wanted_time:
+            # "the one with Arjun" / "Rao": any word of the doctor's name
+            name_words = [w for w in item["doctor_name"].lower().replace("dr.", " ").split() if len(w) >= 3]
+            spoken = set(text.replace(",", " ").replace(".", " ").split())
+            if not any(w in spoken for w in name_words):
+                continue
+        matches.append(item)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _load_changeable(session_id: str, short_lang: str, want: str):
+    """(auth_id, appointments the patient can act on, reply). `reply` is set when we must stop."""
+    auth_id = _patient_id(session_id)
+    if not auth_id:
+        return None, None, render_template("CHANGE_NOT_LOGGED_IN", short_lang)
+    try:
+        items = list_my_appointments(auth_id)
+    except NotLoggedIn:
+        return None, None, render_template("CHANGE_NOT_LOGGED_IN", short_lang)
+    except Exception as e:
+        print(f"[Orchestrator] Could not list appointments: {e}")
+        return None, None, render_template("CHANGE_FAILED", short_lang)
+
+    if not items:
+        return auth_id, None, render_template("CANCEL_NONE", short_lang)
+    usable = [i for i in items if i.get("can_change") and (want == "cancel" or i.get("doctor_id"))]
+    if not usable:
+        return auth_id, None, render_template("CANNOT_CHANGE", short_lang)
+    return auth_id, usable, None
+
+
+def _start_change(session_id: str, short_lang: str, kind: str, extracted: dict) -> str:
+    """The patient asked to cancel / move an appointment (or something unclear)."""
+    print(f"[Orchestrator] Change request: {kind}")
+    if kind == "ask":
+        _set_session_state(session_id, {"flow": "choose", "state": "CHOOSE_ACTION", "slots": {}})
+        return render_template("CHANGE_WHICH_ACTION", short_lang)
+    return _begin_change(session_id, short_lang, kind, extracted)
+
+
+def _begin_change(session_id: str, short_lang: str, kind: str, extracted: dict | None = None) -> str:
+    auth_id, items, stop = _load_changeable(session_id, short_lang, kind)
+    if stop is not None:
+        _delete_session_state(session_id)
+        return stop
+
+    entry = {"flow": kind, "auth_id": auth_id, "choices": items, "slots": {}}
+    if len(items) > 1:
+        entry["state"] = "CANCEL_PICK" if kind == "cancel" else "RESCHED_PICK"
+        _set_session_state(session_id, entry)
+        return render_template(
+            "CANCEL_WHICH" if kind == "cancel" else "RESCHED_WHICH",
+            short_lang,
+            options=_appointment_options(items),
+        )
+    return _target_chosen(session_id, short_lang, entry, items[0], extracted or {})
+
+
+def _target_chosen(session_id: str, short_lang: str, entry: dict, target: dict, extracted: dict) -> str:
+    entry.pop("choices", None)
+    entry["target"] = {
+        "appointment_id": target["appointment_id"],
+        "doctor_id": target.get("doctor_id"),
+        "doctor_name": target["doctor_name"],
+        "hospital_name": target.get("hospital_name") or "",
+        "appointment_datetime": target["appointment_datetime"],
+        "when": _when(target),
+    }
+
+    if entry["flow"] == "cancel":
+        entry["state"] = "CANCEL_CONFIRM"
+        _set_session_state(session_id, entry)
+        return render_template(
+            "CANCEL_CONFIRM", short_lang, doctor=target["doctor_name"], when=entry["target"]["when"]
+        )
+
+    # Reschedule: now it is a booking with the doctor already fixed.
+    entry["doctor"] = {
+        "doctor_id": target["doctor_id"],
+        "name": target["doctor_name"],
+        "specialty": "",
+        "hospital_name": entry["target"]["hospital_name"],
+        "city": "",
+    }
+    entry["slots"] = {
+        "doctor_name": target["doctor_name"],
+        "appointment_date": extracted.get("appointment_date"),
+        "appointment_time": extracted.get("appointment_time"),
+    }
+    missing = _first_missing_slot(entry["slots"])
+    if missing is None:
+        return _resolve_and_confirm(session_id, short_lang, entry)
+    entry["state"] = SLOT_TO_ASK_STATE[missing]
+    _set_session_state(session_id, entry)
+    return _render_current_state(session_id, short_lang)
+
+
+def _continue_change(session_id: str, short_lang: str, existing: dict, extracted: dict, user_text: str) -> str:
+    """One more turn of a cancel / choose-action / pick-which-appointment conversation."""
+    state = existing["state"]
+
+    if state == "CHOOSE_ACTION":
+        kind = detect_change_intent(user_text)
+        if kind in ("cancel", "reschedule"):
+            _delete_session_state(session_id)
+            return _begin_change(session_id, short_lang, kind, extracted)
+        if wants_to_stop(user_text):
+            _delete_session_state(session_id)
+            return render_template("RESCHED_KEPT", short_lang)
+        return render_template("CHANGE_WHICH_ACTION", short_lang)
+
+    if state in ("CANCEL_PICK", "RESCHED_PICK"):
+        if wants_to_stop(user_text):
+            _delete_session_state(session_id)
+            return render_template("RESCHED_KEPT", short_lang)
+        target = _pick_appointment(user_text, existing.get("choices") or [])
+        if target is None:
+            return render_template(
+                "CANCEL_WHICH" if state == "CANCEL_PICK" else "RESCHED_WHICH",
+                short_lang,
+                options=_appointment_options(existing.get("choices") or []),
+            )
+        return _target_chosen(session_id, short_lang, existing, target, extracted)
+
+    # CANCEL_CONFIRM
+    target = existing["target"]
+    answer = _cancel_answer(user_text)
+    if answer is None:
+        answer = extracted.get("confirms_booking")
+
+    if answer is False:
+        _delete_session_state(session_id)
+        return render_template("CANCEL_KEPT", short_lang, doctor=target["doctor_name"], when=target["when"])
+    if answer is not True:
+        return render_template("CANCEL_CONFIRM", short_lang, doctor=target["doctor_name"], when=target["when"])
+
+    try:
+        cancel_my_appointment(target["appointment_id"], existing["auth_id"])
+    except ChangeRefused as refused:
+        print(f"[Orchestrator] Cancel refused: {refused.code}")
+        _delete_session_state(session_id)
+        return render_template("CANNOT_CHANGE", short_lang)
+    except Exception as e:
+        print(f"[Orchestrator] Cancel failed: {e}")
+        _delete_session_state(session_id)
+        return render_template("CHANGE_FAILED", short_lang)
+    _delete_session_state(session_id)
+    return render_template("CANCEL_DONE", short_lang, doctor=target["doctor_name"], when=target["when"])
+
+
+def _cancel_answer(user_text: str) -> bool | None:
+    """Yes/no to "Do you want to cancel...?". Here "cancel" itself means yes:
+    "yes, cancel it" has both a yes word and a no word and must not read as unclear."""
+    lowered = " ".join((user_text or "").lower().replace("'", "").split())
+    without_cancel = re.sub(r"\bcancel\w*|रद्द|कैंसल|ರದ್ದು\w*", " ", lowered)
+    plain = _plain_yes_no(without_cancel)
+    if plain is not None:
+        return plain
+    # A date, a time or "instead" means they want something else, not a plain "cancel it".
+    words = set(re.findall(r"\w+", lowered))
+    changing = any(ch.isdigit() for ch in lowered) or bool(words & (_CHANGE_WORDS | {"tomorrow", "today", "reschedule", "move"}))
+    if not changing and detect_change_intent(user_text) == "cancel":
+        return True                      # "cancel it", "please cancel"
+    if wants_to_stop(without_cancel):
+        return False                     # "never mind", "stop", "leave it"
+    return None
+
+
+def _abort_flow(session_id: str, short_lang: str, existing: dict) -> str:
+    """"Never mind" in the middle of a booking or a reschedule."""
+    held = existing.get("slot")
+    if held:
+        try:
+            release_slot(held["slot_id"], session_id)
+        except Exception as e:
+            print(f"[Orchestrator] Could not release slot: {e}")
+    _delete_session_state(session_id)
+    return render_template("RESCHED_KEPT" if existing.get("flow") == "reschedule" else "CANCELLED", short_lang)
+
+
 def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
     """
     Route one conversation turn through the appointment state machine
@@ -474,6 +726,20 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
     # Debug logging
     print(f"[Orchestrator] INPUT: {user_text}")
     print(f"[Orchestrator] EXTRACTED: {extracted}")
+
+    # ---------------------------------------------------------
+    # Cancel / reschedule: one already running, or a new request
+    # ---------------------------------------------------------
+
+    if existing is not None and existing.get("state") in CHANGE_STATES:
+        return _continue_change(session_id, short_lang, existing, extracted, user_text)
+
+    if existing is None:
+        kind = detect_change_intent(user_text)
+        if kind is None and extracted.get("intent") == "Cancel/Reschedule":
+            kind = "ask"
+        if kind:
+            return _start_change(session_id, short_lang, kind, extracted)
 
     # ---------------------------------------------------------
     # Normal hospital Q&A
@@ -534,6 +800,9 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
     print(f"[Orchestrator] Existing state: {state}")
     print(f"[Orchestrator] Existing slots: {slots}")
 
+    if state in ("ASK_DOCTOR", "ASK_DATE", "ASK_TIME") and wants_to_stop(user_text):
+        return _abort_flow(session_id, short_lang, existing)
+
     # ---------------------------------------------------------
     # Confirmation state
     # ---------------------------------------------------------
@@ -570,7 +839,7 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
             _delete_session_state(session_id)
 
             return render_template(
-                "CANCELLED",
+                "RESCHED_KEPT" if existing.get("flow") == "reschedule" else "CANCELLED",
                 short_lang,
             )
 
@@ -608,6 +877,10 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
             # Still unclear. Keep anything else they said (a date, a time)
             # and ask about the doctor again below.
             still_choosing = True
+
+    # A reschedule stays with the same doctor: a doctor named now is ignored.
+    if existing.get("flow") == "reschedule":
+        extracted["doctor_name"] = None
 
     # Merge newly extracted information into existing slots.
     #
@@ -694,6 +967,31 @@ def _render_current_state(
     print(f"[Orchestrator] Rendering state: {state}")
     print(f"[Orchestrator] Rendering slots: {slots}")
 
+    # Rescheduling: the same questions, worded for moving an appointment.
+    if entry.get("flow") == "reschedule":
+
+        target = entry["target"]
+
+        if state == "ASK_DATE":
+
+            return render_template(
+                "RESCHED_ASK_DATE",
+                short_lang,
+                doctor=target["doctor_name"],
+                when=target["when"],
+            )
+
+        if state == "CONFIRM":
+
+            return render_template(
+                "RESCHED_CONFIRM",
+                short_lang,
+                doctor=target["doctor_name"],
+                old=target["when"],
+                date=slots["appointment_date"],
+                time=slots["appointment_time"],
+            )
+
     # All appointment information has been collected.
     if state == "CONFIRM":
 
@@ -754,12 +1052,40 @@ def _complete_booking(
         # Holding again succeeds if nobody else took the slot meanwhile.
         hold_slot(held["slot_id"], session_id)
 
-        # The doctor and time come from the slot itself; Team C locks it.
-        create_appointment(
-            session_id=session_id,
-            patient_uhid=PLACEHOLDER_PATIENT_UHID,
-            slot_id=held["slot_id"],
-            status="confirmed",
+        if entry.get("flow") == "reschedule":
+
+            # Book the new slot and cancel the old appointment in ONE step.
+            reschedule_my_appointment(
+                entry["target"]["appointment_id"],
+                held["slot_id"],
+                entry["auth_id"],
+                session_id,
+            )
+
+        else:
+
+            # The doctor and time come from the slot itself; Team C locks it.
+            create_appointment(
+                session_id=session_id,
+                patient_uhid=PLACEHOLDER_PATIENT_UHID,
+                slot_id=held["slot_id"],
+                status="confirmed",
+            )
+
+    except ChangeRefused as refused:
+
+        print(f"[Orchestrator] Reschedule refused: {refused.code}")
+
+        try:
+            release_slot(held["slot_id"], session_id)
+        except Exception:
+            pass
+
+        _delete_session_state(session_id)
+
+        return render_template(
+            "CANNOT_CHANGE",
+            short_lang,
         )
 
     except SlotUnavailableError:
@@ -793,13 +1119,13 @@ def _complete_booking(
         _delete_session_state(session_id)
 
         return render_template(
-            "BOOKING_FAILED",
+            "CHANGE_FAILED" if entry.get("flow") == "reschedule" else "BOOKING_FAILED",
             short_lang,
         )
 
-    # Appointment was successfully created.
+    # Appointment was successfully created (or moved).
     reply = render_template(
-        "CONFIRMED",
+        "RESCHED_DONE" if entry.get("flow") == "reschedule" else "CONFIRMED",
         short_lang,
         doctor=doctor["name"],
         date=slots["appointment_date"],

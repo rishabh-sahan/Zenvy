@@ -165,6 +165,8 @@ def record_consent(
     db.add(consent)
     db.commit()
     db.refresh(consent)
+    if not consent_given:
+        _delete_on_withdrawal(db, appointment, recorded_by, recorded_by_auth_id)
     write_audit_log(
         db,
         action="consultation_consent_recorded",
@@ -179,6 +181,55 @@ def record_consent(
         },
     )
     return consent
+
+
+def _delete_on_withdrawal(db: Session, appointment: AIAppointment, who: str, who_id: str | None) -> None:
+    """Consent was withdrawn: delete any recording and transcript right away.
+
+    The notes (draft or approved) are kept. Nothing happens if nothing was recorded.
+    """
+    consultation = get_consultation_for_appointment(db, appointment.appointment_id)
+    if consultation is None:
+        return
+    has_recording = bool(consultation.audio_path and consultation.audio_deleted_at is None)
+    if not has_recording and not consultation.turns:
+        return
+    delete_recording(
+        db, consultation, actor=f"{who}:{who_id}" if who_id else who, reason="consent_withdrawn"
+    )
+
+
+def carry_over_consent(db: Session, old: AIAppointment, new: AIAppointment) -> ConsultationConsent | None:
+    """A rescheduled visit is the same visit: the patient's decision comes with it."""
+    latest = current_consent(db, old.appointment_id)
+    if latest is None:
+        return None
+    copy = ConsultationConsent(
+        consent_id=str(uuid.uuid4()),
+        appointment_id=new.appointment_id,
+        patient_auth_id=latest.patient_auth_id,
+        consent_given=latest.consent_given,
+        recorded_by=latest.recorded_by,
+        recorded_by_auth_id=latest.recorded_by_auth_id,
+        message_version=latest.message_version,
+        language=latest.language,
+        created_at=utcnow(),
+    )
+    db.add(copy)
+    db.commit()
+    write_audit_log(
+        db,
+        action="consultation_consent_carried_over",
+        actor="system",
+        session_id=new.session_id,
+        user_id=latest.patient_auth_id,
+        after_value={
+            "from_appointment_id": old.appointment_id,
+            "to_appointment_id": new.appointment_id,
+            "consent_given": latest.consent_given,
+        },
+    )
+    return copy
 
 
 def require_consent(db: Session, appointment_id: str) -> ConsultationConsent:
@@ -421,6 +472,13 @@ def add_note(
     db.commit()
     db.refresh(note)
     db.refresh(consultation)
+    # A follow-up written in the plan ("come back next week") becomes a suggestion.
+    try:
+        from app.services import followup_service
+
+        followup_service.refresh_suggestion(db, consultation, note)
+    except Exception:  # noqa: BLE001 - the note is saved either way
+        db.rollback()
     return note
 
 

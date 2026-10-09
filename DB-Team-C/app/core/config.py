@@ -22,6 +22,21 @@ class Settings:
     # booking goes through the slot lock. Off by default so older callers keep working.
     REQUIRE_SLOT_FOR_BOOKING = os.getenv("REQUIRE_SLOT_FOR_BOOKING", "false").lower() == "true"
 
+    # Reminders and notices (WhatsApp). "mock" writes the message to the database
+    # and the log but sends nothing; "live" sends through Meta using the template
+    # names below, which must be approved in your Meta account first
+    # (see WHATSAPP_TEMPLATES.md). Mock is the default on purpose.
+    REMINDER_MODE = os.getenv("REMINDER_MODE", "mock").lower()
+    SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
+    REMINDER_POLL_SECONDS = int(os.getenv("REMINDER_POLL_SECONDS", "30"))
+    REMINDER_RETRY_MINUTES = int(os.getenv("REMINDER_RETRY_MINUTES", "5"))
+    PURGE_INTERVAL_HOURS = int(os.getenv("PURGE_INTERVAL_HOURS", "24"))
+    META_WHATSAPP_REMINDER_TEMPLATE_NAME = os.getenv("META_WHATSAPP_REMINDER_TEMPLATE_NAME", "zenvy_appointment_reminder")
+    META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME = os.getenv("META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME", "zenvy_followup_booked")
+    META_WHATSAPP_CANCELLED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_CANCELLED_TEMPLATE_NAME", "zenvy_appointment_cancelled")
+    META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME = os.getenv("META_WHATSAPP_RESCHEDULED_TEMPLATE_NAME", "zenvy_appointment_rescheduled")
+    META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME = os.getenv("META_WHATSAPP_DOCTOR_NOTICE_TEMPLATE_NAME", "zenvy_doctor_notice")
+
     # Consultation recordings. Audio is encrypted (AES-256-GCM) before it is
     # written; the key is a base64 string of 32 random bytes. Generate one with:
     #   python -c "import base64,os;print(base64.b64encode(os.urandom(32)).decode())"

@@ -19,7 +19,10 @@ from app.models.ai_appointment import AIAppointment, AppointmentStatus
 from app.models.authentication import Authentication
 from app.models.consultation import Consultation, ConsultationNote, ConsultationStatus, ConsultationTurn
 from app.models.doctor import Doctor
+from app.models.follow_up import FollowUp
+from app.models.reminder import Reminder
 from app.schemas.consultation import (
+    AppointmentHistoryOut,
     ConsentMessageResponse,
     ConsentRequest,
     ConsentResponse,
@@ -27,6 +30,10 @@ from app.schemas.consultation import (
     ConsultationDetailResponse,
     ConsultationResponse,
     DoctorAppointmentResponse,
+    FollowUpIn,
+    FollowUpOut,
+    HistoryEvent,
+    NoteApproveOut,
     NoteIn,
     NoteOut,
     PatientAppointmentResponse,
@@ -36,6 +43,8 @@ from app.schemas.consultation import (
     TurnPatch,
 )
 from app.services import consultation_service as svc
+from app.services import followup_service
+from app.services.appointment_service import change_blocker
 from app.services.crypto_service import EncryptionNotConfigured
 from app.services.slot_service import IST, as_ist, as_utc, utcnow
 
@@ -202,6 +211,7 @@ def doctor_appointments(db: Session = Depends(get_db), doctor: Doctor = Depends(
                 patient_label=_patient_label(appointment),
                 consent_state=svc.consent_state(consent),
                 consent_recorded_by=consent.recorded_by if consent else None,
+                appointment_type=appointment.appointment_type,
                 consultation_id=consultation.consultation_id if consultation else None,
                 consultation_status=consultation.status if consultation else None,
                 note_status=last_note.status if last_note else None,
@@ -230,9 +240,14 @@ def patient_appointments(auth_id: str, db: Session = Depends(get_db)):
     result = []
     for appointment in appointments:
         doctor = db.query(Doctor).filter(Doctor.doctor_id == appointment.doctor_id).first() if appointment.doctor_id else None
+        blocker = change_blocker(db, appointment)
         result.append(
             PatientAppointmentResponse(
                 appointment_id=appointment.appointment_id,
+                doctor_id=appointment.doctor_id,
+                appointment_type=appointment.appointment_type,
+                can_change=blocker is None and bool(appointment.slot_id),
+                change_blocker=blocker or (None if appointment.slot_id else "not_reschedulable"),
                 doctor_name=appointment.doctor_name,
                 hospital_name=doctor.hospital.name if doctor else None,
                 appointment_datetime=as_ist(appointment.appointment_datetime),
@@ -382,14 +397,40 @@ def create_note(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
 
-@router.post("/consultations/{consultation_id}/notes/{note_id}/approve", response_model=NoteOut)
+def _follow_up_out(db: Session, consultation: Consultation, follow_up: FollowUp | None) -> FollowUpOut | None:
+    if follow_up is None:
+        return None
+    new_when = None
+    if follow_up.new_appointment_id:
+        booked = db.query(AIAppointment).filter(AIAppointment.appointment_id == follow_up.new_appointment_id).first()
+        new_when = as_ist(booked.appointment_datetime) if booked else None
+    preview = followup_service.preview_slot(db, consultation, follow_up)
+    return FollowUpOut(
+        status=follow_up.status,
+        interval_days=follow_up.interval_days,
+        source_text=follow_up.source_text,
+        suggested_date=follow_up.suggested_date,
+        suggested_time=follow_up.suggested_time.strftime("%H:%M") if follow_up.suggested_time else None,
+        edited_by_doctor=follow_up.edited_by_doctor,
+        failure_reason=follow_up.failure_reason,
+        new_appointment_id=follow_up.new_appointment_id,
+        new_appointment_datetime=new_when,
+        preview_datetime=as_ist(preview.slot_start) if preview is not None else None,
+    )
+
+
+@router.post("/consultations/{consultation_id}/notes/{note_id}/approve", response_model=NoteApproveOut)
 def approve_note(
     consultation_id: str,
     note_id: str,
     db: Session = Depends(get_db),
     doctor: Doctor = Depends(require_doctor),
 ):
-    """Sign off the newest version of the note. It is locked from then on."""
+    """Sign off the newest version of the note. It is locked from then on.
+
+    If the plan holds a follow-up the doctor has not removed, the same click books it.
+    A follow-up that cannot be booked never undoes the approval; its status says why.
+    """
     consultation = _own_consultation(db, consultation_id, doctor)
     note = (
         db.query(ConsultationNote)
@@ -399,9 +440,129 @@ def approve_note(
     if note is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
     try:
-        return svc.approve_note(db, consultation, note, doctor.auth_id)
+        approved = svc.approve_note(db, consultation, note, doctor.auth_id)
     except svc.NoteLocked as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    follow_up, _ = followup_service.book_on_approval(db, consultation, doctor.auth_id)
+    result = NoteApproveOut.model_validate(approved)
+    result.follow_up = _follow_up_out(db, consultation, follow_up)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# follow-up
+# ---------------------------------------------------------------------------
+
+@router.get("/consultations/{consultation_id}/follow-up", response_model=FollowUpOut | None)
+def read_follow_up(consultation_id: str, db: Session = Depends(get_db), doctor: Doctor = Depends(require_doctor)):
+    """The follow-up found in the note's plan (or chosen by the doctor), if any."""
+    consultation = _own_consultation(db, consultation_id, doctor)
+    return _follow_up_out(db, consultation, followup_service.get_follow_up(db, consultation))
+
+
+@router.put("/consultations/{consultation_id}/follow-up", response_model=FollowUpOut)
+def change_follow_up(
+    consultation_id: str,
+    payload: FollowUpIn,
+    db: Session = Depends(get_db),
+    doctor: Doctor = Depends(require_doctor),
+):
+    """The doctor picks (or changes) the follow-up date and time."""
+    consultation = _own_consultation(db, consultation_id, doctor)
+    try:
+        follow_up = followup_service.set_follow_up(db, consultation, payload.date, payload.time, doctor.auth_id)
+    except followup_service.FollowUpNotAllowed as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, exc.code) from exc
+    return _follow_up_out(db, consultation, follow_up)
+
+
+@router.delete("/consultations/{consultation_id}/follow-up", response_model=FollowUpOut | None)
+def remove_follow_up(consultation_id: str, db: Session = Depends(get_db), doctor: Doctor = Depends(require_doctor)):
+    """The doctor says there is no follow-up."""
+    consultation = _own_consultation(db, consultation_id, doctor)
+    try:
+        follow_up = followup_service.decline_follow_up(db, consultation, doctor.auth_id)
+    except followup_service.FollowUpNotAllowed as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, exc.code) from exc
+    return _follow_up_out(db, consultation, follow_up)
+
+
+@router.post("/consultations/{consultation_id}/follow-up/book", response_model=FollowUpOut)
+def book_follow_up(consultation_id: str, db: Session = Depends(get_db), doctor: Doctor = Depends(require_doctor)):
+    """Book the follow-up now (used to retry after 'no free slot', or to book before approving)."""
+    consultation = _own_consultation(db, consultation_id, doctor)
+    try:
+        followup_service.book_follow_up(db, consultation, doctor.auth_id)
+    except followup_service.FollowUpUnavailable as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "no_free_slot") from exc
+    except followup_service.FollowUpNotAllowed as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, exc.code) from exc
+    return _follow_up_out(db, consultation, followup_service.get_follow_up(db, consultation))
+
+
+# ---------------------------------------------------------------------------
+# history of one appointment
+# ---------------------------------------------------------------------------
+
+@router.get("/appointments/{appointment_id}/history", response_model=AppointmentHistoryOut)
+def appointment_history(appointment_id: str, db: Session = Depends(get_db), doctor: Doctor = Depends(require_doctor)):
+    """Everything recorded about one of your appointments: booking, consent, consultation,
+    follow-up, and every reminder or notice (with its status). No phone numbers."""
+    appointment = _own_appointment(db, appointment_id, doctor)
+    consent = svc.current_consent(db, appointment_id)
+    consultation = svc.get_consultation_for_appointment(db, appointment_id)
+    replaced_by = db.query(AIAppointment).filter(AIAppointment.rescheduled_from_id == appointment_id).first()
+    follow_up_row = db.query(FollowUp).filter(FollowUp.appointment_id == appointment_id).first()
+    reminders = (
+        db.query(Reminder).filter(Reminder.appointment_id == appointment_id).order_by(Reminder.send_at).all()
+    )
+
+    events: list[HistoryEvent] = [
+        HistoryEvent(at=appointment.created_at, kind="booked", detail=f"{appointment.appointment_type} appointment booked"),
+    ]
+    if appointment.rescheduled_from_id:
+        events.append(HistoryEvent(at=appointment.created_at, kind="rescheduled", detail="moved here from an earlier time"))
+    if consent is not None:
+        events.append(HistoryEvent(at=consent.created_at, kind="consent", detail=f"recording {svc.consent_state(consent)} ({consent.recorded_by})"))
+    if consultation is not None:
+        events.append(HistoryEvent(at=consultation.created_at, kind="consultation", detail=f"consultation {consultation.status}"))
+    if follow_up_row is not None:
+        events.append(HistoryEvent(at=follow_up_row.updated_at, kind="follow_up", detail=f"follow-up {follow_up_row.status}"))
+    if appointment.cancelled_at:
+        events.append(HistoryEvent(at=appointment.cancelled_at, kind="cancelled", detail=f"cancelled by {appointment.cancelled_by}: {appointment.cancel_reason}"))
+    for reminder in reminders:
+        events.append(HistoryEvent(at=reminder.sent_at or reminder.send_at, kind="reminder", detail=f"{reminder.kind} to {reminder.recipient_type}: {reminder.status}"))
+    events.sort(key=lambda event: event.at.timestamp() if event.at else 0)
+
+    return AppointmentHistoryOut(
+        appointment_id=appointment.appointment_id,
+        appointment_type=appointment.appointment_type,
+        status=appointment.status.value,
+        appointment_datetime=as_ist(appointment.appointment_datetime),
+        cancelled_by=appointment.cancelled_by,
+        cancel_reason=appointment.cancel_reason,
+        rescheduled_from_id=appointment.rescheduled_from_id,
+        rescheduled_to_id=replaced_by.appointment_id if replaced_by else None,
+        parent_appointment_id=appointment.parent_appointment_id,
+        follow_up_appointment_id=follow_up_row.new_appointment_id if follow_up_row else None,
+        consent_state=svc.consent_state(consent),
+        consultation_status=consultation.status if consultation else None,
+        reminders=[
+            {
+                "kind": r.kind,
+                "recipient": r.recipient_type,
+                "status": r.status,
+                "send_at": as_ist(r.send_at).isoformat(),
+                "sent_at": as_ist(r.sent_at).isoformat() if r.sent_at else None,
+                "attempts": r.attempts,
+                "mode": r.mode,
+                "message": r.message_text,
+                "error": r.last_error,
+            }
+            for r in reminders
+        ],
+        events=events,
+    )
 
 
 # ---------------------------------------------------------------------------

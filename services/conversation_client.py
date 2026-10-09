@@ -205,3 +205,73 @@ def cancel_appointment(appointment_id: str, session_id: str) -> dict:
     )
     response.raise_for_status()
     return response.json()
+
+
+# ---------------------------------------------------------------------------
+# the patient's own appointments: list, cancel, reschedule
+# ---------------------------------------------------------------------------
+
+class NotLoggedIn(Exception):
+    """Team C does not know this patient (the web login was skipped or failed)."""
+
+
+class ChangeRefused(Exception):
+    """Team C refused to cancel/move the appointment. ``code`` says why
+    (already_started, has_consultation, cancelled, not_reschedulable, ...)."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+def list_my_appointments(auth_id: str) -> list[dict]:
+    """
+    The patient's upcoming, non-cancelled appointments, soonest first. Each has
+    appointment_id, doctor_id, doctor_name, hospital_name, appointment_datetime
+    (IST), appointment_type, can_change and change_blocker.
+    Raises NotLoggedIn if Team C has no such patient.
+    """
+    response = requests.get(f"{TEAM_C_BASE_URL}/api/v1/patients/{auth_id}/appointments", timeout=10)
+    if response.status_code == 404:
+        raise NotLoggedIn(auth_id)
+    response.raise_for_status()
+    return response.json()
+
+
+def cancel_my_appointment(appointment_id: str, auth_id: str, reason: str = "patient_request") -> dict:
+    """Cancel an appointment as the patient. Raises ChangeRefused if it cannot be cancelled."""
+    response = requests.post(
+        f"{_APPOINTMENTS_URL}/{appointment_id}/cancel",
+        json={"auth_id": auth_id, "reason": reason},
+        timeout=10,
+    )
+    if response.status_code == 409:
+        raise ChangeRefused(_detail(response))
+    response.raise_for_status()
+    return response.json()
+
+
+def reschedule_my_appointment(appointment_id: str, slot_id: str, auth_id: str, session_id: str | None = None) -> dict:
+    """
+    Move an appointment to another slot of the same doctor, as the patient. Returns
+    the new appointment. Raises SlotUnavailableError if the slot was taken and
+    ChangeRefused if the appointment cannot be moved.
+    """
+    body = {"slot_id": slot_id, "auth_id": auth_id}
+    if session_id:
+        body["session_id"] = session_id
+    response = requests.post(f"{_APPOINTMENTS_URL}/{appointment_id}/reschedule", json=body, timeout=10)
+    if response.status_code == 409:
+        code = _detail(response)
+        if code == "slot_unavailable":
+            raise SlotUnavailableError(slot_id)
+        raise ChangeRefused(code)
+    response.raise_for_status()
+    return response.json()
+
+
+def _detail(response) -> str:
+    try:
+        return str(response.json().get("detail", "refused"))
+    except ValueError:
+        return "refused"

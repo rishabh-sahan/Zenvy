@@ -24,8 +24,12 @@ Days are counted from the day the recording was uploaded.
 * **Automatically:** `python -m app.db.purge_recordings` removes audio older than
   30 days and transcripts older than 90 days, and never touches notes. It is safe
   to run repeatedly.
-  **Gap:** nothing runs it on a schedule yet. Until the scheduler arrives
-  (Stage 3), run it daily with cron / Task Scheduler / a scheduled container.
+  The background scheduler inside the Team-C service runs it once a day
+  (`PURGE_INTERVAL_HOURS`, default 24; switch the scheduler off with
+  `SCHEDULER_ENABLED=false`). Check it with `GET /healthz/scheduler`. Running the
+  command by hand is still safe.
+* **When the patient withdraws consent:** the recording and transcript of that
+  appointment are deleted at once (audit reason `consent_withdrawn`). Notes are kept.
 * Every deletion writes an audit entry (who or what, why, which consultation).
   No phone number is written to the audit log; patients are identified by `auth_id`.
 
@@ -41,9 +45,11 @@ Days are counted from the day the recording was uploaded.
   patient can change it.
 * The wording shown to the patient is versioned (`v1`). The Hindi and Kannada
   texts are first drafts and need a native-speaker review before use.
-* **Gap:** if a patient withdraws consent after a recording was made, the existing
-  recording is **not** deleted automatically. New recording and processing stop;
-  the doctor sees "declined" and should delete the recording.
+* If a patient withdraws consent after a recording was made, the existing
+  recording and transcript are deleted automatically (notes are kept). New
+  recording and processing stop.
+* A rescheduled appointment is the same visit: the patient's consent decision is
+  copied to the new appointment, so they are not asked again.
 * **Gap:** the web login is phone-number only (no password or OTP), so "the
   patient" is whoever knows the phone number. That is acceptable for a demo but
   not for production consent.

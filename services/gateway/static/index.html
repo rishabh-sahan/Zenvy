@@ -230,6 +230,37 @@ button {
 .consent-btn.allow:hover { background: rgba(52,211,153,.2); border-color: rgba(52,211,153,.5); }
 .consent-btn.deny:hover { background: rgba(248,113,113,.2); border-color: rgba(248,113,113,.5); }
 
+.appt-panel {
+  flex-basis: 100%;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 1px dashed rgba(255,255,255,.14);
+  border-radius: 14px;
+  background: rgba(255,255,255,.02);
+  font-size: 13px;
+}
+.appt-panel .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.appt-panel input[type=date] {
+  padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border);
+  background: rgba(255,255,255,.05); color: #fff; color-scheme: dark;
+}
+.slot-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.slot-btn {
+  border: 1px solid var(--border); background: rgba(255,255,255,.06); color: #fff;
+  padding: 7px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+}
+.slot-btn:hover { background: rgba(139,92,246,.25); border-color: rgba(139,92,246,.6); }
+.appt-tag {
+  margin-left: 8px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: rgba(34,211,238,.18); color: #a5f0fb;
+}
+.change-btn { border: 1px solid var(--border); background: rgba(255,255,255,.06); color: #fff;
+  padding: 7px 14px; border-radius: 999px; font-size: 12px; cursor: pointer; }
+.change-btn:hover:not(:disabled) { background: rgba(139,92,246,.22); border-color: rgba(139,92,246,.6); }
+.change-btn.danger:hover:not(:disabled) { background: rgba(248,113,113,.2); border-color: rgba(248,113,113,.5); }
+.change-btn:disabled { opacity: .5; cursor: not-allowed; }
+.cant-change { color: var(--muted); font-size: 12px; }
+
 .consent-info { margin-top: 14px; color: var(--muted); font-size: 12px; }
 .consent-info summary { cursor: pointer; }
 .consent-info p { line-height: 1.5; margin: 8px 0 0; }
@@ -2001,42 +2032,75 @@ async function loadMyAppointments() {
 
 }
 
+const CHANGE_BLOCKERS = {
+  already_started: "This appointment has already started, so it can't be changed.",
+  has_consultation: "A consultation has already taken place for this appointment.",
+  not_reschedulable: "This appointment can only be changed at the front desk."
+};
+
+function el(tag, className, text) {
+
+  const node = document.createElement(tag);
+
+  if (className) node.className = className;
+
+  if (text !== undefined) node.textContent = text;
+
+  return node;
+
+}
+
+function hospitalToday() {
+
+  // today's date in India as YYYY-MM-DD
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+}
+
+function addDays(isoDate, days) {
+
+  const d = new Date(isoDate + "T00:00:00Z");
+
+  d.setUTCDate(d.getUTCDate() + days);
+
+  return d.toISOString().slice(0, 10);
+
+}
+
+function clockOf(iso) {
+
+  return new Date(iso).toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true
+  });
+
+}
+
 function renderMyAppointment(item) {
 
-  const row = document.createElement("div");
+  const row = el("div", "my-appt");
 
-  row.className = "my-appt";
+  const info = el("div");
 
-  const info = document.createElement("div");
+  const who = el("div", "who", item.doctor_name);
 
-  const who = document.createElement("div");
+  if (item.appointment_type === "follow_up") {
 
-  who.className = "who";
+    who.append(el("span", "appt-tag", "Follow-up"));
 
-  who.textContent = item.doctor_name;
+  }
 
-  const sub = document.createElement("div");
-
-  sub.className = "sub";
-
-  sub.textContent =
+  const sub = el("div", "sub",
     appointmentWhen(item.appointment_datetime) +
-    (item.hospital_name ? " · " + item.hospital_name : "");
+    (item.hospital_name ? " · " + item.hospital_name : ""));
 
   info.append(who, sub);
 
-  const actions = document.createElement("div");
+  const actions = el("div", "consent-actions");
 
-  actions.className = "consent-actions";
-
-  const state = document.createElement("span");
-
-  state.className = "consent-state " + item.consent_state;
-
-  state.textContent =
+  const state = el("span", "consent-state " + item.consent_state,
     item.consent_state === "granted" ? "Recording allowed"
     : item.consent_state === "declined" ? "Recording not allowed"
-    : "Recording: not decided";
+    : "Recording: not decided");
 
   actions.append(state);
 
@@ -2052,9 +2116,265 @@ function renderMyAppointment(item) {
 
   }
 
-  row.append(info, actions);
+  // A slot for the panel that opens under the row (reschedule / cancel).
+  const panel = el("div", "appt-panel");
+  panel.hidden = true;
+
+  if (item.can_change) {
+
+    const reschedule = el("button", "change-btn", "Reschedule");
+    reschedule.type = "button";
+    reschedule.addEventListener("click", () => openReschedule(item, panel));
+
+    const cancel = el("button", "change-btn danger", "Cancel");
+    cancel.type = "button";
+    cancel.addEventListener("click", () => openCancel(item, panel));
+
+    // Rescheduling needs a doctor's slot; an old-style booking can only be cancelled here.
+    if (item.doctor_id) actions.append(reschedule);
+
+    actions.append(cancel);
+
+  } else if (item.change_blocker) {
+
+    actions.append(el("span", "cant-change", CHANGE_BLOCKERS[item.change_blocker] || "This appointment can't be changed."));
+
+  }
+
+  row.append(info, actions, panel);
 
   return row;
+
+}
+
+function closePanel(panel) {
+
+  panel.hidden = true;
+
+  panel.replaceChildren();
+
+}
+
+function openCancel(item, panel) {
+
+  panel.hidden = false;
+
+  panel.replaceChildren();
+
+  panel.append(el("div", null,
+    "Cancel your appointment with " + item.doctor_name + " on " + appointmentWhen(item.appointment_datetime) + "?"));
+
+  const buttons = el("div", "row");
+
+  const yes = el("button", "change-btn danger", "Yes, cancel it");
+  yes.type = "button";
+  yes.addEventListener("click", async () => {
+
+    yes.disabled = true;
+
+    const result = await changeAppointment(item.appointment_id, "cancel", {});
+
+    if (result.ok) {
+
+      showToast("Your appointment was cancelled.");
+
+      loadMyAppointments();
+
+    } else {
+
+      showToast(changeFailureText(result));
+
+      yes.disabled = false;
+
+    }
+
+  });
+
+  const keep = el("button", "change-btn", "Keep it");
+  keep.type = "button";
+  keep.addEventListener("click", () => closePanel(panel));
+
+  buttons.append(yes, keep);
+
+  panel.append(buttons);
+
+}
+
+function openReschedule(item, panel) {
+
+  panel.hidden = false;
+
+  panel.replaceChildren();
+
+  panel.append(el("div", null, "Pick a new day. You will see the free times of " + item.doctor_name + "."));
+
+  const row = el("div", "row");
+
+  const dateInput = document.createElement("input");
+  dateInput.type = "date";
+  dateInput.min = hospitalToday();
+  dateInput.max = addDays(hospitalToday(), 13);
+
+  const show = el("button", "change-btn", "Show times");
+  show.type = "button";
+
+  const close = el("button", "change-btn", "Close");
+  close.type = "button";
+  close.addEventListener("click", () => closePanel(panel));
+
+  row.append(dateInput, show, close);
+
+  const slotsBox = el("div");
+
+  panel.append(row, slotsBox);
+
+  const loadSlots = async () => {
+
+    if (!dateInput.value) {
+
+      showToast("Please pick a date first.");
+
+      return;
+
+    }
+
+    slotsBox.replaceChildren(el("div", "cant-change", "Looking for free times…"));
+
+    try {
+
+      const response = await fetch(
+        CONSENT_API + "doctors/" + encodeURIComponent(item.doctor_id) +
+        "/slots?date=" + encodeURIComponent(dateInput.value)
+      );
+
+      if (!response.ok) throw new Error("slots");
+
+      const slots = (await response.json()).filter(sl => sl.slot_id !== item.slot_id);
+
+      if (!slots.length) {
+
+        slotsBox.replaceChildren(el("div", "cant-change", "No free times that day. Please try another date."));
+
+        return;
+
+      }
+
+      const grid = el("div", "slot-grid");
+
+      slots.forEach(slot => {
+
+        const button = el("button", "slot-btn", clockOf(slot.slot_start));
+        button.type = "button";
+        button.addEventListener("click", () => confirmReschedule(item, slot, panel, loadSlots));
+        grid.append(button);
+
+      });
+
+      slotsBox.replaceChildren(grid);
+
+    } catch (error) {
+
+      slotsBox.replaceChildren(el("div", "cant-change", "Could not load the free times. Please try again."));
+
+    }
+
+  };
+
+  show.addEventListener("click", loadSlots);
+
+  dateInput.addEventListener("change", loadSlots);
+
+}
+
+function confirmReschedule(item, slot, panel, reloadSlots) {
+
+  panel.replaceChildren();
+
+  const when_ = new Date(slot.slot_start).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit", hour12: true
+  });
+
+  panel.append(el("div", null,
+    "Move your appointment with " + item.doctor_name + " from " +
+    appointmentWhen(item.appointment_datetime) + " to " + when_ + "?"));
+
+  const buttons = el("div", "row");
+
+  const yes = el("button", "change-btn", "Yes, move it");
+  yes.type = "button";
+  yes.addEventListener("click", async () => {
+
+    yes.disabled = true;
+
+    const result = await changeAppointment(item.appointment_id, "reschedule", { slot_id: slot.slot_id });
+
+    if (result.ok) {
+
+      showToast("Done. Your appointment is now on " + when_ + ".");
+
+      loadMyAppointments();
+
+    } else if (result.detail === "slot_unavailable") {
+
+      showToast("Sorry, that time was just taken. Please pick another.");
+
+      openReschedule(item, panel);
+
+    } else {
+
+      showToast(changeFailureText(result));
+
+      yes.disabled = false;
+
+    }
+
+  });
+
+  const back = el("button", "change-btn", "Pick another time");
+  back.type = "button";
+  back.addEventListener("click", () => openReschedule(item, panel));
+
+  buttons.append(yes, back);
+
+  panel.append(buttons);
+
+}
+
+async function changeAppointment(appointmentId, action, extra) {
+
+  try {
+
+    const response = await fetch(
+      CONSENT_API + "appointments/" + encodeURIComponent(appointmentId) + "/" + action,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auth_id: authId, ...extra })
+      }
+    );
+
+    if (response.ok) return { ok: true };
+
+    let detail = "";
+
+    try { detail = (await response.json()).detail; } catch (ignored) {}
+
+    return { ok: false, status: response.status, detail: typeof detail === "string" ? detail : "" };
+
+  } catch (error) {
+
+    return { ok: false, status: 0, detail: "network" };
+
+  }
+
+}
+
+function changeFailureText(result) {
+
+  return CHANGE_BLOCKERS[result.detail] ||
+    (result.detail === "different_doctor" ? "A reschedule has to stay with the same doctor." : "") ||
+    "Sorry, that didn't work. Please try again.";
 
 }
 

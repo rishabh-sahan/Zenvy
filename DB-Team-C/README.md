@@ -38,6 +38,35 @@ are versioned and an approved version is locked. Set `AUDIO_ENCRYPTION_KEY`
 Delete expired recordings with `python -m app.db.purge_recordings`. See
 `RETENTION_POLICY.md`. Migration `010_consultations.sql` adds the tables.
 
+### Reminders, follow-ups, cancel and reschedule
+
+- Every booking schedules messages in the `reminders` table (the single record of
+  everything sent): to the patient a booking confirmation, a reminder 24 hours and
+  2 hours before; to the doctor a "new appointment" notice and the same two
+  reminders. Reminders whose time has already passed are skipped.
+- A background scheduler (started with the service, one tick every
+  `REMINDER_POLL_SECONDS`, default 30) sends what is due. Each reminder is claimed
+  with one atomic UPDATE, so two schedulers can never send the same one. A failed
+  send is retried once, `REMINDER_RETRY_MINUTES` later (default 5).
+- `REMINDER_MODE=mock` (default) records the message and sends nothing;
+  `live` sends through WhatsApp using the approved templates in
+  `WHATSAPP_TEMPLATES.md`. `GET /healthz/scheduler` shows whether it is running.
+- `POST /appointments/{id}/cancel` and `POST /appointments/{id}/reschedule`
+  (`{"slot_id": ...}`; patient with `auth_id`/`session_id`, or the doctor's staff
+  token). Reschedule keeps the same doctor and is atomic: the new slot is claimed,
+  the new appointment created and the old one cancelled in one transaction, or
+  nothing changes. Started appointments, and ones that have a consultation, cannot
+  be changed (`409 already_started` / `has_consultation`). Both people are
+  notified and the old reminders are stopped.
+- `GET /appointments/{id}/history` (the treating doctor) lists what happened
+  and every message with its status.
+- Follow-ups: when a note's plan says "come back next week", "review in 2 weeks"
+  and similar, a suggestion is stored (`GET/PUT/DELETE /consultations/{id}/follow-up`).
+  Approving the note books it at the same time of day (or the nearest free slot)
+  with the same locking as any booking; `POST .../follow-up/book` books it
+  afterwards. Only time-based phrases are recognised, in English.
+- Migration `011_followups_reminders.sql` adds the tables and columns.
+
 ### Doctors, slots and double-booking
 
 Every bookable time is a row in `doctor_slots` (generated on demand from each

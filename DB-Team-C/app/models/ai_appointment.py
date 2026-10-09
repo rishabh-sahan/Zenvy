@@ -32,6 +32,12 @@ class AIAppointment(Base):
     slot_id = Column(String, ForeignKey("doctor_slots.slot_id"), nullable=True, index=True)
     appointment_type = Column(String, nullable=False, default="new", server_default="new")
     parent_appointment_id = Column(String, ForeignKey("ai_appointments.appointment_id"), nullable=True)
+    # Added in migration 011: why and by whom an appointment was cancelled, and
+    # which appointment this one replaced when it was rescheduled.
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    cancel_reason = Column(String, nullable=True)      # e.g. "rescheduled", "patient_request"
+    cancelled_by = Column(String, nullable=True)       # patient | doctor | staff | system
+    rescheduled_from_id = Column(String, ForeignKey("ai_appointments.appointment_id"), nullable=True)
 
     # Safety net behind the slot lock: a slot can have at most one non-cancelled
     # appointment, even if application code is bypassed.

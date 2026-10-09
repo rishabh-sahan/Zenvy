@@ -207,7 +207,7 @@ def hold_slot(db: Session, slot_id: str, session_id: str) -> DoctorSlot:
             status=SlotStatus.held.value,
             held_by_session=session_id,
             held_until=held_until,
-        )
+        ).execution_options(synchronize_session=False)
     )
     db.commit()
     if result.rowcount != 1:
@@ -229,6 +229,7 @@ def release_slot(db: Session, slot_id: str, session_id: str) -> bool:
             DoctorSlot.held_by_session == session_id,
         )
         .values(status=SlotStatus.available.value, held_by_session=None, held_until=None)
+        .execution_options(synchronize_session=False)
     )
     db.commit()
     return result.rowcount == 1
@@ -251,7 +252,7 @@ def claim_held_slot_for_booking(
             DoctorSlot.slot_id == slot_id,
             DoctorSlot.status == SlotStatus.held.value,
             DoctorSlot.held_by_session == session_id,
-        )
+        ).execution_options(synchronize_session=False)
         .values(
             status=SlotStatus.booked.value,
             held_by_session=None,
@@ -278,5 +279,42 @@ def free_booked_slot(db: Session, slot_id: str, appointment_id: str) -> None:
             held_by_session=None,
             held_until=None,
             appointment_id=None,
-        )
+        ).execution_options(synchronize_session=False)
     )
+
+
+def claim_slot_for_booking(db: Session, slot_id: str, session_id: str, appointment_id: str) -> None:
+    """Book a slot in one step, without a separate hold. Does NOT commit.
+
+    Used when the caller books in one go (reschedule, follow-up). The slot may be
+    free, may carry a lapsed hold, or may be held by this same session. One
+    conditional UPDATE, so two callers can never both get it.
+    """
+    now = utcnow()
+    result = db.execute(
+        update(DoctorSlot)
+        .where(
+            DoctorSlot.slot_id == slot_id,
+            DoctorSlot.slot_start > now,
+            or_(
+                DoctorSlot.status == SlotStatus.available.value,
+                and_(
+                    DoctorSlot.status == SlotStatus.held.value,
+                    or_(
+                        DoctorSlot.held_until <= now,
+                        DoctorSlot.held_by_session == session_id,
+                    ),
+                ),
+            ),
+        )
+        .values(
+            status=SlotStatus.booked.value,
+            held_by_session=None,
+            held_until=None,
+            appointment_id=appointment_id,
+        ).execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        if db.get(DoctorSlot, slot_id) is None:
+            raise SlotNotFoundError(slot_id)
+        raise SlotUnavailableError(slot_id)

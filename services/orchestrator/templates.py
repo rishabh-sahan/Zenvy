@@ -62,6 +62,77 @@ TEMPLATES = {
         "hi": "मुझे एक से अधिक डॉक्टर मिले: {options}। आप किस डॉक्टर से मिलना चाहेंगे? आप नंबर बता सकते हैं।",
         "kn": "ನನಗೆ ಒಂದಕ್ಕಿಂತ ಹೆಚ್ಚು ವೈದ್ಯರು ಸಿಕ್ಕಿದ್ದಾರೆ: {options}. ನೀವು ಯಾವ ವೈದ್ಯರನ್ನು ಭೇಟಿಯಾಗಲು ಬಯಸುತ್ತೀರಿ? ನೀವು ಸಂಖ್ಯೆಯನ್ನು ಹೇಳಬಹುದು.",
     },
+    # --- Cancel / reschedule. Kannada/Hindi are first drafts and still need a native-speaker review.
+    "CHANGE_NOT_LOGGED_IN": {
+        "en": "Please log in first so I can find your appointments.",
+        "hi": "कृपया पहले लॉग इन करें, ताकि मैं आपकी अपॉइंटमेंट देख सकूँ।",
+        "kn": "ದಯವಿಟ್ಟು ಮೊದಲು ಲಾಗಿನ್ ಮಾಡಿ, ಆಗ ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್‌ಗಳನ್ನು ನಾನು ನೋಡಬಲ್ಲೆ.",
+    },
+    "CANCEL_NONE": {
+        "en": "You have no upcoming appointments.",
+        "hi": "आपकी कोई आगामी अपॉइंटमेंट नहीं है।",
+        "kn": "ನಿಮಗೆ ಯಾವುದೇ ಮುಂಬರುವ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಇಲ್ಲ.",
+    },
+    "CANNOT_CHANGE": {
+        "en": "Sorry, that appointment can't be changed any more: it has already started or has a consultation. Please contact the front desk.",
+        "hi": "क्षमा करें, इस अपॉइंटमेंट में अब बदलाव नहीं हो सकता: यह शुरू हो चुकी है या इसका परामर्श हो चुका है। कृपया फ्रंट डेस्क से संपर्क करें।",
+        "kn": "ಕ್ಷಮಿಸಿ, ಈ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಅನ್ನು ಇನ್ನು ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ: ಅದು ಈಗಾಗಲೇ ಪ್ರಾರಂಭವಾಗಿದೆ ಅಥವಾ ಸಮಾಲೋಚನೆ ನಡೆದಿದೆ. ದಯವಿಟ್ಟು ಫ್ರಂಟ್ ಡೆಸ್ಕ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+    },
+    "CHANGE_WHICH_ACTION": {
+        "en": "Would you like to cancel your appointment or change its time?",
+        "hi": "क्या आप अपनी अपॉइंटमेंट रद्द करना चाहते हैं या उसका समय बदलना चाहते हैं?",
+        "kn": "ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಅನ್ನು ರದ್ದುಗೊಳಿಸಬೇಕೇ ಅಥವಾ ಸಮಯ ಬದಲಾಯಿಸಬೇಕೇ?",
+    },
+    "CANCEL_WHICH": {
+        "en": "Which appointment would you like to cancel? {options}. You can say the number.",
+        "hi": "आप कौन सी अपॉइंटमेंट रद्द करना चाहेंगे? {options}। आप नंबर बता सकते हैं।",
+        "kn": "ನೀವು ಯಾವ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ರದ್ದುಗೊಳಿಸಲು ಬಯಸುತ್ತೀರಿ? {options}. ನೀವು ಸಂಖ್ಯೆಯನ್ನು ಹೇಳಬಹುದು.",
+    },
+    "RESCHED_WHICH": {
+        "en": "Which appointment would you like to move? {options}. You can say the number.",
+        "hi": "आप कौन सी अपॉइंटमेंट बदलना चाहेंगे? {options}। आप नंबर बता सकते हैं।",
+        "kn": "ನೀವು ಯಾವ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಬದಲಾಯಿಸಲು ಬಯಸುತ್ತೀರಿ? {options}. ನೀವು ಸಂಖ್ಯೆಯನ್ನು ಹೇಳಬಹುದು.",
+    },
+    "CANCEL_CONFIRM": {
+        "en": "Do you want to cancel your appointment with {doctor} on {when}?",
+        "hi": "क्या आप {doctor} के साथ {when} की अपनी अपॉइंटमेंट रद्द करना चाहते हैं?",
+        "kn": "{doctor} ಜೊತೆ {when} ರಂದು ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಅನ್ನು ರದ್ದುಗೊಳಿಸಲೇ?",
+    },
+    "CANCEL_DONE": {
+        "en": "Done. Your appointment with {doctor} on {when} is cancelled.",
+        "hi": "हो गया। {doctor} के साथ {when} की आपकी अपॉइंटमेंट रद्द कर दी गई है।",
+        "kn": "ಆಯಿತು. {doctor} ಜೊತೆ {when} ರಂದು ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ರದ್ದುಗೊಂಡಿದೆ.",
+    },
+    "CANCEL_KEPT": {
+        "en": "Okay, I've kept your appointment with {doctor} on {when}.",
+        "hi": "ठीक है, मैंने {doctor} के साथ {when} की आपकी अपॉइंटमेंट रखी है।",
+        "kn": "ಸರಿ, {doctor} ಜೊತೆ {when} ರಂದು ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಹಾಗೆಯೇ ಇದೆ.",
+    },
+    "RESCHED_ASK_DATE": {
+        "en": "Sure. Your appointment with {doctor} is on {when}. What new date would you like?",
+        "hi": "ज़रूर। {doctor} के साथ आपकी अपॉइंटमेंट {when} को है। आप नई तारीख कौन सी चाहेंगे?",
+        "kn": "ಸರಿ. {doctor} ಜೊತೆ ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ {when} ರಂದು ಇದೆ. ನಿಮಗೆ ಯಾವ ಹೊಸ ದಿನಾಂಕ ಬೇಕು?",
+    },
+    "RESCHED_CONFIRM": {
+        "en": "Just to confirm: move your appointment with {doctor} from {old} to {date} at {time}. Shall I do this?",
+        "hi": "पुष्टि के लिए: {doctor} के साथ अपनी अपॉइंटमेंट {old} से बदलकर {date} को {time} बजे करनी है। क्या मैं ऐसा करूँ?",
+        "kn": "ದೃಢೀಕರಿಸಲು: {doctor} ಜೊತೆ ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಅನ್ನು {old} ರಿಂದ {date} ರಂದು {time} ಗಂಟೆಗೆ ಬದಲಾಯಿಸಬೇಕೇ?",
+    },
+    "RESCHED_DONE": {
+        "en": "Done. Your appointment with {doctor} is now on {date} at {time}.",
+        "hi": "हो गया। {doctor} के साथ आपकी अपॉइंटमेंट अब {date} को {time} बजे है।",
+        "kn": "ಆಯಿತು. {doctor} ಜೊತೆ ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಈಗ {date} ರಂದು {time} ಗಂಟೆಗೆ ಇದೆ.",
+    },
+    "RESCHED_KEPT": {
+        "en": "Okay, I've kept your appointment as it was.",
+        "hi": "ठीक है, आपकी अपॉइंटमेंट पहले जैसी ही रखी है।",
+        "kn": "ಸರಿ, ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಮೊದಲಿನಂತೆಯೇ ಇದೆ.",
+    },
+    "CHANGE_FAILED": {
+        "en": "Sorry, I couldn't change the appointment because of a system issue. Please try again or contact the front desk.",
+        "hi": "क्षमा करें, सिस्टम की समस्या के कारण अपॉइंटमेंट में बदलाव नहीं हो सका। कृपया फिर से कोशिश करें या फ्रंट डेस्क से संपर्क करें।",
+        "kn": "ಕ್ಷಮಿಸಿ, ಸಿಸ್ಟಂ ಸಮಸ್ಯೆಯಿಂದಾಗಿ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಫ್ರಂಟ್ ಡೆಸ್ಕ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+    },
     "CANCELLED": {
         "en": "No problem, I've cancelled that booking request. Let me know if you'd like to start over.",
         "hi": "कोई बात नहीं, मैंने वह बुकिंग रद्द कर दी है। यदि आप फिर से शुरू करना चाहें तो बताइए।",

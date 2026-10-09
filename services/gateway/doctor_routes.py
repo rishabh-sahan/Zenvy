@@ -37,11 +37,18 @@ PROXY_RULES = [
     ({"POST"}, rf"consultations/{ID}/notes"),
     ({"POST"}, rf"consultations/{ID}/notes/{ID}/approve"),
     ({"DELETE"}, rf"consultations/{ID}/recording"),
+    ({"GET", "PUT", "DELETE"}, rf"consultations/{ID}/follow-up"),
+    ({"POST"}, rf"consultations/{ID}/follow-up/book"),
+    ({"GET"}, rf"appointments/{ID}/history"),
 ]
 PATIENT_RULES = [
     ({"GET"}, rf"consent-message"),
     ({"GET"}, rf"patients/{ID}/appointments"),
     ({"POST"}, rf"appointments/{ID}/consent"),
+    # the "Your appointments" card: pick a new time of the same doctor, move or cancel
+    ({"GET"}, rf"doctors/{ID}/slots"),
+    ({"POST"}, rf"appointments/{ID}/reschedule"),
+    ({"POST"}, rf"appointments/{ID}/cancel"),
 ]
 
 

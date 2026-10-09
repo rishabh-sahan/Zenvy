@@ -133,6 +133,19 @@ textarea[readonly] { opacity: .8; }
 @keyframes pulse { 50% { opacity: .25; } }
 .timer { font-variant-numeric: tabular-nums; font-weight: 700; }
 
+/* ---------- follow-up + history ---------- */
+.fu-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-top: 16px; background: var(--panel-2); }
+.fu-card h4 { margin: 0 0 8px; font-size: 14px; }
+.fu-card .src { color: var(--muted); font-size: 12px; margin: 4px 0 10px; font-style: italic; }
+.fu-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.fu-edit input[type=date], .fu-edit input[type=time] { width: auto; padding: 8px 10px; }
+.history { margin-top: 6px; }
+.history summary { cursor: pointer; font-weight: 700; margin-bottom: 10px; }
+.history table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.history th, .history td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.history th { color: var(--muted); font-weight: 600; }
+.history .msg { color: var(--muted); }
+
 /* ---------- transcript ---------- */
 .transcript { max-height: 340px; overflow-y: auto; padding-right: 4px; }
 .turn { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
@@ -235,6 +248,9 @@ let recordChunks = [];
 let recordTimer = null;
 let recordStarted = 0;
 let busy = false;
+let followUp = null;      // the follow-up for the open consultation (or null)
+let editingFollowUp = false;
+let history = null;       // the open appointment's history (loaded on demand)
 
 const FAILURES = {
   no_speech: "No speech could be heard in the recording. Please record again.",
@@ -421,6 +437,7 @@ function renderAppointments() {
   }
   list.replaceChildren(...appointments.map(a => {
     const chips = [chipForConsent(a)];
+    if (a.appointment_type === "follow_up") chips.unshift(el("span", { class: "chip", style: "background:rgba(34,211,238,.18);color:#a5f0fb" }, "Follow-up"));
     if (a.consultation_status) {
       const cls = a.consultation_status === "failed" ? "bad"
         : a.consultation_status === "note_approved" ? "ok" : "";
@@ -444,6 +461,9 @@ async function selectAppointment(id) {
   consultation = null;
   shownVersion = null;
   editing = false;
+  followUp = null;
+  editingFollowUp = false;
+  history = null;
   renderAppointments();
   const a = appointments.find(x => x.appointment_id === id);
   if (a && a.consultation_id) {
@@ -478,6 +498,16 @@ async function loadConsultation(id) {
     }
   } catch (e) {
     if (e.message !== "Signed out") toast(e.message);
+  }
+  await loadFollowUp();
+}
+
+async function loadFollowUp() {
+  if (!consultation) { followUp = null; return; }
+  try {
+    followUp = await api("GET", "consultations/" + consultation.consultation_id + "/follow-up");
+  } catch (e) {
+    followUp = null;
   }
 }
 
@@ -698,11 +728,17 @@ async function saveNote() {
 async function approveNote() {
   const note = noteOnScreen();
   await guarded(async () => {
-    await api("POST", "consultations/" + consultation.consultation_id + "/notes/" + note.note_id + "/approve");
+    const result = await api("POST", "consultations/" + consultation.consultation_id + "/notes/" + note.note_id + "/approve");
     editing = false;
     await loadConsultation(consultation.consultation_id);
     await loadAppointments();
-    toast("Version " + note.version + " approved and locked.");
+    if (result.follow_up && result.follow_up.status === "booked") {
+      toast("Version " + note.version + " approved. Follow-up booked for " + when(result.follow_up.new_appointment_datetime) + ".");
+    } else if (result.follow_up && result.follow_up.status === "failed") {
+      toast("Version " + note.version + " approved, but the follow-up could not be booked (no free slot). Pick another date below.");
+    } else {
+      toast("Version " + note.version + " approved and locked.");
+    }
   });
 }
 
@@ -716,6 +752,120 @@ async function regenerate() {
     editing = false;
     await loadAppointments();
   });
+}
+
+async function saveFollowUp() {
+  const day = document.getElementById("fuDate").value;
+  const at = document.getElementById("fuTime").value;
+  if (!day) { toast("Please pick a date."); return; }
+  await guarded(async () => {
+    followUp = await api("PUT", "consultations/" + consultation.consultation_id + "/follow-up", { date: day, time: at || null });
+    editingFollowUp = false;
+    toast("Follow-up set. It is booked when you approve the note.");
+  });
+}
+
+async function removeFollowUp() {
+  await guarded(async () => {
+    followUp = await api("DELETE", "consultations/" + consultation.consultation_id + "/follow-up");
+    editingFollowUp = false;
+  });
+}
+
+async function bookFollowUpNow() {
+  await guarded(async () => {
+    followUp = await api("POST", "consultations/" + consultation.consultation_id + "/follow-up/book");
+    await loadAppointments();
+    toast("Follow-up booked for " + when(followUp.new_appointment_datetime) + ".");
+  });
+}
+
+function followUpCard(noteApproved) {
+  const kids = [el("h4", null, "Follow-up visit")];
+  const fu = followUp;
+
+  if (fu && fu.status === "booked") {
+    kids.push(el("div", { class: "banner ok" },
+      "Follow-up booked for " + when(fu.new_appointment_datetime) + ". The patient and you will be reminded."));
+    return el("div", { class: "fu-card" }, kids);
+  }
+
+  if (!fu) {
+    kids.push(el("div", { class: "note-line" }, "No follow-up was found in the plan."));
+  } else if (fu.status === "declined") {
+    kids.push(el("div", { class: "note-line" }, "No follow-up (you removed it)."));
+  } else {
+    if (fu.status === "failed") {
+      kids.push(el("div", { class: "banner bad" }, "No free time was found near " + fu.suggested_date + ". Pick another date."));
+    }
+    const when_ = fu.suggested_date + (fu.suggested_time ? " at " + fu.suggested_time : "");
+    kids.push(el("div", null, "Suggested: ", el("b", null, when_), fu.interval_days ? " (" + fu.interval_days + " days after this visit)" : ""));
+    if (fu.source_text) kids.push(el("div", { class: "src" }, "From the plan: \u201c" + fu.source_text + "\u201d"));
+    if (fu.preview_datetime) {
+      kids.push(el("div", { class: "note-line" }, "It would be booked for " + when(fu.preview_datetime) +
+        (noteApproved ? "." : " when you approve the note.")));
+    } else if (fu.status === "suggested") {
+      kids.push(el("div", { class: "note-line" }, "No free time was found near that date yet."));
+    }
+  }
+
+  if (editingFollowUp) {
+    const base = fu && fu.suggested_date ? fu.suggested_date : "";
+    kids.push(el("div", { class: "fu-edit" },
+      el("input", { type: "date", id: "fuDate", value: base }),
+      el("input", { type: "time", id: "fuTime", value: fu && fu.suggested_time ? fu.suggested_time : "" }),
+      el("button", { class: "btn small primary", onclick: saveFollowUp, disabled: busy }, "Save"),
+      el("button", { class: "btn small", onclick: () => { editingFollowUp = false; renderWorkspace(); } }, "Cancel")));
+  } else {
+    const row = [el("button", { class: "btn small", onclick: () => { editingFollowUp = true; renderWorkspace(); } },
+      fu && fu.status !== "declined" ? "Change" : "Add a follow-up")];
+    if (fu && fu.status === "suggested") row.push(el("button", { class: "btn small danger", onclick: removeFollowUp, disabled: busy }, "Remove"));
+    if (fu && (fu.status === "suggested" || fu.status === "failed") && noteApproved) {
+      row.push(el("button", { class: "btn small good", onclick: bookFollowUpNow, disabled: busy }, "Book it now"));
+    }
+    kids.push(el("div", { class: "fu-edit" }, row));
+  }
+  return el("div", { class: "fu-card" }, kids);
+}
+
+async function toggleHistory(open) {
+  if (!open || history) return;
+  try {
+    history = await api("GET", "appointments/" + selectedId + "/history");
+  } catch (e) {
+    history = { events: [], reminders: [], error: e.message };
+  }
+  renderWorkspace();
+  const details = document.getElementById("historyBox");
+  if (details) details.open = true;
+}
+
+function historySection() {
+  const kids = [el("summary", null, "History of this appointment")];
+  if (!history) {
+    kids.push(el("div", { class: "note-line" }, "Loading\u2026"));
+  } else if (history.error) {
+    kids.push(el("div", { class: "banner bad" }, history.error));
+  } else {
+    const facts = [];
+    if (history.rescheduled_from_id) facts.push("Moved here from an earlier time.");
+    if (history.rescheduled_to_id) facts.push("Moved to a later appointment.");
+    if (history.status === "cancelled") facts.push("Cancelled by " + history.cancelled_by + " (" + history.cancel_reason + ").");
+    if (history.follow_up_appointment_id) facts.push("A follow-up was booked.");
+    if (history.parent_appointment_id) facts.push("This is a follow-up visit.");
+    facts.forEach(f => kids.push(el("div", { class: "note-line" }, f)));
+    kids.push(el("table", null,
+      el("tr", null, el("th", null, "Message"), el("th", null, "To"), el("th", null, "When"), el("th", null, "Status")),
+      history.reminders.map(r => el("tr", null,
+        el("td", null, r.kind.replace(/_/g, " "), r.message ? el("div", { class: "msg" }, r.message) : null),
+        el("td", null, r.recipient),
+        el("td", null, when(r.sent_at || r.send_at)),
+        el("td", null, r.status + (r.mode ? " (" + r.mode + ")" : "") + (r.error ? " - " + r.error : ""))))));
+    if (!history.reminders.length) kids.push(el("div", { class: "note-line" }, "No reminders yet."));
+  }
+  const box = el("details", { class: "history", id: "historyBox" }, kids);
+  box.addEventListener("toggle", () => toggleHistory(box.open));
+  return el("div", { class: "section" }, box);
 }
 
 function showVersion(version) {
@@ -758,6 +908,7 @@ function renderWorkspace() {
   if (consultation && consultation.notes && consultation.notes.length) {
     parts.push(noteSection());
   }
+  parts.push(historySection());
   box.replaceChildren(...parts);
   refreshNoteButtons();
 }
@@ -930,6 +1081,7 @@ function noteSection() {
   }
   buttons.push(el("button", { class: "btn", onclick: regenerate, disabled: busy || !(consultation.turns || []).length }, "Write note again"));
   kids.push(el("div", { style: "height:12px" }), el("div", { class: "row" }, buttons));
+  kids.push(followUpCard(signed && note.version === latest.version));
 
   return section(4, "Consultation note (English)", signed && note.version === latest.version, ...kids);
 }

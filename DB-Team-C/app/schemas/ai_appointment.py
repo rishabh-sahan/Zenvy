@@ -45,9 +45,23 @@ class AIAppointmentResponse(BaseModel):
     slot_id: Optional[str] = None
     appointment_type: str = "new"
     parent_appointment_id: Optional[str] = None
+    cancelled_at: Optional[datetime] = None
+    cancel_reason: Optional[str] = None
+    cancelled_by: Optional[str] = None
+    rescheduled_from_id: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class AppointmentCancelRequest(BaseModel):
+    # Who is asking: the booking conversation (session_id) or the patient (auth_id).
+    # Hospital staff use their token instead and send neither.
     session_id: Optional[str] = None
+    auth_id: Optional[str] = None
+    reason: Optional[str] = Field(None, max_length=200)
+
+
+class AppointmentRescheduleRequest(BaseModel):
+    slot_id: str = Field(..., min_length=1)
+    session_id: Optional[str] = None
+    auth_id: Optional[str] = None
