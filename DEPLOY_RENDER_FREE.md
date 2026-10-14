@@ -69,6 +69,22 @@ Open `https://<your-service>.onrender.com`.
 
 Then set `REMINDER_MODE=live` to start real WhatsApp messages (test with your own number first).
 
+## Troubleshooting
+
+| What you see | Cause | Fix |
+|---|---|---|
+| Patient page says **"Can't reach the server right now"**, or every API call returns 502 "data service is not reachable" | Only the gateway is running: the service was built from the default `./Dockerfile`, not `./Dockerfile.render`, or a **Docker Command** overrides the start script | Service > **Settings** > Build & Deploy: set **Dockerfile Path** to `./Dockerfile.render`, make **Docker Command** empty, save, then **Manual Deploy > Clear build cache & deploy** |
+| Logs end with `[start] missing required environment variable: X` | That variable is not set | Add `X` under Environment and redeploy |
+| Logs end with `[start] migrations failed` | `DATABASE_URL` is wrong or unreachable | Use the Supabase **Session pooler** string (not `db.<ref>.supabase.co`) and check the password |
+| The traceback ends with `connection to server at "2406:...", port 5432 failed: Network is unreachable` | `DATABASE_URL` uses Supabase's direct host (`db.<ref>.supabase.co`), which resolves to **IPv6 only**; Render cannot reach it | Use the **Session pooler** (IPv4): `postgresql+psycopg://postgres.<ref>:<PASSWORD>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require`. Find `<region>` in Supabase > Connect > Session pooler (this project: `ap-southeast-1`). A `@` in the password must be written `%40`. |
+| Doctor login on the live site says "Invalid staff credentials" | The doctors on the live site were created with **`SEED_DOCTOR_PASSWORD`**, not the local test password | Sign in with the `SEED_DOCTOR_PASSWORD` value you set in Render (changing the variable later does not change existing logins) |
+| A table looks empty in the Supabase dashboard | Wrong project, wrong schema, or a filter | Open project `<ref>`, schema **public**, clear filters, sort by `created_at` descending; or run `select count(*) from conversation_turns;` in the SQL Editor |
+| Logs show `[start] ... did not come up` | An internal service crashed at start-up | Read the Python error just above that line |
+
+A healthy start prints, in order: `[start] redis`, `applying database migrations`, `data service (team-c)`,
+`speech-to-text ... text-to-speech`, `waiting for the internal services`, `gateway on port 10000`.
+If you do not see these lines, the start script is not running.
+
 ## 4. Keep it awake (free)
 Create a free account at uptimerobot.com and add an HTTP monitor for `https://<your-service>.onrender.com/health`
 every 5 minutes. That keeps the instance (and the reminder scheduler) running.
