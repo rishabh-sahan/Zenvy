@@ -1,0 +1,120 @@
+# Render Blueprint for the Zenvy hospital pilot.
+#
+#   Public:   zenvy-gateway   the patient page (/), the doctor page (/doctor) and the API
+#   Private:  zenvy-stt, zenvy-tts, zenvy-team-c, zenvy-redis   (only reachable from the other services)
+#   Database: Supabase PostgreSQL (outside Render) via DATABASE_URL
+#
+# Steps: see DEPLOY_RENDER.md. Values marked "sync: false" are asked for in the Render dashboard
+# when the Blueprint is created; they are never stored in git.
+#
+# The NLU tester (Team-B, port 8090) is a developer tool that nothing calls, so it is not deployed.
+
+services:
+  # ---------------------------------------------------------------- the only public service
+  - type: web
+    name: zenvy-gateway
+    runtime: docker
+    region: singapore                 # closest Render region to India
+    plan: standard                    # 2 GB RAM: ffmpeg converts doctors' recordings here
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m uvicorn services.gateway.main:app --host 0.0.0.0 --port 8000
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: STT_URL
+        value: http://zenvy-stt:8001/transcribe
+      - key: TTS_URL
+        value: http://zenvy-tts:8005/synthesize
+      - key: TEAM_C_BASE_URL
+        value: http://zenvy-team-c:8002
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: zenvy-redis
+          property: connectionString
+
+  # ---------------------------------------------------------------- speech to text
+  - type: pserv
+    name: zenvy-stt
+    runtime: docker
+    region: singapore
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m uvicorn services.stt.main:app --host 0.0.0.0 --port 8001
+    envVars:
+      - key: PORT
+        value: "8001"
+      - key: SARVAM_API_KEY
+        sync: false
+
+  # ---------------------------------------------------------------- text to speech
+  - type: pserv
+    name: zenvy-tts
+    runtime: docker
+    region: singapore
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m uvicorn services.tts.main:app --host 0.0.0.0 --port 8005
+    envVars:
+      - key: PORT
+        value: "8005"
+      - key: SARVAM_API_KEY
+        sync: false
+
+  # ---------------------------------------------------------------- data service, scheduler, recordings
+  # One instance only: it runs the reminder scheduler and owns the recordings disk.
+  - type: pserv
+    name: zenvy-team-c
+    runtime: docker
+    region: singapore
+    plan: starter
+    dockerfilePath: ./DB-Team-C/Dockerfile
+    dockerContext: ./DB-Team-C
+    preDeployCommand: python -m app.db.init_db        # applies any new database migrations
+    disk:
+      name: consultation-audio
+      mountPath: /data/audio
+      sizeGB: 5
+    envVars:
+      - key: PORT
+        value: "8002"
+      - key: DATABASE_URL                              # the Supabase "Session pooler" string, postgresql+psycopg://...
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: zenvy-redis
+          property: connectionString
+      - key: AUTH_TOKEN_SECRET                         # signs doctor login tokens
+        generateValue: true
+      - key: AUDIO_ENCRYPTION_KEY                      # 32 random bytes (base64). Losing it makes recordings unreadable.
+        generateValue: true
+      - key: AUDIO_STORAGE_DIR
+        value: /data/audio
+      - key: REMINDER_MODE                             # switch to "live" after the smoke test
+        value: mock
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: META_WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: META_WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: META_WHATSAPP_BUSINESS_ACCOUNT_ID
+        sync: false
+      - key: META_WHATSAPP_API_VERSION
+        value: v23.0
+      - key: META_WHATSAPP_TEMPLATE_LANGUAGE
+        value: en
+
+  # ---------------------------------------------------------------- redis-compatible store
+  - type: keyvalue
+    name: zenvy-redis
+    region: singapore
+    plan: free                        # chat state only (expires in an hour); use "starter" for persistence
+    ipAllowList: []                   # private network only
