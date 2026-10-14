@@ -1,0 +1,32 @@
+# One container for Render's FREE plan: gateway + speech-to-text + text-to-speech + data service
+# (Team C) + Redis, all inside a single web service. Only the gateway's port is exposed, so the
+# data service is never reachable from the internet.
+#
+#   docker build -f Dockerfile.render -t zenvy-render .
+#
+# See DEPLOY_RENDER_FREE.md.
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg redis-server \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt requirements-root.txt
+COPY DB-Team-C/requirements.txt requirements-teamc.txt
+RUN pip install --no-cache-dir -r requirements-root.txt -r requirements-teamc.txt
+
+# gateway, stt, tts, orchestrator, scribe (package "services") and the NLU code
+COPY services ./services
+COPY Team-B ./Team-B
+# the data service (package "app") and its SQL migrations
+COPY DB-Team-C/app ./team_c/app
+COPY DB-Team-C/db ./team_c/db
+COPY render/start.sh ./start.sh
+RUN sed -i 's/\r$//' ./start.sh && chmod +x ./start.sh && mkdir -p /data/audio
+
+ENV AUDIO_STORAGE_DIR=/data/audio \
+    PYTHONUNBUFFERED=1
+
+# Render sets PORT (10000 by default); the gateway listens on it.
+CMD ["./start.sh"]
