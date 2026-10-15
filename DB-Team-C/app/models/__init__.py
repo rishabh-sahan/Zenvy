@@ -10,6 +10,7 @@ from app.models.doctor_slot import DoctorSlot, SlotStatus
 from app.models.reminder import Reminder
 from app.models.follow_up import FollowUp
 from app.models.agent import AgentAction, AgentEvent, AgentMessage
+from app.models.live_suggestion import LiveSuggestion
 from app.models.prescription import MedicationDose, Prescription, PrescriptionItem
 from app.models.consultation import (
     Consultation,
@@ -36,6 +37,7 @@ __all__ = [
     "Reminder",
     "FollowUp",
     "AgentAction",
+    "LiveSuggestion",
     "AgentEvent",
     "AgentMessage",
     "MedicationDose",

@@ -191,6 +191,9 @@ def _delete_on_withdrawal(db: Session, appointment: AIAppointment, who: str, who
     consultation = get_consultation_for_appointment(db, appointment.appointment_id)
     if consultation is None:
         return
+    from app.services import live_service
+
+    live_service.delete_for_consultation(db, consultation.consultation_id)   # Live Assist cards, even with no recording
     has_recording = bool(consultation.audio_path and consultation.audio_deleted_at is None)
     if not has_recording and not consultation.turns:
         return
@@ -568,6 +571,9 @@ def delete_recording(db: Session, consultation: Consultation, actor: str, reason
     """Remove the audio AND the transcript. Approved (and draft) notes are kept."""
     delete_audio(db, consultation, actor, reason)
     delete_transcript(db, consultation, actor, reason)
+    from app.services import live_service   # (Live Assist cards belong to the conversation)
+
+    live_service.delete_for_consultation(db, consultation.consultation_id)
     if consultation.status != ConsultationStatus.note_approved.value:
         consultation.status = ConsultationStatus.recording_deleted.value
     db.commit()
@@ -597,4 +603,8 @@ def purge_expired(db: Session, now: datetime | None = None) -> dict:
         if consultation.turns and stamp <= transcript_cutoff:
             delete_transcript(db, consultation, "retention-policy", "transcript_retention_expired")
             removed["transcripts"] += 1
+
+    from app.services import live_service
+
+    live_service.delete_older_than(db, transcript_cutoff)   # (not counted: the result's shape is relied on)
     return removed

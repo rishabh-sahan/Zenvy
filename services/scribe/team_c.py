@@ -94,6 +94,12 @@ class TeamC:
     def put_follow_up(self, consultation_id: str, day: str, at: str | None) -> dict:
         return self._call("PUT", f"/consultations/{consultation_id}/follow-up", json={"date": day, "time": at})
 
+    def add_live_suggestions(self, consultation_id: str, cards: list[dict]) -> list[dict]:
+        return self._call("POST", f"/consultations/{consultation_id}/live/suggestions", json={"cards": cards})
+
+    def list_live_suggestions(self, consultation_id: str, after: int = 0) -> list[dict]:
+        return self._call("GET", f"/consultations/{consultation_id}/live/suggestions", params={"after": after})
+
     def record_action(self, tool: str, summary: str | None, appointment_id: str | None = None, result: str = "ok") -> None:
         """Audit line for the doctor agent. Never raises."""
         try:

@@ -133,6 +133,28 @@ textarea[readonly] { opacity: .8; }
 @keyframes pulse { 50% { opacity: .25; } }
 .timer { font-variant-numeric: tabular-nums; font-weight: 700; }
 
+/* ---------- live assist ---------- */
+.live-assist { border: 1px solid rgba(139,92,246,.45); border-radius: 14px; padding: 14px; margin-top: 16px; background: rgba(139,92,246,.06); }
+.live-assist .head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.live-assist h3 { margin: 0; font-size: 15px; }
+.live-note { color: var(--muted); font-size: 12px; margin: 2px 0 10px; }
+.live-state { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(52,211,153,.16); color: #9be9c7; }
+.live-state.paused { background: rgba(251,191,36,.16); color: #fde68a; }
+.live-state.error { background: rgba(248,113,113,.16); color: #fecaca; }
+.live-card { border: 1px solid var(--border); border-left-width: 4px; border-radius: 10px; padding: 10px 12px; margin: 8px 0; background: var(--panel-2); }
+.live-card.red_flag { border-left-color: var(--red); background: rgba(248,113,113,.08); }
+.live-card.ask { border-left-color: #60a5fa; }
+.live-card.history { border-left-color: #a78bfa; }
+.live-card.wrap_up { border-left-color: var(--amber); }
+.live-card.consider { border-left-color: #94a3b8; }
+.live-card .kind { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); }
+.live-card .why { color: var(--muted); font-size: 12px; margin-top: 3px; font-style: italic; }
+.live-card .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.live-card.pinned { box-shadow: 0 0 0 1px rgba(139,92,246,.5); }
+.live-lines { max-height: 160px; overflow-y: auto; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.live-plan { border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+.live-plan li { margin: 4px 0; font-size: 13px; }
+
 /* ---------- prescription ---------- */
 .rx-row { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin: 10px 0; background: var(--panel-2); }
 .rx-row .line { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
@@ -291,6 +313,10 @@ let rx = null;            // {current, signed, can_carry_forward} for the open c
 let rxRows = null;        // the medicines being edited (null = not editing)
 let rxDirty = false;      // edits not saved yet
 let updatesTimer = null;  // polls the coordinator's updates
+let liveConfig = null;    // {enabled, chunk_seconds, visible_cards} from the gateway
+let live = { state: "idle", error: null, turns: [], cards: [], paused: false };
+let liveCapture = null;   // the live audio capture while recording
+let livePollTimer = null;
 
 const FAILURES = {
   no_speech: "No speech could be heard in the recording. Please record again.",
@@ -426,6 +452,8 @@ function logout(message) {
   stopRecordingHard();
   clearInterval(pollTimer);
   clearInterval(updatesTimer);
+  clearInterval(livePollTimer);
+  resetLive();
   rx = null;
   rxRows = null;
   rxDirty = false;
@@ -453,6 +481,7 @@ function startApp() {
   document.getElementById("whoAmI").textContent = phone ? "Signed in: " + phone : "Signed in";
   loadAppointments();
   startAssistant();
+  loadLiveConfig();
 }
 
 /* =========================================================
@@ -515,6 +544,7 @@ async function selectAppointment(id) {
   rx = null;
   rxRows = null;
   rxDirty = false;
+  resetLive();
   renderAppointments();
   const a = appointments.find(x => x.appointment_id === id);
   if (a && a.consultation_id) {
@@ -552,6 +582,7 @@ async function loadConsultation(id) {
   }
   await loadFollowUp();
   await loadPrescription();
+  await loadLive();
 }
 
 async function loadFollowUp() {
@@ -638,16 +669,21 @@ async function startRecording() {
   }
   recordChunks = [];
   const mime = supportedMime();
-  recorder = new MediaRecorder(recordStream, mime ? { mimeType: mime } : undefined);
-  recorder.ondataavailable = e => { if (e.data.size) recordChunks.push(e.data); };
-  recorder.onstop = async () => {
+  const current = new MediaRecorder(recordStream, mime ? { mimeType: mime } : undefined);
+  recorder = current;
+  current.ondataavailable = e => { if (e.data.size) recordChunks.push(e.data); };
+  current.onstop = async () => {
+    // (use `current`: stopRecordingHard() sets the shared `recorder` to null straight after stop())
+    const discarded = !!current.discard;
     recordStream.getTracks().forEach(t => t.stop());
     clearInterval(recordTimer);
-    if (recorder.discard) return;
-    const blob = new Blob(recordChunks, { type: recorder.mimeType || "audio/webm" });
+    stopLiveCapture(discarded);              // sends the last piece and ends the live session
+    if (discarded) return;
+    const blob = new Blob(recordChunks, { type: current.mimeType || "audio/webm" });
     await uploadRecording(blob, "recording." + (blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "m4a" : "webm"));
   };
-  recorder.start(1000);
+  current.start(1000);
+  startLiveCapture(recordStream);            // Live Assist listens to the same microphone, in small pieces
   recordStarted = Date.now();
   recordTimer = setInterval(updateTimer, 500);
   renderWorkspace();
@@ -672,6 +708,7 @@ function stopRecordingHard() {
   if (recordStream) recordStream.getTracks().forEach(t => t.stop());
   clearInterval(recordTimer);
   recorder = null;
+  stopLiveCapture(true);
 }
 
 async function pickFile(input) {
@@ -878,6 +915,315 @@ function followUpCard(noteApproved) {
     kids.push(el("div", { class: "fu-edit" }, row));
   }
   return el("div", { class: "fu-card" }, kids);
+}
+
+/* =========================================================
+   LIVE ASSIST - suggestions for the doctor while the consultation is going on
+========================================================= */
+
+const LIVE_LABEL = { ask: "ASK NEXT", red_flag: "RED FLAG", history: "HISTORY", wrap_up: "WRAP-UP", consider: "KEEP IN MIND" };
+const LIVE_ERRORS = {
+  speech_unavailable: "Live Assist paused: could not hear the audio just now.",
+  suggestions_unavailable: "Live Assist paused: suggestions are not available right now.",
+  network: "Live Assist paused: connection problem. The recording is not affected.",
+  unsupported: "Live Assist is not available in this browser. The recording is not affected."
+};
+
+function liveEnabled() {
+  return !!(liveConfig && liveConfig.enabled);
+}
+
+async function loadLiveConfig() {
+  try {
+    liveConfig = await api("GET", "live/config");
+  } catch (e) {
+    liveConfig = { enabled: false };
+  }
+}
+
+async function loadLive() {
+  if (!liveEnabled() || !consultation) return;
+  try {
+    const state = await api("GET", "consultations/" + consultation.consultation_id + "/live");
+    live.state = state.state;
+    live.error = liveCapture && liveCapture.failures >= 3 ? "network" : state.error;
+    live.turns = state.turns || [];
+    live.cards = state.suggestions || [];
+  } catch (e) { /* the panel is a convenience; the recording never depends on it */ }
+}
+
+function resetLive() {
+  live = { state: "idle", error: null, turns: [], cards: [], paused: false };
+}
+
+/* ---- capturing the conversation in small pieces ---- */
+
+function wavFromFloat(parts, inputRate) {
+  let total = 0;
+  parts.forEach(part => { total += part.length; });
+  const all = new Float32Array(total);
+  let offset = 0;
+  parts.forEach(part => { all.set(part, offset); offset += part.length; });
+
+  const ratio = inputRate / 16000;
+  const outLength = Math.floor(all.length / ratio);
+  const pcm = new Int16Array(outLength);
+  for (let i = 0; i < outLength; i++) {
+    const from = Math.floor(i * ratio);
+    const to = Math.min(all.length, Math.max(from + 1, Math.floor((i + 1) * ratio)));
+    let sum = 0;
+    for (let j = from; j < to; j++) sum += all[j];
+    const value = Math.max(-1, Math.min(1, sum / (to - from)));
+    pcm[i] = value < 0 ? value * 0x8000 : value * 0x7fff;
+  }
+
+  const buffer = new ArrayBuffer(44 + pcm.length * 2);
+  const view = new DataView(buffer);
+  const text = (position, value) => { for (let i = 0; i < value.length; i++) view.setUint8(position + i, value.charCodeAt(i)); };
+  text(0, "RIFF"); view.setUint32(4, 36 + pcm.length * 2, true); text(8, "WAVE"); text(12, "fmt ");
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, 16000, true); view.setUint32(28, 32000, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  text(36, "data"); view.setUint32(40, pcm.length * 2, true);
+  new Int16Array(buffer, 44).set(pcm);
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+function startLiveCapture(stream) {
+  if (!liveEnabled() || !consultation) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    live.error = "unsupported";
+    return;
+  }
+  try {
+    const context = new AudioContextClass();
+    const source = context.createMediaStreamSource(stream);
+    const processor = context.createScriptProcessor(4096, 1, 1);
+    const silent = context.createGain();
+    silent.gain.value = 0;                       // the processor must be connected, but nothing is played back
+
+    const capture = {
+      context, source, processor, silent, parts: [], samples: 0, seq: 0, queue: [], sending: false,
+      failures: 0, closed: false, consultationId: consultation.consultation_id
+    };
+    processor.onaudioprocess = event => {
+      if (capture.closed || live.paused) return;
+      const data = new Float32Array(event.inputBuffer.getChannelData(0));
+      capture.parts.push(data);
+      capture.samples += data.length;
+
+      // Cut at a short pause, so a word is not split in half: after about 2/3 of the target length, the
+      // first quiet moment ends the piece; at 1.5 x the target it ends regardless.
+      let energy = 0;
+      for (let i = 0; i < data.length; i++) energy += data[i] * data[i];
+      const quiet = Math.sqrt(energy / data.length) < 0.012;
+      capture.quietSamples = quiet ? (capture.quietSamples || 0) + data.length : 0;
+      const seconds = capture.samples / context.sampleRate;
+      const target = liveConfig.chunk_seconds;
+      const inPause = (capture.quietSamples || 0) / context.sampleRate >= 0.3;
+      if ((seconds >= target * 0.66 && inPause) || seconds >= target * 1.5) {
+        capture.quietSamples = 0;
+        flushLiveChunk(capture, false);
+      }
+    };
+    source.connect(processor);
+    processor.connect(silent);
+    silent.connect(context.destination);
+
+    liveCapture = capture;
+    resetLive();
+    live.state = "listening";
+    clearInterval(livePollTimer);
+    livePollTimer = setInterval(pollLive, 3000);
+  } catch (e) {
+    live.error = "unsupported";
+  }
+}
+
+function flushLiveChunk(capture, final) {
+  const seconds = capture.samples / capture.context.sampleRate;
+  if (!capture.parts.length || seconds < (final ? 0.8 : 1)) {
+    if (final) capture.parts = [];
+    return;
+  }
+  const blob = wavFromFloat(capture.parts, capture.context.sampleRate);
+  capture.parts = [];
+  capture.samples = 0;
+  capture.queue.push({ blob, seq: ++capture.seq });
+  while (capture.queue.length > 4) capture.queue.shift();        // never fall far behind real time
+  pumpLiveQueue(capture);
+}
+
+async function pumpLiveQueue(capture) {
+  if (capture.sending) return;
+  capture.sending = true;
+  try {
+    while (capture.queue.length) {
+      const item = capture.queue.shift();
+      const form = new FormData();
+      form.append("file", item.blob, "live-" + item.seq + ".wav");
+      try {
+        await api("POST", "consultations/" + capture.consultationId + "/live/audio", undefined, form);
+        capture.failures = 0;
+        if (live.error === "network") live.error = null;
+      } catch (e) {
+        if (e.message === "Signed out") return;
+        capture.failures += 1;
+        if (capture.failures >= 3) live.error = "network";
+        if (/agreed to recording/.test(e.message)) {
+          capture.closed = true;
+          live.error = null;
+          live.state = "idle";
+        }
+      }
+      renderLivePanel();
+    }
+  } finally {
+    capture.sending = false;
+  }
+}
+
+async function stopLiveCapture(discard) {
+  const capture = liveCapture;
+  if (!capture) return;
+  liveCapture = null;
+  clearInterval(livePollTimer);
+  capture.closed = true;
+  try { capture.processor.disconnect(); capture.source.disconnect(); capture.silent.disconnect(); } catch (e) {}
+  try { capture.context.close(); } catch (e) {}
+  if (!discard) {
+    flushLiveChunk(capture, true);
+    for (let waited = 0; (capture.sending || capture.queue.length) && waited < 10000; waited += 200) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+  try { await api("POST", "consultations/" + capture.consultationId + "/live/end", {}); } catch (e) {}
+  if (consultation && consultation.consultation_id === capture.consultationId) {
+    await loadLive();
+    live.state = "idle";
+    live.paused = false;
+    renderWorkspace();
+  }
+}
+
+async function pollLive() {
+  await loadLive();
+  renderLivePanel();
+}
+
+async function toggleLivePause() {
+  if (!consultation) return;
+  live.paused = !live.paused;
+  renderLivePanel();
+  try {
+    await api("POST", "consultations/" + consultation.consultation_id + "/live/pause", { paused: live.paused });
+  } catch (e) {
+    if (e.message !== "Signed out") toast(e.message);
+  }
+}
+
+/* ---- what the doctor sees ---- */
+
+function liveShouldShow() {
+  return liveEnabled() && consultation && (liveCapture || live.cards.length);
+}
+
+async function actOnCard(card, status) {
+  const previous = card.status;
+  card.status = status;
+  renderLivePanel();
+  try {
+    await api("PATCH", "consultations/" + consultation.consultation_id + "/live/suggestions/" + card.suggestion_id, { status });
+  } catch (e) {
+    card.status = previous;
+    renderLivePanel();
+    if (e.message !== "Signed out") toast(e.message);
+  }
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Copied.");
+  } catch (e) {
+    toast("Could not copy. Select the text instead.");
+  }
+}
+
+function liveCard(card) {
+  const acts = [];
+  if (card.status !== "pinned") acts.push(el("button", { class: "btn small", onclick: () => actOnCard(card, "pinned") }, "Pin"));
+  acts.push(el("button", { class: "btn small", onclick: () => actOnCard(card, "added") }, "Add to plan"));
+  if (card.kind === "ask") acts.push(el("button", { class: "btn small good", onclick: () => actOnCard(card, "asked") }, "Ask this"));
+  acts.push(el("button", { class: "btn small", onclick: () => actOnCard(card, "dismissed") }, "Dismiss"));
+  return el("div", { class: "live-card " + card.kind + (card.status === "pinned" ? " pinned" : "") },
+    el("div", { class: "kind" }, LIVE_LABEL[card.kind] || card.kind.toUpperCase()),
+    el("div", null, card.text),
+    card.evidence ? el("div", { class: "why" }, "because: \u201c" + card.evidence + "\u201d") : null,
+    el("div", { class: "acts" }, acts));
+}
+
+function addedToPlan() {
+  return live.cards.filter(c => c.status === "added");
+}
+
+function livePlanBox() {
+  const items = addedToPlan();
+  if (!items.length) return null;
+  return el("div", { class: "live-plan" },
+    el("b", null, "Added to plan from Live Assist"),
+    el("div", { class: "live-note" }, "Copy what you want into the plan. Nothing is written to the note for you."),
+    el("ul", { style: "padding-left:18px;margin:6px 0" }, items.map(c =>
+      el("li", null, c.text + " ", el("button", { class: "btn small", onclick: () => copyText(c.text) }, "Copy")))));
+}
+
+function liveAssistBody() {
+  const capturing = !!liveCapture;
+  const label = !capturing ? "Visit ended" : (live.error || live.paused) ? "Paused" : "Listening";
+  const stateClass = !capturing ? "" : (live.error ? "error" : live.paused ? "paused" : "");
+  const kids = [
+    el("div", { class: "head" },
+      el("h3", null, "Live Assist"),
+      el("span", { class: "live-state " + stateClass }, label),
+      capturing ? el("button", { class: "btn small", onclick: toggleLivePause }, live.paused ? "Resume" : "Pause Live Assist") : null),
+    el("div", { class: "live-note" }, "AI suggestions - verify before use. Only you can see this.")
+  ];
+  if (live.error && LIVE_ERRORS[live.error]) kids.push(el("div", { class: "banner warn" }, LIVE_ERRORS[live.error]));
+
+  const limit = (liveConfig && liveConfig.visible_cards) || 5;
+  const active = live.cards.filter(c => c.status === "shown" || c.status === "pinned");
+  const pinned = active.filter(c => c.status === "pinned").sort((a, b) => b.seq - a.seq);
+  const fresh = active.filter(c => c.status === "shown").sort((a, b) => b.seq - a.seq);
+  const visible = [...pinned, ...fresh.slice(0, limit)];
+  const earlier = fresh.slice(limit);
+
+  if (!visible.length) {
+    kids.push(el("div", { class: "note-line" },
+      capturing ? "Listening... suggestions will appear here as the conversation goes on." : "No suggestions are waiting."));
+  }
+  kids.push(...visible.map(liveCard));
+  if (earlier.length) {
+    kids.push(el("details", null, el("summary", null, "Earlier suggestions (" + earlier.length + ")"),
+      el("ul", { style: "padding-left:18px" }, earlier.map(c => el("li", null, c.text)))));
+  }
+  const plan = livePlanBox();
+  if (plan) kids.push(plan);
+
+  kids.push(el("details", null,
+    el("summary", null, "Live transcript"),
+    el("div", { class: "live-lines" }, live.turns.length
+      ? live.turns.map(t => el("div", null, el("b", null, t.speaker === "doctor" ? "Doctor: " : t.speaker === "patient" ? "Patient: " : "Speaker: "), t.text))
+      : "Nothing heard yet.")));
+  return kids;
+}
+
+function liveAssistSection() {
+  return el("div", { class: "live-assist", id: "liveAssist" }, el("div", { id: "livePanel" }, liveAssistBody()));
+}
+
+function renderLivePanel() {
+  const panel = document.getElementById("livePanel");
+  if (panel) panel.replaceChildren(...liveAssistBody());
 }
 
 /* =========================================================
@@ -1244,6 +1590,7 @@ function renderWorkspace() {
   ];
   if (a.consent_state === "granted") {
     parts.push(recordingSection());
+    if (liveShouldShow()) parts.push(liveAssistSection());
   }
   if (consultation && consultation.turns && consultation.turns.length) {
     parts.push(transcriptSection());
@@ -1428,6 +1775,7 @@ function noteSection() {
   buttons.push(el("button", { class: "btn", onclick: regenerate, disabled: busy || !(consultation.turns || []).length }, "Write note again"));
   kids.push(el("div", { style: "height:12px" }), el("div", { class: "row" }, buttons));
   kids.push(followUpCard(signed && note.version === latest.version));
+  kids.push(livePlanBox());
 
   return section(4, "Consultation note (English)", signed && note.version === latest.version, ...kids);
 }

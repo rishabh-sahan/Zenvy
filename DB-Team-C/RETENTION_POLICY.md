@@ -16,6 +16,7 @@ real patients are recorded.
 | Audit trail (who approved what, what the AI drafted vs. what was signed, deletions) | `audit_log` | 7 years | not deleted |
 | **Prescriptions** (every version, the medicines, who signed and when) | `prescriptions`, `prescription_items` | With the medical record (**7 years**, to be confirmed) | never deleted by the system |
 | Doses and whether each was taken | `medication_doses` | With the prescription | not deleted |
+| **Live Assist suggestions** (what the AI suggested to the doctor during the visit, and what the doctor did) | `live_suggestions` | **90 days**, same as the transcript (`TRANSCRIPT_RETENTION_DAYS`) | consent withdrawal, "Delete recording", or the purge. Never part of the note. |
 | What the agents did (tool, short summary, no phone numbers) | `agent_actions`, `agent_events`, `agent_messages` | 7 years (same as the audit trail) | not deleted |
 
 Days are counted from the day the recording was uploaded.

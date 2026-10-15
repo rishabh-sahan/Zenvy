@@ -93,6 +93,15 @@ A change is a new signed version; the old version's remaining doses are cancelle
   `META_WHATSAPP_MEDICATION_TEMPLATE_NAME`.
 - Limits: no allergy or drug-interaction checking (the doctor is responsible); no medicine advice from any agent.
 
+### Live Assist
+
+During a recorded consultation the doctor page shows AI suggestion cards as text (questions to ask,
+red flags, history recall, wrap-up checks), only to the doctor. See `../LIVE_ASSIST.md`.
+
+- `POST/GET /consultations/{id}/live/suggestions`, `PATCH .../live/suggestions/{suggestion_id}` (the treating
+  doctor; cards are written by the gateway's engine and nothing is stored without recording consent)
+- Migration `014_live_suggestions.sql`. Cards are deleted with the transcript.
+
 ### Doctors, slots and double-booking
 
 Every bookable time is a row in `doctor_slots` (generated on demand from each

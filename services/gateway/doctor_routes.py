@@ -8,7 +8,9 @@ The doctor page (/doctor) talks only to the gateway, like the patient page.
   routes and carrying the doctor's own bearer token, so Team C decides what that
   doctor may see.
 """
+import os
 import re
+import threading
 from pathlib import Path
 
 import requests
@@ -19,10 +21,12 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from services.agents import doctor_agent
-from services.scribe import audio, medication, pipeline
+from services.scribe import audio, live, medication, pipeline, transcribe
 from services.scribe.team_c import TEAM_C_BASE_URL, TeamC, TeamCError
 
 router = APIRouter()
+
+LIVE_ASSIST_ENABLED = os.getenv("LIVE_ASSIST_ENABLED", "true").strip().lower() == "true"
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024
@@ -50,6 +54,8 @@ PROXY_RULES = [
     ({"GET"}, rf"agent/messages"),
     ({"POST"}, rf"agent/messages/read"),
     ({"GET"}, rf"appointments/{ID}/patient-history"),
+    # Live Assist: the doctor dismisses, pins or adds a suggestion to the plan
+    ({"PATCH"}, rf"consultations/{ID}/live/suggestions/{ID}"),
 ]
 PATIENT_RULES = [
     ({"GET"}, rf"consent-message"),
@@ -171,6 +177,146 @@ async def regenerate(consultation_id: str, request: Request):
     except pipeline.PipelineFailure as failure:
         status = 409 if failure.code == "no_transcript" else 502
         return JSONResponse(status_code=status, content={"detail": failure.code})
+
+
+# ---------------------------------------------------------------------------
+# Live Assist: suggestions for the doctor while the consultation is going on
+# ---------------------------------------------------------------------------
+
+def _history_lines(visits: list[dict]) -> list[str]:
+    lines = []
+    for visit in visits[:5]:
+        parts = [f"complaint: {visit.get('chief_complaint') or '-'}"]
+        if visit.get("assessment"):
+            parts.append(f"assessment: {visit['assessment']}")
+        if visit.get("plan"):
+            parts.append(f"plan: {visit['plan']}")
+        if visit.get("medicines"):
+            parts.append("medicines: " + ", ".join(visit["medicines"]))
+        lines.append(f"{visit.get('date', '?')}: " + "; ".join(parts))
+    return lines
+
+
+def _live_disabled():
+    if not LIVE_ASSIST_ENABLED:
+        raise HTTPException(status_code=404, detail="Live Assist is switched off.")
+
+
+class PauseIn(BaseModel):
+    paused: bool
+
+
+@router.get("/doctor/api/live/config")
+async def live_config():
+    return {"enabled": LIVE_ASSIST_ENABLED, "chunk_seconds": live.CHUNK_SECONDS, "visible_cards": live.MAX_CARDS_VISIBLE}
+
+
+@router.post("/doctor/api/consultations/{consultation_id}/live/audio")
+async def live_audio(consultation_id: str, request: Request, file: UploadFile = File(...)):
+    """One short piece of the conversation (about 6 seconds of 16 kHz WAV). Never affects the recording."""
+    _live_disabled()
+    token = _bearer(request)
+    team_c = TeamC(token)
+
+    try:
+        detail = await run_in_threadpool(team_c.get_consultation, consultation_id)   # owner? (403/404 otherwise)
+    except TeamCError as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    if detail.get("consent_state") != "granted":
+        live.close_session(consultation_id)
+        return JSONResponse(status_code=409, content={"detail": "consent_required"})
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=422, detail="The audio piece is empty.")
+    if len(raw) > live.MAX_CHUNK_BYTES:
+        raise HTTPException(status_code=413, detail="The audio piece is too large.")
+
+    session = live.get_session(consultation_id)
+    if session is None:
+        history: list[str] = []
+        try:
+            history = _history_lines(await run_in_threadpool(team_c.patient_history, detail["appointment_id"]))
+        except TeamCError:
+            pass                                       # no history is fine: Live Assist still works
+        session = live.open_session(consultation_id, detail.get("appointment_id"), history, token)
+    session.token = token
+
+    if session.paused:
+        return {"ok": True, "state": "paused", "added_words": 0}
+
+    try:
+        wav = raw if raw[:4] == b"RIFF" else await run_in_threadpool(audio.to_wav_16k_mono, raw, ".webm")
+        added = await run_in_threadpool(live.ingest, session, wav)
+    except audio.AudioError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except transcribe.SttError:
+        session.error = "speech_unavailable"
+        return {"ok": False, "state": "error", "error": "speech_unavailable", "added_words": 0}
+
+    def store(cards: list[dict]) -> list[dict]:
+        try:
+            return TeamC(session.token).add_live_suggestions(consultation_id, cards)
+        except TeamCError as exc:
+            if exc.status_code in (403, 404, 409):       # consent withdrawn / not ours any more: stop
+                live.close_session(consultation_id)
+            raise
+
+    # Red-flag phrases are shown at once: they never wait for the model or for the interval.
+    flags = live.immediate_red_flags(session)
+    if flags:
+        try:
+            await run_in_threadpool(store, flags)
+        except TeamCError:
+            pass
+
+    if live.claim_engine_run(session):
+        threading.Thread(target=live.run_engine, args=(session, store), daemon=True).start()
+    else:
+        live.schedule_deferred_run(session, store)       # (so speech that arrives early is not forgotten)
+
+    return {"ok": True, "state": live.snapshot(session)["state"], "added_words": added}
+
+
+@router.get("/doctor/api/consultations/{consultation_id}/live")
+async def live_state(consultation_id: str, request: Request):
+    """Everything the Live Assist panel shows: state, the latest lines, and the suggestion cards."""
+    _live_disabled()
+    token = _bearer(request)
+    try:
+        cards = await run_in_threadpool(TeamC(token).list_live_suggestions, consultation_id)
+    except TeamCError as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    session = live.get_session(consultation_id)
+    state = live.snapshot(session) if session else {
+        "state": "idle", "error": None, "chunks": 0, "seconds": 0.0, "turns": [], "turn_count": 0}
+    return {"enabled": True, "visible_cards": live.MAX_CARDS_VISIBLE, **state, "suggestions": cards}
+
+
+@router.post("/doctor/api/consultations/{consultation_id}/live/pause")
+async def live_pause(consultation_id: str, payload: PauseIn, request: Request):
+    _live_disabled()
+    token = _bearer(request)
+    try:
+        await run_in_threadpool(TeamC(token).list_live_suggestions, consultation_id)    # ownership check
+    except TeamCError as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    session = live.get_session(consultation_id)
+    if session is not None:
+        session.paused = payload.paused
+    return {"paused": payload.paused, "state": live.snapshot(session)["state"] if session else "idle"}
+
+
+@router.post("/doctor/api/consultations/{consultation_id}/live/end")
+async def live_end(consultation_id: str, request: Request):
+    """Recording stopped: forget the in-memory conversation. The cards stay for the doctor to review."""
+    _live_disabled()
+    token = _bearer(request)
+    try:
+        await run_in_threadpool(TeamC(token).list_live_suggestions, consultation_id)
+    except TeamCError as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return {"ended": live.close_session(consultation_id)}
 
 
 @router.post("/doctor/api/consultations/{consultation_id}/prescription/draft")

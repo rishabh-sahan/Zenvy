@@ -238,3 +238,76 @@ def test_logging_out_hides_the_previous_patients_medicines():
     logout = PAGE[PAGE.index("function logoutUser()"):]
     logout = logout[:logout.index("localStorage.removeItem")]
     assert "clearInterval(medicinesTimer)" in logout and 'showMedicinesMessage("Log in to see your medicines.")' in logout
+
+
+# ---- Live Assist: suggestions for the doctor during a consultation ----------------------
+
+def _live_block():
+    start = DOCTOR_PAGE.index("LIVE ASSIST - suggestions for the doctor")
+    end = DOCTOR_PAGE.index("   PRESCRIPTION\n====")
+    return DOCTOR_PAGE[start:end]
+
+
+def test_live_audio_goes_to_the_live_route_as_a_16k_wav_form_file():
+    block = _live_block()
+    assert '"/live/audio"' in block and 'form.append("file", item.blob' in block
+    assert '"RIFF"' in block and '"WAVE"' in block and "setUint32(24, 16000, true)" in block
+
+
+def test_live_assist_never_writes_to_the_note_or_the_prescription():
+    block = _live_block()
+    for forbidden in ("f_plan", "f_assess", "f_chief", "saveNote", "approveNote", "signRx", "saveRx", "/notes", "/prescription"):
+        assert forbidden not in block, forbidden
+    # "Add to plan" only marks the card and offers Copy; the doctor pastes it themselves
+    assert "Nothing is written to the note for you." in block
+
+
+def test_live_assist_failures_cannot_break_the_recording():
+    start = DOCTOR_PAGE.index("function startLiveCapture")
+    body = DOCTOR_PAGE[start:DOCTOR_PAGE.index("function flushLiveChunk")]
+    assert "try {" in body and 'live.error = "unsupported"' in body
+    assert "startLiveCapture(recordStream)" in DOCTOR_PAGE and DOCTOR_PAGE.index("current.start(1000)") < DOCTOR_PAGE.index("startLiveCapture(recordStream)")
+
+
+def test_the_recorder_stop_handler_does_not_depend_on_the_shared_recorder_variable():
+    """stopRecordingHard() sets `recorder` to null right after stop(); the handler must use its own reference."""
+    start = DOCTOR_PAGE.index("current.onstop = async () =>")
+    handler = DOCTOR_PAGE[start:start + 700]
+    assert "current.discard" in handler and "recorder.discard" not in handler and "current.mimeType" in handler
+
+
+def test_leaving_the_visit_stops_live_listening():
+    hard = DOCTOR_PAGE[DOCTOR_PAGE.index("function stopRecordingHard()"):DOCTOR_PAGE.index("async function pickFile")]
+    assert "stopLiveCapture(true)" in hard
+    logout = DOCTOR_PAGE[DOCTOR_PAGE.index("function logout(message)"):DOCTOR_PAGE.index("function startApp()")]
+    assert "clearInterval(livePollTimer)" in logout and "resetLive()" in logout
+
+
+def test_the_doctor_can_pause_and_every_card_has_the_four_actions_and_a_label():
+    block = _live_block()
+    assert "Pause Live Assist" in block and '"/live/pause"' in block
+    for action in ('"pinned"', '"added"', '"asked"', '"dismissed"'):
+        assert action in block
+    assert "AI suggestions - verify before use. Only you can see this." in block
+    assert 'LIVE_LABEL = { ask: "ASK NEXT", red_flag: "RED FLAG"' in block
+
+
+def test_cards_show_what_they_are_based_on_and_at_most_the_configured_number():
+    block = _live_block()
+    assert "because: \\u201c" in block and "liveConfig.visible_cards" in block
+
+
+def test_the_plan_list_is_shown_next_to_the_note():
+    note = DOCTOR_PAGE[DOCTOR_PAGE.index("function noteSection()"):]
+    assert "livePlanBox()" in note[:5000]
+
+
+def test_nothing_is_captured_unless_the_gateway_says_live_assist_is_on():
+    assert 'api("GET", "live/config")' in DOCTOR_PAGE
+    assert "if (!liveEnabled() || !consultation) return;" in _live_block()
+
+
+def test_live_audio_is_cut_at_a_pause_not_in_the_middle_of_a_word():
+    block = _live_block()
+    assert "capture.quietSamples" in block and "inPause" in block
+    assert "seconds >= target * 0.66 && inPause" in block and "seconds >= target * 1.5" in block

@@ -50,7 +50,8 @@ def signed_prescription(factory, clinic):
 
 
 def seven_am():
-    return datetime.combine(utcnow().astimezone(IST).date(), time(7, 0), tzinfo=IST)
+    """Tomorrow 07:00 IST, so the test does not depend on the time of day it runs."""
+    return datetime.combine(utcnow().astimezone(IST).date() + timedelta(days=1), time(7, 0), tzinfo=IST)
 
 
 def test_migrations_012_and_013_created_what_they_should(factory):
@@ -201,3 +202,77 @@ def test_twenty_schedulers_send_each_dose_reminder_once(factory):
     assert all(r.attempts <= 1 for r in rows)
     assert len(sent) >= 1 and len({r.reminder_id for r in sent}) == len(sent)
     assert all(r.mode == "mock" for r in sent)
+
+
+# ---------------------------------------------------------------------------
+# Live Assist (migration 014)
+# ---------------------------------------------------------------------------
+
+def test_migration_014_created_the_live_suggestions_table_with_its_rules(factory):
+    from app.models.consultation import Consultation as _Consultation
+    from app.models.live_suggestion import LiveSuggestion
+
+    inspector = inspect(factory().get_bind())
+    assert "live_suggestions" in inspector.get_table_names()
+    assert {"suggestion_id", "consultation_id", "seq", "kind", "text", "evidence", "source", "status"} <= {
+        c["name"] for c in inspector.get_columns("live_suggestions")}
+
+    clinic = make_clinic(factory)
+    ids = signed_prescription(factory, clinic)               # gives us a real consultation to attach cards to
+    db = factory()
+
+    def refuses(sql, **values):
+        with pytest.raises(IntegrityError):
+            db.execute(text(sql), values)
+            db.commit()
+        db.rollback()
+
+    insert = ("INSERT INTO live_suggestions (suggestion_id, consultation_id, seq, kind, text, source, status) "
+              "VALUES (:i, :c, :s, :k, 'Ask about allergies.', :src, :st)")
+    ok = {"c": ids["consultation_id"], "src": "model", "st": "shown"}
+    refuses(insert, i=str(uuid.uuid4()), s=1, k="diagnosis", **ok)                      # not a card kind
+    refuses(insert, i=str(uuid.uuid4()), s=1, k="ask", c=ids["consultation_id"], src="model", st="deleted")
+    refuses(insert, i=str(uuid.uuid4()), s=1, k="ask", c=ids["consultation_id"], src="human", st="shown")
+    db.execute(text(insert), {"i": str(uuid.uuid4()), "s": 1, "k": "ask", **ok})
+    db.commit()
+    refuses(insert, i=str(uuid.uuid4()), s=1, k="red_flag", **ok)                       # the same number twice
+
+    # deleting the consultation removes its cards
+    db.execute(text("DELETE FROM live_suggestions WHERE consultation_id = :c"), {"c": ids["consultation_id"]})
+    db.commit()
+    assert db.query(LiveSuggestion).filter(LiveSuggestion.consultation_id == ids["consultation_id"]).count() == 0
+    db.close()
+
+
+def test_twenty_writers_numbering_cards_for_one_consultation_never_share_a_number(factory):
+    from app.models.consultation import Consultation as _Consultation
+    from app.models.live_suggestion import LiveSuggestion
+    from app.services import live_service
+
+    clinic = make_clinic(factory)
+    ids = signed_prescription(factory, clinic)
+    db = factory()
+    db.add(__import__("app.models.consultation", fromlist=["ConsultationConsent"]).ConsultationConsent(
+        consent_id=str(uuid.uuid4()), appointment_id=ids["appointment_id"], patient_auth_id=ids["patient_auth_id"],
+        consent_given=True, recorded_by="patient", message_version="v1", language="en"))
+    db.commit()
+    db.close()
+
+    def attempt(index):
+        session = factory()
+        try:
+            consultation = session.get(_Consultation, ids["consultation_id"])
+            try:
+                return len(live_service.add_suggestions(session, consultation, [{"kind": "ask", "text": f"Question number {index}."}]))
+            except IntegrityError:
+                session.rollback()
+                return 0        # the database refused a duplicate number: the unique rule did its job
+        finally:
+            session.close()
+
+    outcomes = race(CONTENDERS, attempt)
+    assert all(kind == "ok" for kind, _ in outcomes), outcomes
+    db = factory()
+    seqs = [r.seq for r in db.query(LiveSuggestion).filter(LiveSuggestion.consultation_id == ids["consultation_id"])]
+    db.close()
+    assert len(seqs) == len(set(seqs)) and len(seqs) >= 1                  # no number was ever used twice
