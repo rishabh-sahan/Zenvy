@@ -345,6 +345,28 @@ _SPECIALTY_WORDS = (
 _SPECIALTY_COMPILED = tuple((name, re.compile(pattern, re.I), words) for name, pattern, words in _SPECIALTY_WORDS)
 
 
+def specialty_in(text: str) -> str | None:
+    """The kind of doctor the sentence mentions anywhere in it ("the three orthopedics doctors", "an ENT doctor"), or None."""
+    lowered = _clean(text)
+    for name, pattern, words in _SPECIALTY_COMPILED:
+        if pattern.search(lowered) or any(w in lowered for w in words):
+            return name
+    return None
+
+
+def names_a_person(text: str, extracted_name: str | None = None) -> bool:
+    """A doctor's own name ("Dr. Rao", or the name the model read and the patient really wrote), not a kind of doctor."""
+    lowered = _clean(text)
+    if re.search(r"\bdr\.?\s+[a-z]", lowered):
+        return True
+    if not extracted_name or specialty_in(str(extracted_name)):
+        return False
+    if re.search(r"[^\x00-\x7f]", lowered):
+        return True
+    words = set(re.findall(r"[a-z]+", lowered))
+    return any(part in words for part in re.findall(r"[a-z]{4,}", str(extracted_name).lower()))
+
+
 def specialty_named(text: str) -> str | None:
     """A kind of doctor said on its own ("dermatologist", "skin doctor", "ENT", "eye specialist"), or None.
 

@@ -938,8 +938,15 @@ def _symptom_turn(
     books = bool(wants_to_book) and symptom_guide.explicit_booking(user_text)
     names_one = symptom_guide.names_a_doctor(user_text, doctor_name)
     request = symptom_guide.doctor_request(user_text)
-    if request and names_one:
-        return None
+    if request:
+        # "Suggest me the three orthopedics doctors", "show me the cardiologists", "I need an ENT doctor": a kind of
+        # doctor asked for by name gets the ranked doctors of that kind, in the patient's city. A doctor's own name
+        # ("Dr. Rao") is an ordinary booking.
+        kind = symptom_guide.specialty_in(user_text)
+        if kind and not books and not symptom_guide.names_a_person(user_text, doctor_name):    # a booking sentence stays a booking
+            return _suggest_doctors(session_id, short_lang, {"specialty": kind, "symptom": "", "serious": False}, city)
+        if names_one:
+            return None
     found = symptom_guide.find_symptom(user_text)
     # A complaint nothing could place (no specialty of ours fits, or the model was unsure) starts with a General
     # Physician: remembered, so "which doctor should I see" has an answer, but the reply stays the ordinary one.
@@ -961,9 +968,11 @@ def _symptom_turn(
     if request:
         info = found or fallback or _recall_symptom(session_id)
         if info is None:
-            # "it did not improve" / "which doctor should I see" with no symptom known: ask what it is.
-            # ("I want a doctor" alone is an ordinary booking request.)
-            return render_template("SYMPTOM_ASK_PROBLEM", short_lang) if request in ("which", "not_improved") else None
+            # "it did not improve" / "which doctor should I see" / "show me doctors" with no symptom known: ask what
+            # it is. Only a request the model already took for a booking ("I want a doctor") carries on as a booking.
+            if request in ("which", "not_improved") or not wants_to_book:
+                return render_template("SYMPTOM_ASK_PROBLEM", short_lang)
+            return None
         if found or fallback:
             _remember_symptom(session_id, info)
         return _suggest_doctors(session_id, short_lang, info, city, urgent=bool(info.get("serious")))

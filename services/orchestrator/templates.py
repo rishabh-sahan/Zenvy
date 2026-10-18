@@ -196,9 +196,9 @@ TEMPLATES = {
         "kn": "ಇವರಲ್ಲಿ ಯಾವ ವೈದ್ಯರನ್ನು ಬುಕ್ ಮಾಡಲು ಬಯಸುತ್ತೀರಿ? {options}. ನೀವು ಸಂಖ್ಯೆ ಹೇಳಬಹುದು, ಅಥವಾ ಬೇಡ ಎನ್ನಬಹುದು.",
     },
     "SYMPTOM_ASK_PROBLEM": {
-        "en": "Tell me what problem you are having, and I'll suggest the right kind of doctor.",
-        "hi": "बताइए आपको क्या समस्या है, मैं सही प्रकार के डॉक्टर सुझाऊँगा।",
-        "kn": "ನಿಮಗೆ ಯಾವ ತೊಂದರೆ ಇದೆ ಎಂದು ತಿಳಿಸಿ, ನಾನು ಸರಿಯಾದ ರೀತಿಯ ವೈದ್ಯರನ್ನು ಸೂಚಿಸುತ್ತೇನೆ.",
+        "en": "Tell me what problem you are having, or which kind of doctor you want, and I'll suggest the right doctors.",
+        "hi": "बताइए आपको क्या समस्या है, या आप किस प्रकार के डॉक्टर से मिलना चाहते हैं, मैं सही डॉक्टर सुझाऊँगा।",
+        "kn": "ನಿಮಗೆ ಯಾವ ತೊಂದರೆ ಇದೆ ಅಥವಾ ಯಾವ ರೀತಿಯ ವೈದ್ಯರು ಬೇಕು ಎಂದು ತಿಳಿಸಿ, ನಾನು ಸರಿಯಾದ ವೈದ್ಯರನ್ನು ಸೂಚಿಸುತ್ತೇನೆ.",
     },
     "SYMPTOM_NO_DOCTOR": {
         "en": "I'm sorry, I couldn't find {a_specialty} right now. Please contact the front desk.",

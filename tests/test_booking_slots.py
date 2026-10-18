@@ -743,9 +743,9 @@ def test_a_doctor_named_in_the_sentence_wins_when_the_model_keeps_only_the_depar
 def test_a_department_alone_still_asks_which_pediatrician(team_c, say, monkeypatch):
     team_c.doctors = [_doctor("d1", "Dr. Rahul Gowda", specialty="Pediatrician"),
                       _doctor("d2", "Dr. Sanjay Kumar", specialty="Pediatrician")]
-    monkeypatch.setattr(state_machine, "find_doctors", lambda query: list(team_c.doctors))
+    monkeypatch.setattr(state_machine, "find_doctors", lambda query, city=None: list(team_c.doctors))
     reply = say("s1", "I need a pediatrician", wants_to_book=True, doctor_name="Paediatrics")
-    assert "1) Dr. Rahul Gowda" in reply and "2) Dr. Sanjay Kumar" in reply
+    assert "1) Dr. Rahul Gowda" in reply and "2) Dr. Sanjay Kumar" in reply       # both are listed, whichever wording
 
 
 def test_speciality_and_specialty_spellings_are_the_same_hospital(team_c, say):

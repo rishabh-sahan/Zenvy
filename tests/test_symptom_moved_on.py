@@ -156,3 +156,75 @@ def test_the_english_wording_uses_a_or_an(specialty, article):
     from services.orchestrator.templates import render_template
     assert f"seeing {article}." in render_template("DOCTOR_SUGGEST", "en", specialty=specialty, options="1) x")
     assert f"couldn't find {article} right now" in render_template("SYMPTOM_NO_DOCTOR", "en", specialty=specialty)
+
+
+# ---------------------------------------------------------------------------
+# found by the third real use: a kind of doctor asked for by name ("the three orthopedics doctors")
+# ---------------------------------------------------------------------------
+
+def with_an_orthopedist_in_mysuru(tc):
+    from tests.test_booking_slots import _doctor
+    tc.doctors.append(_doctor("o2", "Dr. Bone Two", "Orthopedist", "Mysuru Bones"))
+
+
+def test_the_third_real_conversation_hand_pain_then_suggest_me_the_three_orthopedics_doctors(tc, say):
+    with_an_orthopedist_in_mysuru(tc)
+    say("I have pain in my left hand from this morning")
+    reply = say("Suggest me the three orthopedics doctors")
+    assert reply.startswith("For this, I suggest seeing an Orthopedist.") and "Dr. Bone Two" in reply
+    assert state()["from_symptom"] and "can't provide" not in reply
+
+
+@pytest.mark.parametrize("flagged_as_booking", [False, True])          # the language model is not consistent about this
+@pytest.mark.parametrize("said,doctor", [
+    ("Suggest me the three orthopedics doctors", "Dr. Bone Two"),
+    ("show me the cardiologists", "Dr. Arjun Rao"),
+    ("I need an ENT doctor", "Dr. Ear Nose"),
+    ("can you suggest a good neurologist", "Dr. Pooja Menon"),
+    ("list the dermatologists", "Dr. Skin Care"),
+    ("which paediatrician should I see", "Dr. Child Care"),
+])
+def test_a_kind_of_doctor_asked_for_by_name_lists_that_kind_whatever_the_model_thought(tc, say, said, doctor, flagged_as_booking):
+    with_an_orthopedist_in_mysuru(tc)
+    reply = say(said, wants_to_book=flagged_as_booking)
+    assert doctor in reply and "For this, I suggest" in reply and tc.model.calls == []
+
+
+def test_an_explicit_booking_sentence_with_a_specialty_is_still_the_ordinary_booking(tc, say):
+    reply = say("book an appointment with a cardiologist", wants_to_book=True)
+    assert not reply.startswith("For this, I suggest") and state()["state"] == "ASK_DOCTOR"
+
+
+def test_a_named_doctor_is_never_turned_into_a_suggestion(tc, say):
+    assert not say("show me Dr. Arjun Rao", wants_to_book=True, doctor_name="Arjun Rao").startswith("For this, I suggest")
+
+
+def test_asking_for_doctors_with_nothing_known_asks_what_is_needed_instead_of_refusing(tc, say):
+    reply = say("show me doctors")
+    assert "Tell me what problem you are having, or which kind of doctor you want" in reply
+    assert "can't" not in reply and state() is None
+
+
+def test_i_want_a_doctor_that_the_model_took_for_a_booking_is_still_a_booking(tc, say):
+    assert "Which doctor or department" in say("I want a doctor", wants_to_book=True)
+
+
+def test_the_same_in_hindi_and_kannada(tc, say):
+    assert "बताइए आपको क्या समस्या है" in say("डॉक्टर सुझाइए", lang="hi")
+    assert "ನಿಮಗೆ ಯಾವ ತೊಂದರೆ ಇದೆ" in say("ವೈದ್ಯರನ್ನು ಸೂಚಿಸಿ", lang="kn", session="s2")
+
+
+@pytest.mark.parametrize("said,specialty", [
+    ("the three orthopedics doctors", "Orthopedist"), ("an ENT doctor", "ENT Specialist"), ("some good cardiologists", "Cardiologist"),
+    ("a kids doctor", "Pediatrician"), ("any eye specialist", "Ophthalmologist"), ("the psychiatrists", "Psychiatrist"),
+])
+def test_the_kind_of_doctor_is_found_anywhere_in_the_sentence(said, specialty):
+    assert symptom_guide.specialty_in(said) == specialty
+
+
+@pytest.mark.parametrize("said,extracted,person", [
+    ("show me Dr. Rao", None, True), ("book Arjun Rao", "Arjun Rao", True), ("show me the cardiologists", "Cardiologist", False),
+    ("suggest an ENT doctor", None, False),
+])
+def test_a_person_is_told_apart_from_a_kind_of_doctor(said, extracted, person):
+    assert symptom_guide.names_a_person(said, extracted) is person
