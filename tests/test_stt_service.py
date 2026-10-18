@@ -37,3 +37,39 @@ def test_accepts_valid_audio():
         )
     assert response.status_code == 200
     assert "text" in response.json()
+
+class _SarvamReply:
+    ok = True
+    status_code = 200
+    text = ""
+
+    def json(self):
+        return {"transcript": "Hello, please sit down.", "language_code": "kn-IN"}
+
+
+def _post_wav(monkeypatch, **data):
+    sent = {}
+
+    def fake_post(url, headers=None, files=None, data=None, timeout=None):
+        sent.update(data=data)
+        return _SarvamReply()
+
+    monkeypatch.setattr("services.stt.main.requests.post", fake_post)
+    response = client.post("/transcribe", files={"file": ("a.wav", b"RIFFxxxxWAVE", "audio/wav")}, data=data)
+    return response, sent
+
+
+def test_the_default_mode_is_transcribe(monkeypatch):
+    response, sent = _post_wav(monkeypatch)
+    assert response.status_code == 200 and sent["data"]["mode"] == "transcribe"
+
+
+def test_translate_mode_is_passed_on_and_the_detected_language_is_returned(monkeypatch):
+    response, sent = _post_wav(monkeypatch, mode="translate")
+    assert sent["data"]["mode"] == "translate" and sent["data"]["language_code"] == "unknown"
+    assert response.json() == {"text": "Hello, please sit down.", "language_code": "kn-IN"}
+
+
+def test_an_unknown_mode_is_refused_before_anything_is_sent(monkeypatch):
+    response, sent = _post_wav(monkeypatch, mode="codemix")
+    assert response.status_code == 400 and sent == {}

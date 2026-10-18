@@ -1,0 +1,29 @@
+Doctor (hi): नमस्ते। कृपया बैठिए। आज क्या तकलीफ़ है?
+   (Hello. Please sit down. What is the problem today?)
+
+Patient (hi): नमस्ते डॉक्टर साहब। मुझे तीन दिन से खांसी और गले में दर्द है।
+   (Hello doctor. I have had a cough and a sore throat for three days.)
+
+Doctor (hi): खांसी सूखी है या बलगम आता है?
+   (Is the cough dry, or do you bring up phlegm?)
+
+Patient (hi): ज़्यादातर सूखी है। रात में बढ़ जाती है, मैं ठीक से सो नहीं पा रही हूँ।
+   (Mostly dry. It gets worse at night, I cannot sleep properly.)
+
+Doctor (hi): क्या बुखार है?
+   (Do you have fever?)
+
+Patient (hi): हाँ, कल शाम हल्का बुखार था। भूख भी कम हो गई है।
+   (Yes, a mild fever yesterday evening. My appetite has also reduced.)
+
+Doctor (hi): क्या सीने में दर्द या सांस लेने में तकलीफ़ है?
+   (Any chest pain or difficulty breathing?)
+
+Patient (hi): नहीं डॉक्टर साहब। सीने में दर्द नहीं है और सांस लेने में भी कोई तकलीफ़ नहीं है।
+   (No doctor. There is no chest pain and no difficulty breathing.)
+
+Doctor (hi): ठीक है। मैं गला और सीना देखता हूँ।
+   (Okay. I will examine your throat and chest.)
+
+Patient (hi): जी डॉक्टर साहब।
+   (Yes doctor.)

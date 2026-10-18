@@ -32,7 +32,9 @@ SYSTEM_PROMPT = (
     '  "wrap_up"  - something not covered yet (e.g. how long to continue, when to come back)\n'
     '  "consider" - a gentle thing to keep in mind. It must start with "Consider" or "Keep in mind".\n\n'
     "Rules:\n"
-    "1. English only, one short sentence per card (at most 25 words).\n"
+    "1. English only, one short sentence per card (at most 25 words). The conversation below is always English text, "
+    "but it may have been machine-translated from Kannada or Hindi speech, so the wording can be slightly odd: "
+    "judge it by what it says and quote it exactly as written.\n"
     "2. Use ONLY what was said in the conversation or in the earlier visits. Never invent facts.\n"
     "3. Each card needs \"evidence\": a short exact quote (at most 12 words) from the conversation, or the "
     "date of the earlier visit for a history card.\n"
@@ -69,6 +71,25 @@ _DIAGNOSTIC = re.compile(
 
 _URGENT = re.compile(r"\b(?:urgent\w*|emergenc\w*|immediate\w*|right away|serious\w*|severe\w*|life[- ]threatening)\b", re.I)
 
+# Words that make a symptom worth an alarm. "May need urgent attention" alone does not: a model once called
+# "sleeping only four hours" a red flag with exactly those words.
+_ALARM = re.compile(
+    r"\b(?:severe\w*|worst|sudden\w*|unbearable|terrible|excruciating|bleed\w*|blood\w*|faint\w*|unconscious\w*|"
+    r"collaps\w*|seizure\w*|convuls\w*|breath\w*|chest|heart|numb\w*|paraly\w*|slurred|confus\w*|drowsy|pale|bluish|"
+    r"cannot|can'?t|unable|bent|deform\w*|swell\w*|suicid\w*|self[- ]harm|palpitat\w*|vomit\w*|dizz\w*)\b", re.I)
+
+# Evidence made only of these ("Sorry, Doctor.", "Okay doctor", "Hello") is a greeting or a mis-heard word, not
+# something worth interrupting the doctor for. (Found live: "okay doctor" was heard as "Sorry, Doctor" and the
+# model made a card about the patient apologising.)
+_CHATTER = {
+    "sorry", "doctor", "hello", "hi", "okay", "ok", "yes", "yeah", "thanks", "thank", "please", "good", "morning",
+    "afternoon", "evening", "alright", "sir", "madam", "fine", "sure", "right", "well", "hmm", "you",
+}
+
+
+def has_substance(evidence: str) -> bool:
+    return any(len(w) >= 3 and w not in _CHATTER for w in _words(evidence))
+
 _BANNED = (
     ("dose", _DOSE), ("treatment", _TREATMENT), ("medicine name", _DRUGS), ("test", _TESTS),
     ("disease name", _DISEASES), ("diagnosis", _DIAGNOSTIC),
@@ -85,13 +106,13 @@ def violations(text: str) -> list[str]:
 # --------------------------------------------------------------------------------------------
 
 RED_FLAG_RULES = (
-    ("chest_pain", re.compile(r"\bchest (?:pain|tightness|pressure)\b|\bpain in (?:my |the )?chest\b", re.I), "Chest pain"),
-    ("breathing", re.compile(r"\b(?:difficulty|trouble|hard) (?:in )?breathing\b|\bshort(?:ness)? of breath\b|\bbreathless\w*\b|\bcan'?t breathe\b", re.I), "Difficulty breathing"),
-    ("fainting", re.compile(r"\bfaint(?:ed|ing)\b|\bpassed out\b|\bunconscious\w*\b|\bblack(?:ed|ing) out\b", re.I), "Fainting or loss of consciousness"),
+    ("chest_pain", re.compile(r"\bchest (?:pain|tightness|pressure)\b|\bpain in (?:my |the )?(?:chest|heart)\b|\bheart pain\b|\bchest (?:is |was )?(?:paining|hurting)\b|\bchest hurts\b|\btightness in (?:my |the )?chest\b", re.I), "Chest pain"),
+    ("breathing", re.compile(r"\b(?:difficult(?:y|ies)?|hard|trouble|struggl\w*)(?: in| to| with)? breath(?:e|ing)\b|\bbreathing (?:difficult(?:y|ies)|problems?|trouble)\b|\bunable to breathe\b|\bshort(?:ness)? of breath\b|\bbreathless\w*\b|\bcan'?t (?:even )?breathe\b|\bgasping\b", re.I), "Difficulty breathing"),
+    ("fainting", re.compile(r"\bfaint(?:ed|ing)\b|\bpassed out\b|\bunconscious\w*\b|\bblack(?:ed|ing) out\b|\b(?:lost|loss of) consciousness\b", re.I), "Fainting or loss of consciousness"),
     ("seizure", re.compile(r"\bseizures?\b|\bconvulsions?\b", re.I), "A seizure"),
-    ("bleeding", re.compile(r"\b(?:heavy|severe|uncontrolled) bleeding\b|\bvomit(?:ing|ed)? blood\b|\bcough(?:ing|ed)? (?:up )?blood\b|\bblood in (?:my |the )?(?:stool|vomit)\b", re.I), "Heavy bleeding"),
+    ("bleeding", re.compile(r"\b(?:heavy|severe|uncontrolled) bleeding\b|\bvomit(?:ing|ed)? blood\b|\bcough(?:ing|ed)? (?:up )?blood\b|\bblood in (?:my |the )?(?:stool|vomit)\b|\bbleeding (?:a lot|heavily|profusely)\b|\blot of (?:blood|bleeding)\b|\bbleeding (?:is |has )?(?:not|n't) stop\w*\b", re.I), "Heavy bleeding"),
     ("self_harm", re.compile(r"\bsuicid\w*\b|\bwant to die\b|\bend(?:ing)? my life\b|\bkill myself\b|\bharm myself\b", re.I), "Thoughts of self-harm"),
-    ("stroke_signs", re.compile(r"\bslurred speech\b|\bface (?:is )?droop\w*\b|\bweakness (?:on|in) one side\b|\bcan'?t move (?:my )?(?:arm|leg)\b", re.I), "Possible stroke signs"),
+    ("stroke_signs", re.compile(r"\bslurred speech\b|\bspeech (?:is )?slurred\b|\bface (?:is )?droop\w*\b|\bweakness (?:on|in) one side\b|\bcan'?t move (?:my )?(?:arm|leg)\b", re.I), "Possible stroke signs"),
     ("severe_headache", re.compile(r"\bworst headache\b|\bsudden severe headache\b", re.I), "A sudden severe headache"),
     ("swelling", re.compile(r"\bswelling (?:of|in) (?:the |my )?(?:face|throat|tongue|lips)\b|\bthroat (?:is )?closing\b", re.I), "Swelling of the face or throat"),
 )
@@ -229,7 +250,10 @@ def check_cards(cards: list[dict], transcript: str, history_text: str, shown: li
         if kind != "wrap_up" and not is_grounded(evidence, source):
             drop("not_grounded")
             continue
-        if kind == "red_flag" and not _URGENT.search(text):
+        if kind not in ("wrap_up", "history") and not has_substance(evidence):
+            drop("weak_evidence")
+            continue
+        if kind == "red_flag" and not (_URGENT.search(text) and _ALARM.search(_URGENT.sub(" ", text) + " " + evidence)):
             kind = "ask" if re.match(r"^ask\b", text, re.I) else "consider"      # do not cry wolf
         if kind == "consider" and not re.match(r"^(consider|keep in mind)\b", text, re.I):
             text = "Keep in mind: " + text[0].lower() + text[1:]

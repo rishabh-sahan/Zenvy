@@ -289,7 +289,7 @@ async def live_state(consultation_id: str, request: Request):
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     session = live.get_session(consultation_id)
     state = live.snapshot(session) if session else {
-        "state": "idle", "error": None, "chunks": 0, "seconds": 0.0, "turns": [], "turn_count": 0}
+        "state": "idle", "error": None, "languages": [], "chunks": 0, "seconds": 0.0, "turns": [], "turn_count": 0}
     return {"enabled": True, "visible_cards": live.MAX_CARDS_VISIBLE, **state, "suggestions": cards}
 
 

@@ -27,9 +27,13 @@ class SttError(Exception):
     """Speech-to-text failed for a segment, even after retrying."""
 
 
-def transcribe_segment(segment: Segment, stt_url: str | None = None, post=requests.post) -> dict:
-    """Transcribe one segment: {"text": ..., "language_code": ...}."""
+def transcribe_segment(segment: Segment, stt_url: str | None = None, post=requests.post, mode: str = "transcribe") -> dict:
+    """Transcribe one segment: {"text": ..., "language_code": ...}.
+
+    mode="translate" returns English text whatever language was spoken (language_code is still the one detected).
+    """
     url = stt_url or STT_URL
+    extra = {} if mode == "transcribe" else {"data": {"mode": mode}}     # old callers/fakes never see a new argument
     last_error = "unknown error"
     for attempt in range(1, STT_ATTEMPTS + 1):
         try:
@@ -37,6 +41,7 @@ def transcribe_segment(segment: Segment, stt_url: str | None = None, post=reques
                 url,
                 files={"file": ("segment.wav", segment.wav, "audio/wav")},
                 timeout=STT_TIMEOUT_SECONDS,
+                **extra,
             )
         except requests.exceptions.RequestException as exc:
             last_error = f"request failed: {exc}"
@@ -56,11 +61,12 @@ def transcribe_segment(segment: Segment, stt_url: str | None = None, post=reques
 
 
 def transcribe_segments(
-    segments: list[Segment], stt_url: str | None = None, post=requests.post, workers: int = STT_WORKERS
+    segments: list[Segment], stt_url: str | None = None, post=requests.post, workers: int = STT_WORKERS,
+    mode: str = "transcribe",
 ) -> list[dict]:
     """Transcribe all segments (a few at a time), keeping them in order."""
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        return list(pool.map(lambda s: transcribe_segment(s, stt_url, post), segments))
+        return list(pool.map(lambda s: transcribe_segment(s, stt_url, post, mode), segments))
 
 
 def label_turns(segments: list[Segment], results: list[dict]) -> list[dict]:

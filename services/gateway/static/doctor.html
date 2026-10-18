@@ -141,6 +141,7 @@ textarea[readonly] { opacity: .8; }
 .live-state { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(52,211,153,.16); color: #9be9c7; }
 .live-state.paused { background: rgba(251,191,36,.16); color: #fde68a; }
 .live-state.error { background: rgba(248,113,113,.16); color: #fecaca; }
+.live-lang { font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
 .live-card { border: 1px solid var(--border); border-left-width: 4px; border-radius: 10px; padding: 10px 12px; margin: 8px 0; background: var(--panel-2); }
 .live-card.red_flag { border-left-color: var(--red); background: rgba(248,113,113,.08); }
 .live-card.ask { border-left-color: #60a5fa; }
@@ -314,7 +315,7 @@ let rxRows = null;        // the medicines being edited (null = not editing)
 let rxDirty = false;      // edits not saved yet
 let updatesTimer = null;  // polls the coordinator's updates
 let liveConfig = null;    // {enabled, chunk_seconds, visible_cards} from the gateway
-let live = { state: "idle", error: null, turns: [], cards: [], paused: false };
+let live = { state: "idle", error: null, languages: [], turns: [], cards: [], paused: false };
 let liveCapture = null;   // the live audio capture while recording
 let livePollTimer = null;
 
@@ -922,6 +923,15 @@ function followUpCard(noteApproved) {
 ========================================================= */
 
 const LIVE_LABEL = { ask: "ASK NEXT", red_flag: "RED FLAG", history: "HISTORY", wrap_up: "WRAP-UP", consider: "KEEP IN MIND" };
+const LIVE_LANGUAGES = { en: "English", kn: "Kannada", hi: "Hindi" };
+function liveLanguageChip() {
+  const codes = (live.languages || []).map(c => String(c).toLowerCase());
+  if (!codes.length) return null;
+  const names = [...new Set(codes.map(c => LIVE_LANGUAGES[c] || "another language"))];
+  const text = "Heard: " + names.join(" and ") + (codes.every(c => c === "en") ? "" : " (shown in English)");
+  return el("span", { class: "live-lang", title: "Suggestions are always in English" }, text);
+}
+
 const LIVE_ERRORS = {
   speech_unavailable: "Live Assist paused: could not hear the audio just now.",
   suggestions_unavailable: "Live Assist paused: suggestions are not available right now.",
@@ -947,13 +957,14 @@ async function loadLive() {
     const state = await api("GET", "consultations/" + consultation.consultation_id + "/live");
     live.state = state.state;
     live.error = liveCapture && liveCapture.failures >= 3 ? "network" : state.error;
+    live.languages = state.languages || [];
     live.turns = state.turns || [];
     live.cards = state.suggestions || [];
   } catch (e) { /* the panel is a convenience; the recording never depends on it */ }
 }
 
 function resetLive() {
-  live = { state: "idle", error: null, turns: [], cards: [], paused: false };
+  live = { state: "idle", error: null, languages: [], turns: [], cards: [], paused: false };
 }
 
 /* ---- capturing the conversation in small pieces ---- */
@@ -1185,6 +1196,7 @@ function liveAssistBody() {
     el("div", { class: "head" },
       el("h3", null, "Live Assist"),
       el("span", { class: "live-state " + stateClass }, label),
+      liveLanguageChip(),
       capturing ? el("button", { class: "btn small", onclick: toggleLivePause }, live.paused ? "Resume" : "Pause Live Assist") : null),
     el("div", { class: "live-note" }, "AI suggestions - verify before use. Only you can see this.")
   ];
@@ -1210,7 +1222,7 @@ function liveAssistBody() {
   if (plan) kids.push(plan);
 
   kids.push(el("details", null,
-    el("summary", null, "Live transcript"),
+    el("summary", null, "Live transcript (English)"),
     el("div", { class: "live-lines" }, live.turns.length
       ? live.turns.map(t => el("div", null, el("b", null, t.speaker === "doctor" ? "Doctor: " : t.speaker === "patient" ? "Patient: " : "Speaker: "), t.text))
       : "Nothing heard yet.")));

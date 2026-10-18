@@ -8,6 +8,7 @@ few cards for the doctor.
 Nothing here can affect the recording or the note: if speech-to-text or the model fails, the session just
 reports it and carries on with the next piece.
 """
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -25,6 +26,13 @@ MAX_SESSIONS = 25
 SESSION_TTL_SECONDS = 3 * 60 * 60
 TRANSCRIPT_TAIL_TURNS = 14           # what GET /live returns
 
+# Live pieces are sent to speech-to-text in "translate" mode: Kannada, Hindi and English (or a mix inside one
+# conversation) all come back as ENGLISH text, so the rules, the filters and the cards only ever see English and the
+# doctor never sees Kannada or Hindi text. The language that was heard is kept as a short code for the page.
+# ("transcribe" would give the words in the language spoken; it is only a fallback for a speech service that has no
+# translate mode.)
+LIVE_STT_MODE = os.getenv("LIVE_STT_MODE", "translate").strip().lower() or "translate"
+
 
 @dataclass
 class LiveSession:
@@ -35,6 +43,7 @@ class LiveSession:
     shown_texts: list[str] = field(default_factory=list)
     fired_rules: set[str] = field(default_factory=set)
     token: str | None = None            # the doctor's token, kept in memory only, to store cards
+    language_words: dict = field(default_factory=dict)   # words heard per language ("kn", "hi", "en"...): counts only, never text
     trailing_silence: float = 0.0
     words_since_run: int = 0
     last_run: float = 0.0
@@ -113,7 +122,7 @@ def ingest(session: LiveSession, wav: bytes, transcribe_many=None) -> int:
 
     Raises audio.AudioError for an unreadable piece and transcribe.SttError if speech-to-text keeps failing.
     """
-    transcribe_many = transcribe_many or transcribe.transcribe_segments
+    transcribe_many = transcribe_many or (lambda segs: transcribe.transcribe_segments(segs, mode=LIVE_STT_MODE))
     seconds = audio.wav_seconds(wav)
     if seconds > MAX_CHUNK_SECONDS:
         raise audio.AudioError("That audio piece is too long.")
@@ -136,6 +145,9 @@ def ingest(session: LiveSession, wav: bytes, transcribe_many=None) -> int:
             text = (result.get("text") or "").strip()
             if not text:
                 continue                             # noise: counts as silence
+            code = str(result.get("language_code") or "").split("-")[0].lower()
+            if code and code != "unknown":
+                session.language_words[code] = session.language_words.get(code, 0) + len(text.split())
             speaker = _speaker_for(session, segment.start - previous_end)
             previous_end = segment.end
             if session.turns and session.turns[-1]["speaker"] == speaker:
@@ -267,12 +279,26 @@ def run_engine(session: LiveSession, store_cards, chat=None) -> list[dict]:
     return stored
 
 
+LANGUAGE_SHARE = 0.2     # a language must be this share of the words to be shown (a mis-detected short piece is not)
+
+
+def _languages_heard(session: LiveSession) -> list[str]:
+    """The languages that made up the conversation so far, most spoken first, e.g. ["kn", "en"]."""
+    counts = {k: v for k, v in session.language_words.items() if v > 0}
+    total = sum(counts.values())
+    if not total:
+        return []
+    ordered = sorted(counts, key=lambda k: -counts[k])
+    return [k for k in ordered if counts[k] / total >= LANGUAGE_SHARE] or ordered[:1]
+
+
 def snapshot(session: LiveSession) -> dict:
     with session.lock:
         state = "paused" if session.paused else ("error" if session.error else "listening")
         return {
             "state": state,
             "error": session.error,
+            "languages": _languages_heard(session),
             "chunks": session.chunks,
             "seconds": round(session.seconds, 1),
             "turns": [dict(t) for t in session.turns[-TRANSCRIPT_TAIL_TURNS:]],

@@ -1,0 +1,20 @@
+Doctor (kn): ನಮಸ್ಕಾರ. ಏನು ಸಮಸ್ಯೆ ಹೇಳಿ.
+   (Hello. Tell me what the problem is.)
+
+Patient (kn): ನಮಸ್ಕಾರ ಡಾಕ್ಟರ್. ಈ ವಾರ ನನಗೆ ತುಂಬಾ ಆಯಾಸ ಮತ್ತು ದುರ್ಬಲತೆ ಇದೆ.
+   (Hello doctor. This week I have been very tired and weak.)
+
+Doctor (kn): ಸರಿ. ಇನ್ನೇನಾದರೂ ತೊಂದರೆ ಇದೆಯೇ?
+   (I see. Is there anything else bothering you?)
+
+Patient (kn): ಹೌದು ಡಾಕ್ಟರ್. ಬೆಳಿಗ್ಗೆಯಿಂದ ನನಗೆ ಎದೆ ನೋವು ಇದೆ.
+   (Yes doctor. I have had chest pain since this morning.)
+
+Doctor (kn): ಇನ್ನಷ್ಟು ಹೇಳಿ. ನೋವು ಎಲ್ಲಿದೆ?
+   (Tell me more. Where is the pain?)
+
+Patient (kn): ಎದೆಯ ಮಧ್ಯದಲ್ಲಿ. ನಡೆಯುವಾಗ ಉಸಿರಾಡಲು ಕಷ್ಟವಾಗುತ್ತದೆ, ತಲೆ ತಿರುಗುತ್ತದೆ.
+   (In the middle of the chest. It is hard to breathe when I walk, and I feel dizzy.)
+
+Doctor (kn): ಸರಿ. ದಯವಿಟ್ಟು ಮಂಚದ ಮೇಲೆ ಮಲಗಿ. ನಾನು ತಕ್ಷಣ ಪರೀಕ್ಷಿಸುತ್ತೇನೆ.
+   (Okay. Please lie down on the couch. I will check you right away.)

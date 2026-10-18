@@ -1,0 +1,29 @@
+Doctor (kn): ನಮಸ್ಕಾರ. ದಯವಿಟ್ಟು ಕುಳಿತುಕೊಳ್ಳಿ. ಇಂದು ಏನು ತೊಂದರೆ?
+   (Hello. Please sit down. What is the trouble today?)
+
+Patient (kn): ನಮಸ್ಕಾರ ಡಾಕ್ಟರ್. ನನಗೆ ಮೂರು ದಿನಗಳಿಂದ ಕೆಮ್ಮು ಮತ್ತು ಗಂಟಲು ನೋವು ಇದೆ.
+   (Hello doctor. I have had a cough and a sore throat for three days.)
+
+Doctor (kn): ಕೆಮ್ಮು ಒಣ ಕೆಮ್ಮೇ ಅಥವಾ ಕಫ ಬರುತ್ತದೆಯೇ?
+   (Is the cough dry, or do you bring up phlegm?)
+
+Patient (kn): ಹೆಚ್ಚಾಗಿ ಒಣ ಕೆಮ್ಮು. ರಾತ್ರಿ ಹೆಚ್ಚಾಗುತ್ತದೆ, ಸರಿಯಾಗಿ ನಿದ್ರೆ ಬರುತ್ತಿಲ್ಲ.
+   (Mostly dry. It gets worse at night and I cannot sleep properly.)
+
+Doctor (kn): ಜ್ವರ ಇದೆಯೇ?
+   (Do you have fever?)
+
+Patient (kn): ಹೌದು, ನಿನ್ನೆ ಸಂಜೆ ಸ್ವಲ್ಪ ಜ್ವರ ಇತ್ತು. ಹಸಿವು ಕೂಡ ಕಡಿಮೆಯಾಗಿದೆ.
+   (Yes, a mild fever yesterday evening. My appetite has also reduced.)
+
+Doctor (kn): ಎದೆ ನೋವು ಅಥವಾ ಉಸಿರಾಟದ ತೊಂದರೆ ಇದೆಯೇ?
+   (Any chest pain or difficulty breathing?)
+
+Patient (kn): ಇಲ್ಲ ಡಾಕ್ಟರ್. ಎದೆ ನೋವು ಇಲ್ಲ, ಉಸಿರಾಟದ ತೊಂದರೆಯೂ ಇಲ್ಲ.
+   (No doctor. No chest pain and no difficulty breathing.)
+
+Doctor (kn): ಸರಿ. ನಾನು ಗಂಟಲು ಮತ್ತು ಎದೆಯನ್ನು ಪರೀಕ್ಷಿಸುತ್ತೇನೆ.
+   (Okay. I will examine your throat and chest.)
+
+Patient (kn): ಸರಿ ಡಾಕ್ಟರ್.
+   (Okay doctor.)

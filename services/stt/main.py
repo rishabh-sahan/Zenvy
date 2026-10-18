@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import requests
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 
 from services.config import SARVAM_API_KEY, SARVAM_BASE_URL
 
@@ -37,6 +37,10 @@ ALLOWED_CONTENT_TYPES = {
 
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
+# transcribe: the words in the language spoken. translate: English text whatever language was spoken
+# (Live Assist uses this, so the doctor only ever sees English). Anything else is refused.
+ALLOWED_MODES = {"transcribe", "translate"}
+
 
 @app.get("/health")
 async def health():
@@ -44,7 +48,7 @@ async def health():
 
 
 @app.post("/transcribe")
-async def transcribe(file: UploadFile = File(...)):
+async def transcribe(file: UploadFile = File(...), mode: str = Form("transcribe")):
     """
     Receive an audio file and transcribe it using Sarvam Saaras v3.
 
@@ -52,12 +56,18 @@ async def transcribe(file: UploadFile = File(...)):
 
     We use:
         model = saaras:v3
-        mode = transcribe
+        mode = transcribe (or translate, when the caller asks for it)
         language_code = unknown
 
     'unknown' lets Sarvam automatically detect Kannada, Hindi,
     English, etc.
     """
+
+    if mode not in ALLOWED_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported mode: {mode!r}. Allowed: {sorted(ALLOWED_MODES)}",
+        )
 
     print(
         f"[STT] Incoming file: "
@@ -105,7 +115,7 @@ async def transcribe(file: UploadFile = File(...)):
             },
             data={
                 "model": "saaras:v3",
-                "mode": "transcribe",
+                "mode": mode,
                 "language_code": "unknown",
             },
             timeout=30,

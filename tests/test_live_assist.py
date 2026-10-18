@@ -194,6 +194,7 @@ def test_generate_turns_a_bad_reply_into_a_summary_error():
 @pytest.fixture(autouse=True)
 def clean_sessions():
     live.reset_all()
+    STT_CALLS.clear()
     yield
     live.reset_all()
 
@@ -204,11 +205,15 @@ def speech_chunk(*pieces):
     return wav_of(*parts)
 
 
-def fake_stt(*texts):
+STT_CALLS: list[dict] = []        # the extra arguments every fake speech-to-text call received
+
+
+def fake_stt(*texts, language="en-IN"):
     queue = list(texts)
 
-    def run(segments):
-        return [{"text": queue.pop(0) if queue else "", "language_code": "en-IN"} for _ in segments]
+    def run(segments, **kwargs):
+        STT_CALLS.append(kwargs)
+        return [{"text": queue.pop(0) if queue else "", "language_code": language} for _ in segments]
 
     return run
 
@@ -507,7 +512,7 @@ def test_bad_audio_pieces_are_refused_clearly(api):
 
 
 def test_a_speech_to_text_failure_is_reported_but_never_an_error_status(api, monkeypatch):
-    def broken(segments):
+    def broken(segments, **kwargs):
         raise transcribe.SttError("HTTP 502")
 
     monkeypatch.setattr(live.transcribe, "transcribe_segments", broken)
@@ -688,3 +693,169 @@ def test_a_statement_with_a_question_mark_from_speech_to_text_still_fires():
 ])
 def test_a_question_with_a_lead_in_is_still_a_question(said):
     assert live_assist.red_flag_cards(live_assist.statements(said), set()) == []
+
+
+# ---------------------------------------------------------------------------
+# Kannada, Hindi and English (or a mix): live speech is translated to English first
+# ---------------------------------------------------------------------------
+
+def test_live_pieces_are_asked_for_in_translate_mode(monkeypatch):
+    monkeypatch.setattr(live.transcribe, "transcribe_segments", fake_stt("I have had a fever"))
+    live.ingest(live.open_session("c1", "a1", [], "tok"), speech_chunk(("talk", 1.5)))
+    assert STT_CALLS == [{"mode": "translate"}]
+
+
+def test_the_mode_can_be_switched_back_for_a_speech_service_without_translate(monkeypatch):
+    monkeypatch.setattr(live, "LIVE_STT_MODE", "transcribe")
+    monkeypatch.setattr(live.transcribe, "transcribe_segments", fake_stt("I have had a fever"))
+    live.ingest(live.open_session("c1", "a1", [], "tok"), speech_chunk(("talk", 1.5)))
+    assert STT_CALLS == [{"mode": "transcribe"}]
+
+
+def test_the_post_visit_recording_is_still_transcribed_in_the_language_spoken():
+    seen = []
+
+    def post(url, files=None, timeout=None, data=None):
+        seen.append(data)
+        return type("R", (), {"status_code": 200, "json": lambda self: {"text": "ನಮಸ್ಕಾರ", "language_code": "kn-IN"}})()
+
+    result = transcribe.transcribe_segment(audio.Segment(0, 1, 0, b"x"), "http://stt", post)
+    assert result["text"] == "ನಮಸ್ಕಾರ" and seen == [None]           # no mode sent: the service's default is "transcribe"
+
+
+@pytest.mark.parametrize("language", ["kn-IN", "hi-IN", "en-IN"])
+def test_the_language_heard_is_remembered_as_a_short_code(language):
+    s = live.open_session("c1", "a1", [], "tok")
+    live.ingest(s, speech_chunk(("talk", 1.5)), fake_stt("I have had a fever since yesterday", language=language))
+    assert live.snapshot(s)["languages"] == [language.split("-")[0]]
+
+
+def test_the_language_follows_a_conversation_that_switches_language():
+    s = live.open_session("c1", "a1", [], "tok")
+    live.ingest(s, speech_chunk(("talk", 1.5), ("quiet", 0.1)), fake_stt("Any pain in the leg", language="en-IN"))
+    assert live.snapshot(s)["languages"] == ["en"]
+    live.ingest(s, speech_chunk(("quiet", 1.3), ("talk", 1.5)), fake_stt("Yes the leg hurts a lot and it is swollen", language="kn-IN"))
+    assert live.snapshot(s)["languages"] == ["kn", "en"]                    # most spoken first
+    assert [t["speaker"] for t in s.turns] == ["doctor", "patient"]        # one conversation, all English text
+    assert s.words_since_run == 5 + 10
+
+
+def test_noise_does_not_change_the_language():
+    s = live.open_session("c1", "a1", [], "tok")
+    live.ingest(s, speech_chunk(("talk", 1.0)), fake_stt("", language="kn-IN"))
+    assert live.snapshot(s)["languages"] == []
+
+
+@pytest.mark.parametrize("language,translated", [
+    ("kn-IN", "I have chest pain since this morning?"),           # translated speech often gets a "?" on a statement
+    ("hi-IN", "I have chest pain and difficulty breathing."),
+])
+def test_a_red_flag_spoken_in_kannada_or_hindi_fires_from_its_english_translation(language, translated):
+    s = live.open_session("c1", "a1", [], "tok")
+    live.ingest(s, speech_chunk(("talk", 1.5)), fake_stt(translated, language=language))
+    labels = {c["text"] for c in live.immediate_red_flags(s)}
+    assert any("Chest pain" in t or "chest pain" in t.lower() for t in labels)
+
+
+@pytest.mark.parametrize("language,doctor,patient", [
+    ("kn-IN", "Do you have any chest pain? Any difficulty breathing?", "No chest pain and no difficulty breathing."),
+    ("hi-IN", "Is there difficulty in coughing or breathing?", "No cough? But I am very tired."),
+])
+def test_questions_and_denials_translated_from_kannada_or_hindi_do_not_raise_a_false_alarm(language, doctor, patient):
+    s = live.open_session("c1", "a1", [], "tok")
+    live.ingest(s, speech_chunk(("talk", 1.5), ("quiet", 1.4), ("talk", 1.5)), fake_stt(doctor, patient, language=language))
+    assert live.immediate_red_flags(s) == []
+
+
+def test_the_translate_mode_failure_is_the_same_quiet_failure(api, monkeypatch):
+    def broken(segments, **kwargs):
+        raise transcribe.SttError("HTTP 400: translate is not supported")
+
+    monkeypatch.setattr(live.transcribe, "transcribe_segments", broken)
+    assert post_chunk().json() == {"ok": False, "state": "error", "error": "speech_unavailable", "added_words": 0}
+
+
+def test_the_page_is_told_which_language_was_heard_and_gets_english_lines_only(api, monkeypatch):
+    monkeypatch.setattr(live, "run_engine", lambda *a, **k: [])
+    monkeypatch.setattr(live.transcribe, "transcribe_segments",
+                        fake_stt("Tell me about the pain", "It hurts when I walk", language="kn-IN"))
+    assert client.get("/doctor/api/consultations/c1/live", headers=AUTH).json()["languages"] == []      # nothing heard yet
+    post_chunk()
+    body = client.get("/doctor/api/consultations/c1/live", headers=AUTH).json()
+    assert body["languages"] == ["kn"]
+    assert [t["text"] for t in body["turns"]] == ["Tell me about the pain", "It hurts when I walk"]
+
+
+def test_a_short_piece_misdetected_as_another_language_does_not_change_what_is_shown():
+    """Found live: a one-line piece of Kannada was heard as Hindi, and the last word as Tamil."""
+    s = live.open_session("c1", "a1", [], "tok")
+    live.ingest(s, speech_chunk(("talk", 1.5)), fake_stt("Hello please sit down what is the problem today", language="hi-IN"))
+    long_kannada = "Hello Doctor I have had a cough and sore throat for three days and it increases at night " * 3
+    live.ingest(s, speech_chunk(("quiet", 1.3), ("talk", 1.5)), fake_stt(long_kannada, language="kn-IN"))
+    live.ingest(s, speech_chunk(("quiet", 1.3), ("talk", 1.5)), fake_stt("Okay Doctor", language="ta-IN"))
+    assert live.snapshot(s)["languages"] == ["kn"]
+
+
+def test_the_page_never_receives_words_in_another_language_only_codes_and_english_lines(api, monkeypatch):
+    monkeypatch.setattr(live, "run_engine", lambda *a, **k: [])
+    monkeypatch.setattr(live.transcribe, "transcribe_segments",
+                        fake_stt("Tell me about the pain", "It hurts when I walk", language="hi-IN"))
+    post_chunk()
+    body = client.get("/doctor/api/consultations/c1/live", headers=AUTH).json()
+    assert body["languages"] == ["hi"] and all(t["text"].isascii() for t in body["turns"])
+
+
+# ---- red-flag wording that translation produces, found by running the real Kannada and Hindi audio ----
+
+@pytest.mark.parametrize("said,label", [
+    ("It becomes difficult to breathe while walking in the middle of the chest.", "Difficulty breathing"),
+    ("I have been having difficulty in breathing since yesterday.", "Difficulty breathing"),
+    ("She has breathing difficulties at night.", "Difficulty breathing"),
+    ("I am unable to breathe properly.", "Difficulty breathing"),
+    ("There is a pain in my heart since morning.", "Chest pain"),
+    ("My chest is paining a lot.", "Chest pain"),
+    ("He lost consciousness for a minute.", "Fainting or loss of consciousness"),
+    ("There was a lot of blood from the cut.", "Heavy bleeding"),
+    ("The bleeding is not stopping.", "Heavy bleeding"),
+    ("His speech is slurred since morning.", "Possible stroke signs"),
+])
+def test_wording_that_translated_speech_uses_still_fires_a_red_flag(said, label):
+    cards = live_assist.red_flag_cards(live_assist.statements(said), set())
+    assert label in [c["text"].split(" was mentioned")[0] for c in cards], said
+
+
+@pytest.mark.parametrize("said", [
+    "No, it is not difficult to breathe.",
+    "There is no pain in the chest and no difficulty in breathing either.",
+    "Is it difficult to breathe at night?",
+    "Do you have heart pain or a lot of blood loss?",
+    "I did not lose consciousness.",
+    "The cut is small and there was no bleeding a lot.",
+])
+def test_denials_and_questions_in_the_new_wording_do_not_fire(said):
+    assert live_assist.red_flag_cards(live_assist.statements(said), set()) == [], said
+
+
+# ---- found by running the mixed Kannada/English audio: a false model "red flag" and a card from a mis-heard word ----
+
+def test_urgent_wording_alone_does_not_make_a_model_red_flag():
+    transcript = "Yes doctor, there is a lot of stress at work. I only sleep for four hours."
+    cards = [{"kind": "red_flag", "text": "The patient reports sleeping only four hours, which may need urgent attention.",
+              "evidence": "I only sleep for four hours."}]
+    kept, _ = live_assist.check_cards(cards, transcript, "", [])
+    assert [c["kind"] for c in kept] == ["consider"]
+
+
+def test_a_model_red_flag_with_a_real_alarm_word_stays_a_red_flag():
+    transcript = "My foot feels numb and looks pale since the fall."
+    cards = [{"kind": "red_flag", "text": "A numb, pale foot may need urgent attention.", "evidence": "My foot feels numb and looks pale"}]
+    kept, _ = live_assist.check_cards(cards, transcript, "", [])
+    assert [c["kind"] for c in kept] == ["red_flag"]
+
+
+@pytest.mark.parametrize("evidence", ["Sorry, Doctor.", "okay doctor", "Hello", "Yes, thank you doctor"])
+def test_a_card_quoting_only_greetings_or_chatter_is_dropped(evidence):
+    transcript = "Hello. Sorry, Doctor. Okay doctor. Yes, thank you doctor."
+    cards = [{"kind": "consider", "text": "Keep in mind the patient apologised during the consultation.", "evidence": evidence}]
+    kept, dropped = live_assist.check_cards(cards, transcript, "", [])
+    assert kept == [] and dropped == {"weak_evidence": 1}

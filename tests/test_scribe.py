@@ -622,3 +622,18 @@ def test_a_team_c_error_while_saving_the_draft_never_fails_the_consultation():
     team_c = Refusing()
     assert run(team_c, chat=chat_for_both([{"drug_name": "paracetamol"}])) == "draft_ready"
     assert len(team_c.notes) == 1
+
+
+def test_translate_mode_is_sent_to_the_speech_service_and_the_default_sends_nothing_extra():
+    seen = []
+
+    def post(url, files=None, timeout=None, data=None):
+        seen.append(data)
+        return FakeResponse(200, {"text": "Hello", "language_code": "kn-IN"})
+
+    segments = [audio.Segment(0, 1, 0, b"a"), audio.Segment(1, 2, 0, b"b")]
+    assert [r["text"] for r in transcribe.transcribe_segments(segments, "http://stt", post, mode="translate")] == ["Hello", "Hello"]
+    assert seen == [{"mode": "translate"}] * 2
+    seen.clear()
+    transcribe.transcribe_segment(segments[0], "http://stt", post)                  # the post-visit default
+    assert seen == [None]

@@ -1,0 +1,24 @@
+Doctor (en): Good morning. What brings you in today?
+
+Patient (hi): नमस्ते डॉक्टर साहब। मुझे दो हफ़्ते से कमर में दर्द है।
+   (Hello doctor. I have had back pain for two weeks.)
+
+Doctor (en): Does the pain go down to your leg?
+
+Patient (hi): नहीं, सिर्फ़ कमर में है। बैठे रहने पर बढ़ जाता है।
+   (No, only in the back. It gets worse when I sit for long.)
+
+Doctor (en): What kind of work do you do?
+
+Patient (hi): मैं पूरे दिन कंप्यूटर पर बैठकर काम करती हूँ।
+   (I work sitting at a computer the whole day.)
+
+Doctor (hi): क्या आप रोज़ कुछ व्यायाम करती हैं?
+   (Do you do any exercise daily?)
+
+Patient (en): No doctor, I do not get time to exercise.
+
+Doctor (en): Alright. Let me examine your back.
+
+Patient (hi): जी डॉक्टर साहब।
+   (Yes doctor.)

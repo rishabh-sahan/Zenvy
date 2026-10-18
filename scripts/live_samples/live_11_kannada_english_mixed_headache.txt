@@ -1,0 +1,24 @@
+Doctor (en): Good morning. Please sit down. What is the problem today?
+
+Patient (kn): ನಮಸ್ಕಾರ ಡಾಕ್ಟರ್. ನನಗೆ ಎರಡು ವಾರಗಳಿಂದ ತಲೆನೋವು ಇದೆ.
+   (Hello doctor. I have had a headache for two weeks.)
+
+Doctor (en): Is the headache on one side, or all over the head?
+
+Patient (kn): ಹಣೆಯ ಭಾಗದಲ್ಲಿ ನೋವು ಇದೆ. ಸಂಜೆ ಹೆಚ್ಚಾಗುತ್ತದೆ.
+   (The pain is at the front, on the forehead. It gets worse in the evening.)
+
+Doctor (en): Any change in your sleep, or stress at work?
+
+Patient (kn): ಹೌದು ಡಾಕ್ಟರ್, ಕೆಲಸದಲ್ಲಿ ತುಂಬಾ ಒತ್ತಡ ಇದೆ. ನಾನು ನಾಲ್ಕು ಗಂಟೆ ಮಾತ್ರ ನಿದ್ರೆ ಮಾಡುತ್ತೇನೆ.
+   (Yes doctor, there is a lot of stress at work. I sleep only four hours.)
+
+Doctor (kn): ನೀವು ಇತ್ತೀಚೆಗೆ ಕಣ್ಣಿನ ತಪಾಸಣೆ ಮಾಡಿಸಿದ್ದೀರಾ?
+   (Have you had your eyes checked recently?)
+
+Patient (en): No doctor, I have not checked my eyes yet.
+
+Doctor (en): Alright. Let me check your blood pressure now.
+
+Patient (kn): ಸರಿ ಡಾಕ್ಟರ್.
+   (Okay doctor.)

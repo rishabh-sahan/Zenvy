@@ -1,0 +1,20 @@
+Doctor (hi): नमस्ते। बताइए, क्या समस्या है?
+   (Hello. Tell me, what is the problem?)
+
+Patient (hi): नमस्ते डॉक्टर साहब। इस हफ़्ते मुझे बहुत थकान और कमज़ोरी है।
+   (Hello doctor. This week I have been very tired and weak.)
+
+Doctor (hi): ठीक है। और कोई परेशानी है?
+   (Okay. Is there any other problem?)
+
+Patient (hi): जी हाँ डॉक्टर। सुबह से मुझे सीने में दर्द है।
+   (Yes doctor. I have had chest pain since morning.)
+
+Doctor (hi): और बताइए। दर्द कहाँ है?
+   (Tell me more. Where is the pain?)
+
+Patient (hi): सीने के बीच में। चलने पर सांस लेने में तकलीफ़ होती है और चक्कर आता है।
+   (In the middle of the chest. I have difficulty breathing when I walk and I feel dizzy.)
+
+Doctor (hi): ठीक है। कृपया बिस्तर पर लेट जाइए। मैं अभी जाँच करता हूँ।
+   (Okay. Please lie down on the bed. I will check you right away.)
