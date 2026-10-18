@@ -39,11 +39,14 @@ TTS :8005
 Browser
 """
 
+import io
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import uuid
+import wave
 from pathlib import Path
 from urllib.parse import quote
 
@@ -415,12 +418,12 @@ def _convert_to_wav(
 # TTS
 # =========================================================
 
-def _call_tts(
+def _tts_one(
     text: str,
     short_lang: str,
 ) -> requests.Response:
     """
-    Convert the ACTUAL ASSISTANT REPLY into speech.
+    Convert ONE piece of the ACTUAL ASSISTANT REPLY into speech (the speech service takes at most 500 characters).
 
     IMPORTANT:
 
@@ -524,6 +527,102 @@ def _call_tts(
         raise HTTPException(
             status_code=502,
             detail=f"TTS service failed: {e}",
+        )
+
+
+# The speech service refuses more than 500 characters. A suggestion of three doctors is about 600, so a long reply is
+# spoken in pieces (split at sentence ends, then at ";" and spaces) and the pieces are joined into one audio file.
+TTS_PIECE_CHARS = 450
+
+
+def _split_for_tts(text: str, limit: int = TTS_PIECE_CHARS) -> list[str]:
+    """The reply cut into pieces of at most `limit` characters, at the end of a sentence where possible."""
+    text = " ".join((text or "").split())
+    if len(text) <= limit:
+        return [text] if text else []
+
+    # sentence ends first ("." "?" "!" and the Hindi "।"), then list items (";") and commas
+    for pattern in (r"(?<=[.!?।])\s+", r"(?<=;)\s+", r"(?<=,)\s+"):
+        parts = [p for p in re.split(pattern, text) if p]
+        if len(parts) > 1:
+            pieces, current = [], ""
+            for part in parts:
+                if current and len(current) + 1 + len(part) > limit:
+                    pieces.append(current)
+                    current = part
+                else:
+                    current = f"{current} {part}".strip()
+            if current:
+                pieces.append(current)
+            if all(len(p) <= limit for p in pieces):
+                return pieces
+            return [chunk for p in pieces for chunk in _split_for_tts(p, limit)] if len(pieces) > 1 else _hard_split(text, limit)
+
+    return _hard_split(text, limit)
+
+
+def _hard_split(text: str, limit: int) -> list[str]:
+    """Last resort: cut at spaces (or anywhere, for text with none)."""
+    pieces = []
+    while len(text) > limit:
+        cut = text.rfind(" ", 0, limit)
+        cut = cut if cut > 0 else limit
+        pieces.append(text[:cut].strip())
+        text = text[cut:].strip()
+    if text:
+        pieces.append(text)
+    return pieces
+
+
+class _SpokenReply:
+    """What _call_tts returns when a reply was spoken in several pieces: the same few fields as a requests.Response."""
+
+    status_code = 200
+    ok = True
+
+    def __init__(self, content: bytes):
+        self.content = content
+        self.headers = {"content-type": "audio/wav"}
+
+
+def _join_wavs(parts: list[bytes]) -> bytes:
+    """One WAV from several WAVs of the same format."""
+    frames, params = [], None
+    for blob in parts:
+        with wave.open(io.BytesIO(blob)) as piece:
+            current = piece.getparams()
+            if params is None:
+                params = current
+            elif (current.nchannels, current.sampwidth, current.framerate) != (params.nchannels, params.sampwidth, params.framerate):
+                raise ValueError("the pieces of speech are in different audio formats")
+            frames.append(piece.readframes(piece.getnframes()))
+    out = io.BytesIO()
+    with wave.open(out, "wb") as joined:
+        joined.setnchannels(params.nchannels)
+        joined.setsampwidth(params.sampwidth)
+        joined.setframerate(params.framerate)
+        joined.writeframes(b"".join(frames))
+    return out.getvalue()
+
+
+def _call_tts(
+    text: str,
+    short_lang: str,
+):
+    """Speak the ACTUAL ASSISTANT REPLY, in pieces when it is longer than the speech service accepts."""
+    text = (text or "").strip()
+    pieces = _split_for_tts(text)
+    if len(pieces) <= 1:
+        return _tts_one(text, short_lang)
+
+    print(f"[Gateway] TTS: the reply is {len(text)} characters, speaking it in {len(pieces)} pieces")
+    responses = [_tts_one(piece, short_lang) for piece in pieces]
+    try:
+        return _SpokenReply(_join_wavs([r.content for r in responses]))
+    except (wave.Error, ValueError, EOFError) as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"TTS service failed: could not join the audio ({e})",
         )
 
 

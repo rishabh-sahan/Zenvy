@@ -8,6 +8,7 @@ now closes the unfinished booking (its held slot goes back) and is answered as w
 import pytest
 
 from services.agents import symptom_guide
+from services.orchestrator import state_machine
 from tests.test_booking_slots import DAY
 from tests.test_symptom_flow import SymptomTeamC, remembered, say, start_booking, state, tc  # noqa: F401  (fixtures)
 
@@ -228,3 +229,45 @@ def test_the_kind_of_doctor_is_found_anywhere_in_the_sentence(said, specialty):
 ])
 def test_a_person_is_told_apart_from_a_kind_of_doctor(said, extracted, person):
     assert symptom_guide.names_a_person(said, extracted) is person
+
+
+# ---------------------------------------------------------------------------
+# found by the voice session: a fresh request for a kind of doctor while an older list was open
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("said", [
+    "Suggest me the three orthopedics doctors", "Suggest me the three orthopaedics doctors.", "suggest orthopedic doctors please",
+    "show me the cardiologists", "I need an ENT doctor", "which neurologist should I see",
+])
+def test_a_fresh_request_for_a_kind_of_doctor_replaces_an_older_open_list(tc, say, said):
+    with_an_orthopedist_in_mysuru(tc)
+    leave_a_booking_open(say)                                  # a Pediatrician list is waiting
+    reply = say(said)
+    assert reply.startswith("For this, I suggest seeing") and "Which of these doctors" not in reply
+    assert "no free time" not in reply
+    assert "Dr. Child Care" not in reply and state()["from_symptom"] and len(state()["candidates"]) <= 3
+
+
+def test_a_list_that_never_had_free_times_is_not_described_as_having_none(tc):
+    candidates = [{"doctor_id": "d1", "name": "Dr. Kavya Hegde", "specialty": "Orthopedist",
+                   "hospital_name": "Mysuru Multispeciality Hospital", "city": "mysore"}]       # no "next_slot" at all
+    reply = state_machine._ask_which_doctor("en", candidates, suggested=True)
+    assert "no free time" not in reply and "1) Dr. Kavya Hegde" in reply and "more than one match" in reply
+
+
+def test_a_looked_up_list_is_still_described_with_its_free_times(tc):
+    candidates = [{"doctor_id": "d1", "name": "Dr. Kavya Hegde", "specialty": "Orthopedist", "hospital_name": "H", "city": "mysore",
+                   "next_slot": None}]
+    assert "no free time in the next few days" in state_machine._ask_which_doctor("en", candidates, suggested=True)
+
+
+def test_a_new_doctor_search_inside_a_suggestion_is_no_longer_a_suggestion(tc, say):
+    from tests.test_booking_slots import _doctor
+    tc.doctors += [_doctor("t1", "Dr. Twin", "Neurologist", "Mysuru Twin", "mysore"),
+                   _doctor("t2", "Dr. Twin", "Neurologist", "Bengaluru Twin", "bangalore")]
+    say("I have a headache")
+    say("it did not improve")
+    assert state()["from_symptom"]
+    reply = say("I want Dr. Twin", wants_to_book=True, doctor_name="Twin")
+    assert "more than one match" in reply and "no free time" not in reply
+    assert "from_symptom" not in state()

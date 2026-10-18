@@ -448,6 +448,7 @@ def _resolve_doctor(
             return None
 
         entry["candidates"] = shown
+        entry.pop("from_symptom", None)                # a new search: not the ranked suggestion any more
         entry["state"] = "ASK_DOCTOR"
         _set_session_state(session_id, entry)
         return _ask_which_doctor(short_lang, entry["candidates"], bool(entry.get("from_symptom")))
@@ -457,7 +458,9 @@ def _resolve_doctor(
 
 
 def _ask_which_doctor(short_lang: str, candidates: list[dict], suggested: bool = False) -> str:
-    if suggested:
+    # The suggestion wording (with the next free time) only fits doctors whose free time was looked up. A list from
+    # an ordinary department search has none, and must not claim "no free time".
+    if suggested and all("next_slot" in c for c in candidates):
         return render_template(
             "DOCTOR_SUGGEST_AGAIN",
             short_lang,
@@ -910,11 +913,16 @@ def _is_new_topic(user_text: str, extracted: dict, state: str) -> bool:
         return False                                   # "tomorrow at 10": an answer to the booking
     if state == "CONFIRM" and extracted.get("confirms_booking") is not None and words <= 6:
         return False                                   # "yes" / "no"
+    if symptom_guide.names_a_person(user_text, extracted.get("doctor_name")):
+        return False                                   # they are choosing a doctor by name
+    request = symptom_guide.doctor_request(user_text)
+    if request in ("which", "not_improved"):
+        return True                                    # "suggest me the three orthopedics doctors": a fresh request
+    if request == "want" and symptom_guide.specialty_in(user_text):
+        return True                                    # "I need an ENT doctor", "show me the cardiologists"
     if symptom_guide.names_a_doctor(user_text, extracted.get("doctor_name")):
-        return False                                   # they are choosing a doctor
-    if symptom_guide.match_symptom(user_text):
-        return True
-    return symptom_guide.doctor_request(user_text) in ("which", "not_improved")
+        return False                                   # "the orthopedist one": an answer to the list
+    return bool(symptom_guide.match_symptom(user_text))
 
 
 def _symptom_tip(user_text: str, short_lang: str) -> str:
