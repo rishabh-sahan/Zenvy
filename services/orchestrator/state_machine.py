@@ -908,16 +908,28 @@ def _symptom_tip(user_text: str, short_lang: str) -> str:
     return reply
 
 
-def _symptom_turn(session_id: str, short_lang: str, user_text: str, city: str | None, wants_to_book: bool) -> str | None:
+def _symptom_turn(
+    session_id: str, short_lang: str, user_text: str, city: str | None, wants_to_book: bool, doctor_name: str | None = None
+) -> str | None:
     """A symptom, or a request for a doctor. Returns the reply, or None when this is something else."""
     if patient_agent.detect_medicine_intent(user_text):
         return None                                   # "I took my tablet for fever" is a medicine question
 
+    # The language model sometimes says "wants to book" for a plain symptom sentence, so a booking needs a booking
+    # word, and a doctor or specialty named by the patient ("a cardiologist", "Dr. Rao") is an ordinary booking.
+    books = bool(wants_to_book) and symptom_guide.explicit_booking(user_text)
+    names_one = symptom_guide.names_a_doctor(user_text, doctor_name)
     request = symptom_guide.doctor_request(user_text)
+    if request and names_one:
+        return None
     found = symptom_guide.find_symptom(user_text)
     # A complaint nothing could place (no specialty of ours fits, or the model was unsure) starts with a General
     # Physician: remembered, so "which doctor should I see" has an answer, but the reply stays the ordinary one.
     fallback = None if found else symptom_guide.complaint_fallback(user_text)
+
+    # "I have a rash, book me a doctor" / "book an appointment" right after a symptom: suggest the right doctors.
+    if not request and books and not names_one and (found or fallback or _recall_symptom(session_id)):
+        request = "want"
 
     if request:
         info = found or fallback or _recall_symptom(session_id)
@@ -934,11 +946,11 @@ def _symptom_turn(session_id: str, short_lang: str, user_text: str, city: str | 
         return _suggest_doctors(session_id, short_lang, found, city, urgent=True)
 
     if not found:
-        if fallback and not wants_to_book:
+        if fallback and not books:
             _remember_symptom(session_id, fallback)
         return None
-    if wants_to_book:
-        return None
+    if books:
+        return None                                   # a booking that names a doctor or specialty
     _remember_symptom(session_id, found)
     return _symptom_tip(user_text, short_lang)
 
@@ -998,7 +1010,7 @@ def handle_turn(session_id: str, short_lang: str, user_text: str, city: str | No
     # ---------------------------------------------------------
 
     if existing is None:
-        reply = _symptom_turn(session_id, short_lang, user_text, city, bool(extracted["wants_to_book"]))
+        reply = _symptom_turn(session_id, short_lang, user_text, city, bool(extracted["wants_to_book"]), extracted.get("doctor_name"))
         if reply is not None:
             return reply
 

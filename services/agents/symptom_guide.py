@@ -65,7 +65,8 @@ _TABLE = (
      ("कान", "गला", "गले", "साइनस", "टॉन्सिल", "नाक बंद", "नाक", "ಕಿವಿ", "ಗಂಟಲು", "ಮೂಗು", "ಸೈನಸ್", "ಟಾನ್ಸಿಲ್")),
     ("Ophthalmologist",
      r"\beyes?\b.{0,20}\b(?:pain|painful|red|redness|itch\w*|water\w*|swollen|swelling|blurr?\w*|vision|sore|burning)\b|\bblurr?ed vision\b|"
-     r"\bvision\b|\bred eyes?\b|\bwatery eyes\b|\beye (?:pain|infection|irritation|problem)s?\b",
+     r"\bvision\b|\bred eyes?\b|\bwatery eyes\b|\beye (?:pain|infection|irritation|problem)s?\b|"
+     r"\b(?:pain|painful|redness|itch\w*|water\w*|swollen|swelling|blurr?\w*|sore|burning|irritation)\b.{0,25}\beyes?\b",
      ("आँख", "आंख", "आंखों", "आँखों", "नज़र", "नजर", "धुंधला", "ಕಣ್ಣು", "ಕಣ್ಣಿನ", "ದೃಷ್ಟಿ")),
     ("Gynecologist",
      r"\bperiods?\b|\bmenstrual\w*|\bmenstruat\w*|\bpregnan\w*|\bvaginal\b|\bwhite discharge\b|\bpcos\b|\bmissed (?:my )?period\b|\bmenopaus\w*",
@@ -91,6 +92,21 @@ _SERIOUS_OTHER = (
     "ಸೆಳವು", "ಫಿಟ್ಸ್", "ಆತ್ಮಹತ್ಯೆ", "ಸಾಯಬೇಕು", "ಮುಖ ಓರೆ",
 )
 _NEGATION_OTHER = ("नहीं", "नही", "ಇಲ್ಲ", "ಇಲ್ಲವೆ", "ಇಲ್ಲವಲ್ಲ")
+
+
+_CLAUSE_BREAK = re.compile(r"[.,;!?]|\b(?:and|but|with|also|however|although|though|plus)\b")
+_DENIAL = re.compile(
+    r"\b(?:no|not|without|never|none|nothing|(?:do|does|did|have|has|had|is|are|was|were)n'?t|"
+    r"(?:do|does|did|have|has|had|is|are|was|were) not)\b")
+
+
+def _denied(lowered: str, start: int) -> bool:
+    """Is the symptom at `start` denied ("no fever", "I don't have a cough")? A denial stops at "and", "but" or a
+    comma: "my daughter is not eating AND has loose motions" does have loose motions."""
+    before = lowered[max(0, start - 60):start]
+    cuts = list(_CLAUSE_BREAK.finditer(before))
+    clause = before[cuts[-1].end():] if cuts else before
+    return bool(_DENIAL.search(clause))
 
 
 def _other_script_hit(lowered: str, words: tuple[str, ...]) -> bool:
@@ -137,12 +153,18 @@ def _is_complaint_like(lowered: str) -> bool:
     return bool(_COMPLAINT.search(lowered)) or any(w in lowered for w in _COMPLAINT_OTHER)
 
 
+_ASKING = re.compile(r"^(?:is|are|can|could|do|does|did|will|would|should|what|where|when|which|who|how|why)\b|\?\s*$", re.I)
+
+
 def _is_personal(lowered: str) -> bool:
-    """Is the patient talking about a problem of their own (not asking about the hospital)?"""
+    """Is the patient talking about a problem of their own (not asking about the hospital)?
+
+    "I have a fever", "my son is coughing" and short complaints without a pronoun ("cough and cold since 4 days")
+    all are. A question ("what is a fever", "fever ward timings", "is a headache dangerous?") is not.
+    """
     if _PERSONAL.search(lowered) or any(w in lowered for w in _PERSONAL_OTHER):
         return True
-    words = lowered.split()
-    return len(words) <= 4 and not _QUESTION_WORDS.search(lowered)
+    return not _QUESTION_WORDS.search(lowered) and not _ASKING.search(lowered)
 
 
 def match_symptom(text: str) -> dict | None:
@@ -157,7 +179,7 @@ def match_symptom(text: str) -> dict | None:
 
     scores: dict[str, int] = {}
     for name, pattern, words in _COMPILED:
-        hits = sum(1 for m in pattern.finditer(lowered) if not live_assist._negated(lowered, m.start()))
+        hits = sum(1 for m in pattern.finditer(lowered) if not _denied(lowered, m.start()))
         hits += sum(1 for w in words if w in lowered and _other_script_hit(lowered, (w,)))
         if hits:
             scores[name] = hits
@@ -223,7 +245,7 @@ def complaint_fallback(text: str) -> dict | None:
     lowered = _clean(text)
     if not lowered or not _is_personal(lowered):
         return None
-    real = any(not live_assist._negated(lowered, m.start()) for m in _COMPLAINT.finditer(lowered)) or _other_script_hit(
+    real = any(not _denied(lowered, m.start()) for m in _COMPLAINT.finditer(lowered)) or _other_script_hit(
         lowered, tuple(w for w in _COMPLAINT_OTHER if w in lowered))
     if not real:
         return None
@@ -246,16 +268,58 @@ _NOT_IMPROVED_OTHER = (
     "ठीक नहीं हुआ", "ठीक नहीं हो रहा", "ठीक नहीं हुई", "आराम नहीं", "फर्क नहीं", "अभी भी", "और बढ़", "बढ़ गया", "बढ़ गई",
     "ಸರಿಹೋಗಿಲ್ಲ", "ಕಡಿಮೆಯಾಗಿಲ್ಲ", "ಗುಣವಾಗಿಲ್ಲ", "ಇನ್ನೂ ನೋವು", "ಇನ್ನೂ ಇದೆ", "ಹೆಚ್ಚಾಗಿದೆ", "ಸುಧಾರಿಸಿಲ್ಲ",
 )
+_DOCTOR_NOUN = (
+    r"(?:doctors?|dr\.?s?|specialists?|physicians?|consultants?|paediatricians?|pediatricians?|cardiologists?|neurologists?|"
+    r"dermatologists?|orthop\w*|gynae?cologists?|psychiatrists?|ophthalmologists?|ent specialists?|general physicians?)"
+)
+# "suggest me THE doctors", "which doctor should I see", "who should I see": the patient wants us to choose.
 _WHICH_DOCTOR = re.compile(
-    r"\bwhich (?:kind of |type of |sort of )?(?:doctor|specialist)\b|\bwho should i (?:see|meet|consult)\b|\bwhat (?:kind|type) of doctor\b|"
-    r"\b(?:suggest|recommend|find|show|get) (?:me )?(?:a |an |the right |the best )?(?:doctor|specialist)s?\b|\bdoctor (?:for|to see for) (?:this|that|it)\b|"
-    r"\b(?:which|what) specialist\b|\bright doctor\b", re.I)
+    rf"\bwhich (?:kind of |type of |sort of |one of the )?{_DOCTOR_NOUN}\b|\bwho should i (?:see|meet|consult|visit|go to)\b|"
+    rf"\bwhat (?:kind|type|sort) of (?:doctor|specialist)\b|\bwho can i (?:see|consult|meet|visit)\b|"
+    rf"\b(?:suggest|recommend|advise)\b[^.?!]{{0,30}}\b{_DOCTOR_NOUN}\b|\bright (?:doctor|specialist)\b|\bwhich specialist\b", re.I)
+# "show me the doctors", "find a doctor", "doctors available": a request for doctors that may also just be a booking.
+_SHOW_DOCTORS = re.compile(
+    rf"\b(?:show|list|find|give|tell|get|search|help me find|look(?:ing)? for|need|want)\b[^.?!]{{0,30}}\b{_DOCTOR_NOUN}\b(?!\s+(?:appointment|booking))|"
+    rf"\b{_DOCTOR_NOUN}\b[^.?!]{{0,25}}\b(?:available|options|suggestions?|recommendations?|list|names?)\b|"
+    rf"\b(?:book|booking)\b[^.?!]{{0,25}}\b(?:a |the |an )?{_DOCTOR_NOUN}\b(?!\s+appointment)", re.I)
 _WANT_DOCTOR = re.compile(
-    r"\b(?:i )?(?:want|need|would like|wish) (?:to )?(?:see |meet |consult )?(?:a |an |the )?(?:doctor|specialist)\b|"
+    r"\b(?:i )?(?:want|need|would like|wish) (?:to )?(?:see |meet |consult |visit )?(?:a |an |the )?(?:doctor|specialist)\b|"
     r"\bshould i (?:see|consult|meet) (?:a |the )?doctor\b|\bsee a doctor\b", re.I)
-_WHICH_OTHER = ("कौन सा डॉक्टर", "कौन से डॉक्टर", "कौन-सा डॉक्टर", "डॉक्टर बताइए", "डॉक्टर सुझाइए", "किस डॉक्टर",
-                "ಯಾವ ವೈದ್ಯರು", "ಯಾವ ಡಾಕ್ಟರ್", "ವೈದ್ಯರನ್ನು ಸೂಚಿಸಿ", "ಡಾಕ್ಟರ್ ಸೂಚಿಸಿ")
-_WANT_OTHER = ("डॉक्टर चाहिए", "डॉक्टर से मिलना", "डॉक्टर को दिखाना", "ವೈದ್ಯರು ಬೇಕು", "ಡಾಕ್ಟರ್ ಬೇಕು", "ವೈದ್ಯರನ್ನು ನೋಡ", "ವೈದ್ಯರನ್ನು ಭೇಟಿ")
+_WHICH_OTHER = ("कौन सा डॉक्टर", "कौन से डॉक्टर", "कौन-सा डॉक्टर", "डॉक्टर बताइए", "डॉक्टर सुझाइए", "किस डॉक्टर", "डॉक्टर सुझाओ", "डॉक्टर बताओ",
+                "ಯಾವ ವೈದ್ಯರು", "ಯಾವ ಡಾಕ್ಟರ್", "ವೈದ್ಯರನ್ನು ಸೂಚಿಸಿ", "ಡಾಕ್ಟರ್ ಸೂಚಿಸಿ", "ವೈದ್ಯರನ್ನು ತಿಳಿಸಿ")
+_WANT_OTHER = ("डॉक्टर चाहिए", "डॉक्टर से मिलना", "डॉक्टर को दिखाना", "डॉक्टर दिखाइए", "डॉक्टरों के नाम", "डॉक्टर की सूची",
+               "ವೈದ್ಯರು ಬೇಕು", "ಡಾಕ್ಟರ್ ಬೇಕು", "ವೈದ್ಯರನ್ನು ನೋಡ", "ವೈದ್ಯರನ್ನು ಭೇಟಿ", "ವೈದ್ಯರನ್ನು ತೋರಿಸಿ", "ವೈದ್ಯರ ಹೆಸರು")
+
+# The patient named a kind of doctor or a doctor ("a cardiologist", "Dr. Rao"): that is a normal booking request.
+_NAMES_A_DOCTOR = re.compile(
+    r"\bdr\.?\s+[a-z]+|\b(?:paediatric\w*|pediatric\w*|cardiolog\w*|neurolog\w*|dermatolog\w*|orthop\w*|gynae?colog\w*|psychiatr\w*|"
+    r"ophthalmolog\w*|ent specialist|general physician|dentist|oncolog\w*|urolog\w*)\b", re.I)
+_BOOKING_WORD = re.compile(r"\b(?:book|booking|appointment|schedule|reserve)\b", re.I)
+_BOOKING_OTHER = ("बुक", "अपॉइंटमेंट", "अपॉइन्टमेंट", "ಬುಕ್", "ಅಪಾಯಿಂಟ್")
+
+
+def names_a_doctor(text: str, extracted_name: str | None = None) -> bool:
+    """Did the patient name a doctor or a kind of doctor?
+
+    `extracted_name` is what the language model read as the doctor's name. It sometimes GUESSES one from the symptom
+    ("skin irritation" -> "Dermatologist"), so in English text it only counts when a word of it really is in the
+    sentence. (Hindi and Kannada are written in other letters, so there the model's reading is trusted.)
+    """
+    lowered = _clean(text)
+    if _NAMES_A_DOCTOR.search(lowered):
+        return True
+    if not extracted_name:
+        return False
+    if re.search(r"[^\x00-\x7f]", lowered):
+        return True
+    words = {w for w in re.findall(r"[a-z]+", lowered)}
+    return any(part in words for part in re.findall(r"[a-z]{4,}", str(extracted_name).lower()))
+
+
+def explicit_booking(text: str) -> bool:
+    """The patient used a booking word. (The language model sometimes says "wants to book" for a plain symptom.)"""
+    lowered = _clean(text)
+    return bool(_BOOKING_WORD.search(lowered)) or any(w in lowered for w in _BOOKING_OTHER)
 
 
 def doctor_request(text: str) -> str | None:
@@ -267,7 +331,7 @@ def doctor_request(text: str) -> str | None:
         return "which"
     if _NOT_IMPROVED.search(lowered) or any(p in lowered for p in _NOT_IMPROVED_OTHER):
         return "not_improved"
-    if _WANT_DOCTOR.search(lowered) or any(p in lowered for p in _WANT_OTHER):
+    if _WANT_DOCTOR.search(lowered) or _SHOW_DOCTORS.search(lowered) or any(p in lowered for p in _WANT_OTHER):
         return "want"
     return None
 

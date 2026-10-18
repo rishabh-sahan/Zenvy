@@ -49,6 +49,7 @@ class SymptomTeamC(FakeTeamCWithAppointments):
             _doctor("p1", "Dr. Child Care", "Pediatrician"),
             _doctor("o1", "Dr. Bone Setter", "Orthopedist", "Bangalore Bones", "bangalore"),
             _doctor("e1", "Dr. Ear Nose", "ENT Specialist"),
+            _doctor("s1", "Dr. Skin Care", "Dermatologist"),
         ]
         self.times = {"n1": ["11:00"], "n2": ["09:30"], "n3": ["10:00"], "n4": [], "g1": ["09:45"], "d1": ["09:30", "10:00", "10:30"]}
         self.find_calls = []
@@ -379,7 +380,6 @@ def test_i_want_a_doctor_with_no_symptom_is_an_ordinary_booking(tc, say):
 
 def test_i_want_a_doctor_after_a_symptom_suggests_the_right_kind(tc, say):
     say("I have a skin rash that itches")
-    tc.doctors.append(_doctor("s1", "Dr. Skin Care", "Dermatologist"))
     assert "Dr. Skin Care" in say("I want a doctor", wants_to_book=True)
 
 
@@ -389,10 +389,15 @@ def test_a_medicine_question_is_not_taken_for_a_symptom(tc, say, monkeypatch):
     assert remembered() is None and tc.model.calls == []
 
 
-def test_a_booking_request_that_names_a_symptom_stays_a_booking(tc, say):
+def test_a_booking_request_that_only_describes_a_symptom_suggests_the_right_doctors(tc, say):
+    """The patient did not name a doctor or a specialty: "Neurologist" was the model's own guess from the symptom."""
     reply = say("book an appointment, I have a headache", wants_to_book=True, doctor_name="Neurologist")
-    assert "Which of these" in reply or "more than one" in reply or "What date" in reply
-    assert tc.model.calls == []
+    assert reply.startswith("For this, I suggest seeing a Neurologist.") and tc.model.calls == []
+
+
+def test_a_booking_request_that_names_the_specialty_stays_a_booking(tc, say):
+    reply = say("book an appointment with a neurologist, I have a headache", wants_to_book=True, doctor_name="Neurologist")
+    assert not reply.startswith("For this, I suggest") and tc.model.calls == []
 
 
 def test_an_ordinary_hospital_question_is_unchanged(tc, say):
@@ -674,3 +679,137 @@ def test_the_fallback_does_not_replace_a_clearer_symptom(tc, say):
     assert remembered()["specialty"] == "General Physician"            # the newest complaint is the one that counts
     say("I have a headache again")
     assert remembered()["specialty"] == "Neurologist"
+
+
+# ---------------------------------------------------------------------------
+# found by the first real use on the patient page: the patient's own words
+# ---------------------------------------------------------------------------
+
+CHILD = "My child has fever from last two to three days with cough. What I need to do now?"
+SKIN = "From yesterday I have skin irritation like like my skin is feeling like I have burning sensation"
+
+
+def test_the_first_real_conversation_a_child_with_a_fever_then_suggest_me_the_doctors(tc, say):
+    say(CHILD)
+    reply = say("Suggest me the doctors to book the appointment", wants_to_book=True, intent="Book Appointment")
+    assert reply.startswith("For this, I suggest seeing a Pediatrician.") and "Dr. Child Care" in reply
+    assert state()["from_symptom"] and state()["state"] == "ASK_DOCTOR"
+
+
+def test_the_second_real_conversation_a_symptom_the_model_took_for_a_booking(tc, say):
+    """The language model said "wants to book" for a plain symptom sentence: it must still get the tip."""
+    reply = say(SKIN, wants_to_book=True, intent="Book Appointment")
+    assert reply == tc.model.reply and remembered()["specialty"] == "Dermatologist"
+    assert state() is None
+    assert "Dr. Skin Care" in say("suggest me the doctors")
+
+
+def test_a_symptom_with_book_me_a_doctor_suggests_doctors_at_once(tc, say):
+    reply = say("I have a skin irritation, please book me a doctor", wants_to_book=True)
+    assert reply.startswith("For this, I suggest seeing a Dermatologist.") and tc.model.calls == []
+
+
+def test_book_an_appointment_right_after_a_symptom_suggests_the_right_doctors(tc, say):
+    say("I have a headache")
+    assert "Neurologist" in say("I want to book an appointment", wants_to_book=True)
+
+
+def test_a_named_specialty_is_still_an_ordinary_booking_even_after_a_symptom(tc, say):
+    say("I have a headache")
+    reply = say("book an appointment with a cardiologist", wants_to_book=True)               # the model missed doctor_name
+    assert "Neurologist" not in reply and state()["state"] == "ASK_DOCTOR" and not state().get("from_symptom")
+
+
+def test_a_named_doctor_is_never_hijacked(tc, say):
+    say("I have a headache")
+    say("I want to book Dr. Arjun Rao", wants_to_book=True, doctor_name="Arjun Rao")
+    assert state()["doctor"]["name"] == "Dr. Arjun Rao"
+
+
+@pytest.mark.parametrize("said", [
+    "Suggest me the doctors to book the appointment", "suggest me the doctors", "can you suggest a doctor",
+    "please recommend a good doctor for this", "which doctors are available", "which doctor should I consult",
+    "who can I see for this", "what kind of doctor should I see", "suggest the right doctor",
+])
+def test_the_ways_of_asking_us_to_choose_the_doctor(said):
+    assert symptom_guide.doctor_request(said) == "which"
+
+
+@pytest.mark.parametrize("said", [
+    "show me the doctors", "show me doctors for this", "I need a doctor", "I need a doctor for my child", "find me a doctor",
+    "list the doctors", "give me the doctor options", "doctors available", "book a doctor", "looking for a doctor",
+    "tell me the doctors names", "I want to see a doctor",
+])
+def test_the_ways_of_asking_to_see_doctors(said):
+    assert symptom_guide.doctor_request(said) == "want"
+
+
+@pytest.mark.parametrize("said", [
+    "I want to book an appointment", "get me a doctor appointment", "what are the doctors timings", "hello there",
+    "my doctor appointment is tomorrow",
+])
+def test_ordinary_sentences_are_not_taken_for_doctor_requests(said):
+    assert symptom_guide.doctor_request(said) is None
+
+
+@pytest.mark.parametrize("said", ["I want to book an appointment", "book me a slot", "schedule a visit", "ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಬುಕ್ ಮಾಡಿ", "अपॉइंटमेंट बुक करो"])
+def test_booking_words_are_recognised(said):
+    assert symptom_guide.explicit_booking(said)
+
+
+@pytest.mark.parametrize("said", [CHILD, SKIN, "I have a headache", "मुझे सिरदर्द है"])
+def test_a_plain_symptom_has_no_booking_word(said):
+    assert not symptom_guide.explicit_booking(said)
+
+
+# ---------------------------------------------------------------------------
+# found by running 20 natural sentences against the real stack
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("said,specialty", [
+    ("my daughter is not eating and has loose motions", "Pediatrician"),            # "not" must not reach across "and"
+    ("cough and cold since 4 days", "General Physician"),                           # no "I" or "my"
+    ("fever since yesterday", "General Physician"),
+    ("stomach pain and vomiting from morning", "General Physician"),
+    ("I have a headache but no fever", "Neurologist"),
+    ("I am not sleeping well and feel anxious", "Psychiatrist"),
+    ("severe back pain for 3 days", "Orthopedist"),
+    ("burning sensation in my eyes", "Ophthalmologist"),
+])
+def test_natural_sentences_without_a_pronoun_or_with_a_not_in_front(said, specialty):
+    assert symptom_guide.match_symptom(said)["specialty"] == specialty
+
+
+@pytest.mark.parametrize("said", [
+    "what is a fever", "is a headache dangerous?", "what are the fever ward timings", "how much is the cough clinic fee",
+    "no fever and no cough", "I do not have a cough and I have no fever", "without any pain",
+])
+def test_questions_and_denials_are_still_not_symptoms(said):
+    assert symptom_guide.match_symptom(said) is None
+
+
+def test_a_denied_symptom_followed_by_a_real_one():
+    assert symptom_guide.match_symptom("no fever but I have a bad headache")["specialty"] == "Neurologist"
+
+
+def test_a_doctor_name_the_model_only_guessed_from_the_symptom_is_not_a_named_doctor(tc, say):
+    """Found live: "skin irritation ... book me a doctor" came back with doctor_name "Dermatologist"."""
+    reply = say("I have skin irritation with burning sensation, please book me a doctor", wants_to_book=True, doctor_name="Dermatologist")
+    assert reply.startswith("For this, I suggest seeing a Dermatologist.") and "Dr. Skin Care" in reply
+
+
+def test_a_doctor_the_patient_really_named_still_wins(tc, say):
+    say("I have a headache")
+    say("please book Dr. Arjun Rao for me", wants_to_book=True, doctor_name="Arjun Rao")
+    assert state()["doctor"]["name"] == "Dr. Arjun Rao" and not state().get("from_symptom")
+
+
+@pytest.mark.parametrize("said,guess,named", [
+    ("please book me a doctor", "Dermatologist", False),
+    ("book an appointment with Arjun Rao", "Arjun Rao", True),
+    ("book a cardiologist", "Cardiologist", True),
+    ("I want to book an appointment", None, False),
+    ("डॉक्टर अर्जुन राव से बुक करो", "Arjun Rao", True),
+])
+def test_naming_a_doctor_means_the_patient_said_it(said, guess, named):
+    assert symptom_guide.names_a_doctor(said, guess) is named
