@@ -1,0 +1,29 @@
+Doctor: ನಮಸ್ಕಾರ. ದಯವಿಟ್ಟು ಕುಳಿತುಕೊಳ್ಳಿ. ಏನು ಸಮಸ್ಯೆ?
+   (Hello. Please sit down. What is the problem?)
+
+Patient: ನಮಸ್ಕಾರ ಡಾಕ್ಟರ್. ನಿನ್ನೆ ಸಂಜೆ ನಾನು ಮೆಟ್ಟಿಲಿನಿಂದ ಬಿದ್ದೆ. ನನ್ನ ಎಡಗೈ ಮುರಿದಂತೆ ಅನಿಸುತ್ತಿದೆ.
+   (Hello doctor. Yesterday evening I fell down the stairs. My left hand feels like it is broken.)
+
+Doctor: ಅಯ್ಯೋ. ನೋವು ಎಷ್ಟಿದೆ? ಕೈ ಅಲ್ಲಾಡಿಸಲು ಆಗುತ್ತಿದೆಯೇ?
+   (Oh no. How bad is the pain? Can you move the hand?)
+
+Patient: ತುಂಬಾ ನೋವಿದೆ ಡಾಕ್ಟರ್. ಮಣಿಕಟ್ಟಿನ ಹತ್ತಿರ ಊದಿಕೊಂಡಿದೆ. ಕೈ ಎತ್ತಲು ಆಗುತ್ತಿಲ್ಲ.
+   (There is a lot of pain, doctor. It is swollen near the wrist. I cannot lift the hand.)
+
+Doctor: ಬೆರಳುಗಳನ್ನು ಅಲ್ಲಾಡಿಸಲು ಆಗುತ್ತಿದೆಯೇ? ಮರಗಟ್ಟಿದಂತೆ ಅನಿಸುತ್ತಿದೆಯೇ?
+   (Can you move the fingers? Does it feel numb?)
+
+Patient: ಬೆರಳುಗಳನ್ನು ಸ್ವಲ್ಪ ಅಲ್ಲಾಡಿಸಬಹುದು, ಆದರೆ ತುಂಬಾ ನೋವಾಗುತ್ತದೆ. ಮರಗಟ್ಟುವುದಿಲ್ಲ.
+   (I can move the fingers a little, but it hurts a lot. It does not feel numb.)
+
+Doctor: ಬಿದ್ದಾಗ ತಲೆಗೆ ಏಟಾಯಿತೇ? ಬೇರೆ ಎಲ್ಲಿಯಾದರೂ ನೋವಿದೆಯೇ?
+   (Did you hit your head when you fell? Is there pain anywhere else?)
+
+Patient: ಇಲ್ಲ ಡಾಕ್ಟರ್, ತಲೆಗೆ ಏಟಾಗಿಲ್ಲ. ಎಡಗೈ ಮಾತ್ರ ನೋವು.
+   (No doctor, I did not hit my head. Only the left hand hurts.)
+
+Doctor: ಸರಿ. ನಾನು ಕೈಯನ್ನು ಪರೀಕ್ಷಿಸುತ್ತೇನೆ. ದಯವಿಟ್ಟು ಕೈಯನ್ನು ಮೆಲ್ಲಗೆ ಮುಂದೆ ಚಾಚಿ.
+   (Okay. I will examine the hand. Please stretch the hand out slowly.)
+
+Patient: ಸರಿ ಡಾಕ್ಟರ್.
+   (Okay doctor.)

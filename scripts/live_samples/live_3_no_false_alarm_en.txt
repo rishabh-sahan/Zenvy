@@ -1,0 +1,8 @@
+Doctor: Good morning. How are you feeling today?
+Patient: Good morning doctor. I have a cough and a runny nose since two days.
+Doctor: Any chest pain? Any difficulty breathing?
+Patient: No chest pain and no difficulty breathing. Only the cough and the runny nose.
+Doctor: Good. Do you have any fever or body ache?
+Patient: No fever. I only feel a little tired in the evenings.
+Doctor: Alright. Let me look at your throat.
+Patient: Okay doctor.

@@ -1,0 +1,10 @@
+Doctor: Good morning. Please sit down. What brings you in today?
+Patient: Good morning doctor. I have had a cough and a sore throat for the last three days.
+Doctor: I see. Is the cough dry, or are you bringing up phlegm?
+Patient: It is mostly dry, but it gets worse at night and I am not sleeping well.
+Doctor: Okay. Have you had any fever?
+Patient: Yes, a mild fever yesterday evening. I did not check the temperature.
+Doctor: Are you eating and drinking normally?
+Patient: I am drinking warm water, but I have lost my appetite since yesterday.
+Doctor: Alright. Let me examine your throat and listen to your chest.
+Patient: Okay doctor. Please go ahead.

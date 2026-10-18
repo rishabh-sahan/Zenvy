@@ -1,0 +1,10 @@
+Doctor: Good morning. Please tell me what happened.
+Patient: Good morning doctor. I fell from my bike this morning, and my right leg is badly broken. The pain is terrible.
+Doctor: I am sorry to hear that. Can you move the leg?
+Patient: No, I cannot move it. The lower leg looks bent and it is swelling very fast.
+Doctor: Did you hit your head when you fell?
+Patient: Yes, a little. I fainted for a few seconds right after the fall. And there was heavy bleeding from a cut on my leg, but a friend tied a cloth around it.
+Doctor: Okay. Can you feel your toes? Are they cold or numb?
+Patient: They feel numb, and my foot looks pale. I have also been feeling very thirsty since the accident.
+Doctor: Alright. Let me examine the leg carefully.
+Patient: Please doctor, will I need surgery? I am very scared.

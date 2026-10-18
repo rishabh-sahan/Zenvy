@@ -1,0 +1,12 @@
+Doctor: Good morning. How can I help you today?
+Patient: Good morning doctor. I am losing a lot of hair for about three months now, mostly while combing.
+Doctor: Is the hair thinning all over, or only in some patches?
+Patient: It is all over, and my parting line looks wider.
+Doctor: Has anything changed recently in your life?
+Patient: Yes. I changed jobs four months ago and I am under a lot of stress. I sleep only five hours, and I skip breakfast.
+Doctor: Is anyone in your family losing hair early?
+Patient: My father has a receding hairline.
+Doctor: What do you use on your hair at the moment?
+Patient: Regular shampoo daily, and hair oil twice a week. I also started a crash diet two months ago.
+Doctor: Understood. Let me examine your scalp now.
+Patient: Okay doctor. Will my hair grow back?

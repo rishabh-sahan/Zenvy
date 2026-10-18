@@ -1,0 +1,7 @@
+Doctor: Good afternoon. Tell me what the problem is.
+Patient: Good afternoon doctor. I have been feeling very tired and weak this whole week.
+Doctor: I see. Is there anything else bothering you?
+Patient: Yes doctor. I have chest pain since this morning.
+Doctor: Tell me more about it. Where exactly do you feel it?
+Patient: In the middle of my chest. I also have difficulty breathing when I walk, and I feel dizzy.
+Doctor: Okay. Please lie down on the couch. I will check you right away.
