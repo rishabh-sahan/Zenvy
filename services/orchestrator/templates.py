@@ -181,12 +181,12 @@ TEMPLATES = {
         "kn": "ಇದಕ್ಕೆ ತುರ್ತು ಚಿಕಿತ್ಸೆ ಬೇಕಾಗಬಹುದು. ದಯವಿಟ್ಟು ಈಗಲೇ 112 ಗೆ ಕರೆ ಮಾಡಿ ಅಥವಾ ಹತ್ತಿರದ ತುರ್ತು ವಿಭಾಗಕ್ಕೆ ಹೋಗಿ.",
     },
     "DOCTOR_SUGGEST": {
-        "en": "For this, I suggest seeing a {specialty}. Doctors available: {options}. Say the number or the name to book.",
+        "en": "For this, I suggest seeing {a_specialty}. Doctors available: {options}. Say the number or the name to book.",
         "hi": "इसके लिए मैं {specialty} से मिलने की सलाह देता हूँ। उपलब्ध डॉक्टर: {options}। बुक करने के लिए नंबर या नाम बताइए।",
         "kn": "ಇದಕ್ಕಾಗಿ {specialty} ಅವರನ್ನು ಭೇಟಿ ಮಾಡಲು ನಾನು ಸಲಹೆ ನೀಡುತ್ತೇನೆ. ಲಭ್ಯವಿರುವ ವೈದ್ಯರು: {options}. ಬುಕ್ ಮಾಡಲು ಸಂಖ್ಯೆ ಅಥವಾ ಹೆಸರು ಹೇಳಿ.",
     },
     "DOCTOR_SUGGEST_OTHER_CITY": {
-        "en": "I couldn't find a {specialty} in your city, but these doctors are available in other cities: {options}. Say the number or the name to book.",
+        "en": "I couldn't find {a_specialty} in your city, but these doctors are available in other cities: {options}. Say the number or the name to book.",
         "hi": "आपके शहर में मुझे {specialty} नहीं मिले, लेकिन दूसरे शहरों में ये डॉक्टर उपलब्ध हैं: {options}। बुक करने के लिए नंबर या नाम बताइए।",
         "kn": "ನಿಮ್ಮ ನಗರದಲ್ಲಿ {specialty} ಸಿಗಲಿಲ್ಲ, ಆದರೆ ಬೇರೆ ನಗರಗಳಲ್ಲಿ ಈ ವೈದ್ಯರು ಲಭ್ಯವಿದ್ದಾರೆ: {options}. ಬುಕ್ ಮಾಡಲು ಸಂಖ್ಯೆ ಅಥವಾ ಹೆಸರು ಹೇಳಿ.",
     },
@@ -201,7 +201,7 @@ TEMPLATES = {
         "kn": "ನಿಮಗೆ ಯಾವ ತೊಂದರೆ ಇದೆ ಎಂದು ತಿಳಿಸಿ, ನಾನು ಸರಿಯಾದ ರೀತಿಯ ವೈದ್ಯರನ್ನು ಸೂಚಿಸುತ್ತೇನೆ.",
     },
     "SYMPTOM_NO_DOCTOR": {
-        "en": "I'm sorry, I couldn't find a {specialty} right now. Please contact the front desk.",
+        "en": "I'm sorry, I couldn't find {a_specialty} right now. Please contact the front desk.",
         "hi": "क्षमा करें, अभी मुझे कोई {specialty} नहीं मिला। कृपया फ्रंट डेस्क से संपर्क करें।",
         "kn": "ಕ್ಷಮಿಸಿ, ಈಗ ನನಗೆ {specialty} ಸಿಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಫ್ರಂಟ್ ಡೆಸ್ಕ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ.",
     },
@@ -226,6 +226,9 @@ TEMPLATES = {
 def render_template(state: str, short_lang: str, **kwargs) -> str:
     """Render a state's template in the given language, filling any {placeholders}."""
     template = TEMPLATES[state].get(short_lang, TEMPLATES[state]["en"])
+    specialty = str(kwargs.get("specialty") or "")
+    if specialty:                                   # "an Orthopedist", "an ENT Specialist", "a Neurologist"
+        kwargs.setdefault("a_specialty", ("an " if specialty[0].upper() in "AEIOU" else "a ") + specialty)
     return template.format(**kwargs)
 
 

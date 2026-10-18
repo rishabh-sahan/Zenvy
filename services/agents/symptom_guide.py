@@ -45,18 +45,22 @@ _TABLE = (
      ("बुखार", "सर्दी", "जुकाम", "खांसी", "खाँसी", "पेट दर्द", "पेट में दर्द", "उल्टी", "दस्त", "कमज़ोरी", "कमजोरी", "थकान", "बदन दर्द", "बीमार",
       "ಜ್ವರ", "ನೆಗಡಿ", "ಕೆಮ್ಮು", "ಹೊಟ್ಟೆ ನೋವು", "ಹೊಟ್ಟೆನೋವು", "ವಾಂತಿ", "ಬೇಧಿ", "ಸುಸ್ತು", "ಆಯಾಸ", "ಮೈ ಕೈ ನೋವು", "ಅನಾರೋಗ್ಯ")),
     ("Neurologist",
-     r"\bheadache\w*|\bhead ?ache\b|\bmigraine\w*|\bdizz\w*|\bvertigo\b|\bnumb\w*|\btingling\b|\bseizure\w*|\bconvulsion\w*|"
+     r"\bheadache\w*|\bhead ?ache\b|\bmigraine\w*|\bdizz\w*|\bvertigo\b|\bnumb(?:ness|ed|ing)?\b|\btingling\b|\bseizure\w*|\bconvulsion\w*|"
      r"\bhead (?:is )?(?:paining|spinning)\b|\bmemory (?:loss|problem)s?\b",
      ("सिरदर्द", "सिर दर्द", "सर दर्द", "सरदर्द", "सिर में दर्द", "माइग्रेन", "चक्कर", "सुन्न", "झनझनाहट", "दौरा", "मिर्गी",
       "ತಲೆನೋವು", "ತಲೆ ನೋವು", "ತಲೆ ಸುತ್ತು", "ಮೈಗ್ರೇನ್", "ಜೋಮು", "ಸೆಳವು", "ಫಿಟ್ಸ್")),
     ("Orthopedist",
      r"\bjoints?\b|\bknees?\b|\bback ?pain\b|\bbackache\b|\blower back\b|\bneck pain\b|\bshoulder\w*|\bfracture\w*|"
      r"\bbroken (?:bone|leg|arm|hand|wrist|finger|ankle|rib|foot|collarbone)s?\b|\bsprain\w*|\bswollen (?:ankle|wrist|knee|foot)\b|"
-     r"\bbones?\b|\bmuscle (?:pain|ache|cramp)s?\b|\bhip pain\b|\bsciatica\b|\barthritis\b|\bsprained\b",
+     r"\bbones?\b|\bmuscle (?:pain|ache|cramp)s?\b|\bhip pain\b|\bsciatica\b|\barthritis\b|\bsprained\b|"
+     r"\b(?:pain|ache|aching|hurts?|hurting|swelling|swollen|stiff\w*)\b.{0,25}\b(?:hands?|arms?|legs?|foot|feet|ankles?|wrists?|elbows?|fingers?|thighs?|calf|calves|hips?|necks?|heels?)\b|"
+     r"\b(?:hands?|arms?|legs?|foot|feet|ankles?|wrists?|elbows?|fingers?|thighs?|calf|calves|hips?|necks?|heels?)\b.{0,15}\b(?:pain|ache|aching|hurts?|hurting|swelling|swollen|stiff\w*)\b|"
+     r"\bpain in (?:my |the )?(?:lower |upper )?back\b|\b(?:lower|upper) back\b",
      ("जोड़ों", "जोड़", "घुटने", "घुटना", "कमर दर्द", "कमर में दर्द", "पीठ दर्द", "पीठ में दर्द", "हड्डी", "फ्रैक्चर", "मोच", "कंधे",
-      "ಕೀಲು", "ಮೊಣಕಾಲು", "ಬೆನ್ನು ನೋವು", "ಬೆನ್ನುನೋವು", "ಮೂಳೆ", "ಮುರಿ", "ಭುಜ", "ಉಳುಕು")),
+      "हाथ में दर्द", "पैर में दर्द", "गर्दन में दर्द", "टांग में दर्द", "कलाई",
+      "ಕೀಲು", "ಮೊಣಕಾಲು", "ಬೆನ್ನು ನೋವು", "ಬೆನ್ನುನೋವು", "ಮೂಳೆ", "ಮುರಿ", "ಭುಜ", "ಉಳುಕು", "ಕೈ ನೋವು", "ಕಾಲು ನೋವು", "ಕುತ್ತಿಗೆ ನೋವು", "ಕೈಯಲ್ಲಿ ನೋವು", "ಕಾಲಿನಲ್ಲಿ ನೋವು")),
     ("Dermatologist",
-     r"\brash\w*|\bitch\w*|\bacne\b|\bpimple\w*|\bhair (?:fall|loss)\b|\bskin\b|\beczema\b|\bhives\b|\bdandruff\b|\bboils?\b|"
+     r"\brash\w*|\bitch\w*|\bacne\b|\bpimple\w*|\bhair ?(?:fall|loss)\b|\bhair (?:is |are )?(?:falling|thinning)\b|\bbald\w*|\bskin\b|\beczema\b|\bhives\b|\bdandruff\b|\bboils?\b|"
      r"\bwarts?\b|\bfungal\b|\bblisters?\b|\bpsoriasis\b|\bsunburn\b",
      ("त्वचा", "खुजली", "दाने", "बाल झड़", "बाल गिर", "मुंहासे", "मुहांसे", "एलर्जी", "फोड़े", "ಚರ್ಮ", "ತುರಿಕೆ", "ಕೂದಲು ಉದುರ", "ಮೊಡವೆ", "ಅಲರ್ಜಿ", "ಗುಳ್ಳೆ")),
     ("ENT Specialist",
@@ -314,6 +318,46 @@ def names_a_doctor(text: str, extracted_name: str | None = None) -> bool:
         return True
     words = {w for w in re.findall(r"[a-z]+", lowered)}
     return any(part in words for part in re.findall(r"[a-z]{4,}", str(extracted_name).lower()))
+
+
+_DOCTOR_WORD = re.compile(r"\b(?:doctors?|specialists?|department|dept|physicians?)\b", re.I)
+_DOCTOR_WORD_OTHER = ("डॉक्टर", "विभाग", "ವೈದ್ಯ", "ಡಾಕ್ಟರ್", "ವಿಭಾಗ")
+
+
+def mentions_doctor_word(text: str) -> bool:
+    """"skin doctor", "ENT department": the patient is choosing a kind of doctor, not just describing a problem."""
+    lowered = _clean(text)
+    return bool(_DOCTOR_WORD.search(lowered)) or any(w in lowered for w in _DOCTOR_WORD_OTHER)
+
+
+_SPECIALTY_WORDS = (
+    ("Cardiologist", r"\bcardio\w*|\bheart (?:doctor|specialist)\b", ("हृदय रोग", "दिल का डॉक्टर", "ಹೃದ್ರೋಗ", "ಹೃದಯ ತಜ್ಞ")),
+    ("Neurologist", r"\bneuro\w*|\bbrain (?:doctor|specialist)\b|\bnerve (?:doctor|specialist)\b", ("न्यूरो", "ನರರೋಗ", "ನ್ಯೂರೋ")),
+    ("Orthopedist", r"\bortho\w*|\bbone (?:doctor|specialist)\b", ("हड्डी रोग", "हड्डी के डॉक्टर", "ಮೂಳೆ ತಜ್ಞ", "ಮೂಳೆ ವೈದ್ಯ")),
+    ("Dermatologist", r"\bderma\w*|\bskin (?:doctor|specialist)\b", ("त्वचा रोग", "त्वचा के डॉक्टर", "ಚರ್ಮ ರೋಗ", "ಚರ್ಮ ತಜ್ಞ")),
+    ("ENT Specialist", r"\bent\b|\bear,? nose(?:,? and| &)? throat\b|\bthroat (?:doctor|specialist)\b", ("कान नाक गला", "ಕಿವಿ ಮೂಗು ಗಂಟಲು")),
+    ("Ophthalmologist", r"\bophthal\w*|\bopthal\w*|\beye (?:doctor|specialist)\b", ("नेत्र रोग", "आँख के डॉक्टर", "ಕಣ್ಣಿನ ತಜ್ಞ", "ಕಣ್ಣಿನ ವೈದ್ಯ")),
+    ("Gynecologist", r"\bgyn\w*|\bobstetric\w*|\bwomen'?s (?:doctor|specialist)\b", ("स्त्री रोग", "ಸ್ತ್ರೀರೋಗ")),
+    ("Pediatrician", r"\bp(?:a)?ediatric\w*|\bchild (?:doctor|specialist)\b|\bkids? doctor\b", ("बाल रोग", "बच्चों के डॉक्टर", "ಮಕ್ಕಳ ತಜ್ಞ", "ಮಕ್ಕಳ ವೈದ್ಯ")),
+    ("Psychiatrist", r"\bpsychiatr\w*|\bmental health\b|\bpsycholog\w*", ("मनोचिकित्सक", "ಮನೋವೈದ್ಯ", "ಮಾನಸಿಕ")),
+    ("General Physician", r"\bgeneral (?:physician|medicine|doctor)\b|\bfamily doctor\b|\bgp\b", ("सामान्य चिकित्सक", "ಸಾಮಾನ್ಯ ವೈದ್ಯ")),
+)
+_SPECIALTY_COMPILED = tuple((name, re.compile(pattern, re.I), words) for name, pattern, words in _SPECIALTY_WORDS)
+
+
+def specialty_named(text: str) -> str | None:
+    """A kind of doctor said on its own ("dermatologist", "skin doctor", "ENT", "eye specialist"), or None.
+
+    Only for a short message that is not a question or a booking request: "which type of doctor are you looking
+    for?" is answered with "ENT", and that should list ENT doctors.
+    """
+    lowered = _clean(text)
+    if not lowered or len(lowered.split()) > 8 or _ASKING.search(lowered) or _BOOKING_WORD.search(lowered):
+        return None
+    for name, pattern, words in _SPECIALTY_COMPILED:
+        if pattern.search(lowered) or any(w in lowered for w in words):
+            return name
+    return None
 
 
 def explicit_booking(text: str) -> bool:

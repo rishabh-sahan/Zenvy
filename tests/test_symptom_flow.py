@@ -344,7 +344,7 @@ def test_no_thanks_drops_the_suggestion_and_leaves_nothing_held(tc, say):
 
 def test_a_symptom_and_a_request_in_one_sentence(tc, say):
     reply = say("I have a knee problem, which doctor should I see", city="bangalore")
-    assert reply.startswith("For this, I suggest seeing a Orthopedist.") and "Dr. Bone Setter" in reply
+    assert reply.startswith("For this, I suggest seeing an Orthopedist.") and "Dr. Bone Setter" in reply
     assert tc.model.calls == []                                                    # no tip: they asked for a doctor
 
 

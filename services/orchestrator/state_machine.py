@@ -899,6 +899,24 @@ def _suggest_doctors(session_id: str, short_lang: str, info: dict, city: str | N
     return prefix + render_template(template, short_lang, specialty=specialty, options=options)
 
 
+def _is_new_topic(user_text: str, extracted: dict, state: str) -> bool:
+    """A symptom, or a request to choose a doctor, said while a booking is waiting for a different answer.
+
+    Found live: a booking left open by an earlier "which doctor?" kept answering "I found more than one match"
+    to every new sentence, even "my hairfall has increased", for the whole hour the booking is kept.
+    """
+    words = len((user_text or "").split())
+    if (extracted.get("appointment_date") or extracted.get("appointment_time")) and words <= 4:
+        return False                                   # "tomorrow at 10": an answer to the booking
+    if state == "CONFIRM" and extracted.get("confirms_booking") is not None and words <= 6:
+        return False                                   # "yes" / "no"
+    if symptom_guide.names_a_doctor(user_text, extracted.get("doctor_name")):
+        return False                                   # they are choosing a doctor
+    if symptom_guide.match_symptom(user_text):
+        return True
+    return symptom_guide.doctor_request(user_text) in ("which", "not_improved")
+
+
 def _symptom_tip(user_text: str, short_lang: str) -> str:
     """The usual short self-care reply, checked: no medicine, dose, test or diagnosis ever reaches the patient."""
     reply = generate_reply(user_text, short_lang)
@@ -930,6 +948,15 @@ def _symptom_turn(
     # "I have a rash, book me a doctor" / "book an appointment" right after a symptom: suggest the right doctors.
     if not request and books and not names_one and (found or fallback or _recall_symptom(session_id)):
         request = "want"
+
+    # "skin doctor", "ENT department": a kind of doctor chosen by its symptom.
+    if not request and found and symptom_guide.mentions_doctor_word(user_text):
+        request = "want"
+
+    # A kind of doctor said on its own ("dermatologist", "ENT"), e.g. the answer to "which type of doctor?".
+    named = None if (request or found) else symptom_guide.specialty_named(user_text)
+    if named:
+        return _suggest_doctors(session_id, short_lang, {"specialty": named, "symptom": "", "serious": False}, city)
 
     if request:
         info = found or fallback or _recall_symptom(session_id)
@@ -990,6 +1017,21 @@ def handle_turn(session_id: str, short_lang: str, user_text: str, city: str | No
     # Debug logging
     print(f"[Orchestrator] INPUT: {user_text}")
     print(f"[Orchestrator] EXTRACTED: {extracted}")
+
+    # ---------------------------------------------------------
+    # A booking is waiting for an answer, but the patient has moved on (a new symptom, "which doctor should I see")
+    # ---------------------------------------------------------
+
+    if (
+        existing is not None
+        and existing.get("state") in BOOKING_STATES
+        and existing.get("flow") != "reschedule"
+        and _is_new_topic(user_text, extracted, existing["state"])
+    ):
+        print("[Orchestrator] The patient moved on to a symptom: dropping the unfinished booking")
+        _release_held(session_id, existing)
+        _delete_session_state(session_id)
+        existing = None
 
     # ---------------------------------------------------------
     # Cancel / reschedule: one already running, or a new request
