@@ -118,7 +118,9 @@ RED_FLAG_RULES = (
 )
 
 
-_NEGATION = re.compile(r"\b(?:no|not|without|never|none|deny|denies|denied|nothing|n't)\b[^.?!]{0,25}$", re.I)
+_NEGATION = re.compile(
+    r"\b(?:no|not|without|never|none|deny|denies|denied|nothing|n't|"
+    r"(?:do|does|did|have|has|had|is|are|was|were)n'?t|(?:do|does|did|have|has|had|is|are|was|were) not)\b[^.?!]{0,25}$", re.I)
 
 
 def _negated(text: str, start: int) -> bool:

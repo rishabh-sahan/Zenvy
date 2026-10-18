@@ -3700,6 +3700,9 @@ async function sendVoice(blob) {
       "en"
     );
 
+    // Where the patient is, so a doctor suggestion can start with doctors in their city.
+    formData.append("city", currentCity);
+
     const response =
       await fetch(
         "/channels/web/chat",
@@ -3902,6 +3905,9 @@ async function sendChat() {
     chatForm.append("text", message);
 
     chatForm.append("language", "en");
+
+    // Where the patient is, so a doctor suggestion can start with doctors in their city.
+    chatForm.append("city", currentCity);
 
     if (sessionId) {
       chatForm.append("session_id", sessionId);

@@ -15,6 +15,21 @@ Appointment conversation state is stored in Redis per session_id so that
 it survives application/server restarts and can be shared across
 multiple gateway workers.
 
+Symptoms
+--------
+A patient who describes a symptom gets the usual short self-care tip, and the symptom and the kind of doctor it
+needs are remembered for the chat (Redis, 1 hour). "It did not improve" / "which doctor should I see" then
+suggests up to three doctors of that specialty in the patient's city, earliest free time first; serious symptoms
+(chest pain, trouble breathing...) are told to get urgent care first. The suggested doctors are stored as the
+candidates of an ordinary booking (ASK_DOCTOR), so "book the first one" carries on with the normal booking.
+See services/agents/symptom_guide.py.
+
+Cancel in the middle of a booking
+---------------------------------
+"Cancel my appointment" said while a booking is in progress asks whether to stop THIS booking or cancel an
+appointment the patient already has (CANCEL_SCOPE), then follows the normal cancel flow. A bare "cancel" or
+"never mind" still just stops the unfinished booking.
+
 Slot locking
 ------------
 Once doctor, date and time are known, the doctor is looked up in Team C's
@@ -49,14 +64,15 @@ from services.conversation_client import (
     get_session,
     hold_slot,
     list_my_appointments,
+    record_agent_action,
     release_slot,
     reschedule_my_appointment,
 )
 from services.orchestrator.entity_extraction import extract_booking_fields, hospital_today
-from services.agents import patient_agent
-from services.orchestrator.intent_rules import detect_change_intent, wants_to_stop
+from services.agents import live_assist, patient_agent, symptom_guide
+from services.orchestrator.intent_rules import cancels_an_appointment, detect_change_intent, wants_to_stop
 from services.orchestrator.slot_parsing import parse_date, parse_time
-from services.orchestrator.templates import render_template
+from services.orchestrator.templates import NEXT_FREE, NO_FREE_SOON, render_template
 
 
 # Redis connection
@@ -291,6 +307,14 @@ def _pick_candidate(
         return by_name[0]
     pool = by_name or candidates      # two hospitals with the same name: the place decides
 
+    # The hospital is more specific than the city, and a city can be part of a hospital's name ("Royal Mysore
+    # Hospital"), which would otherwise match every doctor in that city: so a hospital named in the sentence wins.
+    by_hospital = [c for c in pool if c["hospital_name"] and same_spelling(c["hospital_name"]) in text]
+    if len(by_hospital) == 1:
+        return by_hospital[0]
+    if by_hospital:
+        pool = by_hospital
+
     by_place = [c for c in pool if mentions_place(c)]
     if len(by_place) == 1:
         return by_place[0]
@@ -426,13 +450,19 @@ def _resolve_doctor(
         entry["candidates"] = shown
         entry["state"] = "ASK_DOCTOR"
         _set_session_state(session_id, entry)
-        return _ask_which_doctor(short_lang, entry["candidates"])
+        return _ask_which_doctor(short_lang, entry["candidates"], bool(entry.get("from_symptom")))
 
     entry["doctor"] = _doctor_summary(matches[0])
     return None
 
 
-def _ask_which_doctor(short_lang: str, candidates: list[dict]) -> str:
+def _ask_which_doctor(short_lang: str, candidates: list[dict], suggested: bool = False) -> str:
+    if suggested:
+        return render_template(
+            "DOCTOR_SUGGEST_AGAIN",
+            short_lang,
+            options="; ".join(_suggestion_option(i + 1, d, short_lang) for i, d in enumerate(candidates)),
+        )
     return render_template(
         "DOCTOR_AMBIGUOUS",
         short_lang,
@@ -494,7 +524,8 @@ def _resolve_and_confirm(session_id: str, short_lang: str, entry: dict) -> str:
 # Cancel and reschedule the patient's own appointments
 # ---------------------------------------------------------------------------
 
-CHANGE_STATES = {"CHOOSE_ACTION", "CANCEL_PICK", "CANCEL_CONFIRM", "RESCHED_PICK"}
+CHANGE_STATES = {"CHOOSE_ACTION", "CANCEL_PICK", "CANCEL_CONFIRM", "RESCHED_PICK", "CANCEL_SCOPE"}
+BOOKING_STATES = ("ASK_DOCTOR", "ASK_DATE", "ASK_TIME", "CONFIRM")
 
 
 def _when(appointment: dict) -> str:
@@ -656,6 +687,9 @@ def _continue_change(session_id: str, short_lang: str, existing: dict, extracted
     """One more turn of a cancel / choose-action / pick-which-appointment conversation."""
     state = existing["state"]
 
+    if state == "CANCEL_SCOPE":
+        return _continue_cancel_scope(session_id, short_lang, existing, extracted, user_text)
+
     if state == "CHOOSE_ACTION":
         kind = detect_change_intent(user_text)
         if kind in ("cancel", "reschedule"):
@@ -723,6 +757,192 @@ def _cancel_answer(user_text: str) -> bool | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# "Cancel my appointment" in the middle of a booking
+# ---------------------------------------------------------------------------
+
+_SCOPE_RESUME = re.compile(r"\b(?:continue|carry on|keep going|go on|resume|keep (?:the )?booking)\b|आगे बढ़|जारी|ಮುಂದುವರಿಸಿ|ಮುಂದುವರೆಸಿ", re.I)
+_SCOPE_EXISTING = re.compile(
+    r"\b(?:already|existing|scheduled|booked|old|older|earlier|previous|2|two|second)\b|the appointment i have|my appointment|"
+    r"पहले से|मौजूदा|पुरानी|पुराना|दूसरा|दूसरी|ಈಗಾಗಲೇ|ಇರುವ|ಹಳೆಯ|ಎರಡನೇ|ಎರಡು", re.I)
+_SCOPE_THIS = re.compile(
+    r"\b(?:this|current|new|ongoing|stop|never ?mind|forget|1|one|first)\b|यह|ये|नई|नया|पहला|रोको|रहने दो|छोड़|ಇದು|ಹೊಸ|ಮೊದಲ|ಒಂದು|ಬೇಡ|ನಿಲ್ಲಿಸಿ", re.I)
+
+
+def _scope_answer(user_text: str) -> str | None:
+    """"this" (stop the unfinished booking), "existing" (cancel a booked appointment), "resume" or None."""
+    lowered = " ".join((user_text or "").lower().replace("'", "").split())
+    if _SCOPE_RESUME.search(lowered):
+        return "resume"
+    if _SCOPE_EXISTING.search(lowered):
+        return "existing"
+    if _SCOPE_THIS.search(lowered) or wants_to_stop(user_text):
+        return "this"
+    return None
+
+
+def _release_held(session_id: str, booking: dict) -> None:
+    held = booking.get("slot")
+    if held:
+        try:
+            release_slot(held["slot_id"], session_id)
+        except Exception as e:
+            print(f"[Orchestrator] Could not release slot: {e}")
+
+
+def _ask_cancel_scope(session_id: str, short_lang: str, existing: dict) -> str:
+    """"Cancel my appointment" in the middle of a booking: which one do they mean?"""
+    auth_id = _patient_id(session_id)
+    usable: list[dict] = []
+    if auth_id:
+        try:
+            usable = [i for i in list_my_appointments(auth_id) if i.get("can_change")]
+        except NotLoggedIn:
+            usable = []
+        except Exception as e:
+            print(f"[Orchestrator] Could not list appointments: {e}")
+            return render_template("CHANGE_FAILED", short_lang)      # the booking in progress is left as it is
+    if not usable:
+        # Nothing booked to cancel, so they can only mean the booking they are making.
+        return _abort_flow(session_id, short_lang, existing)
+    _set_session_state(session_id, {"flow": "choose", "state": "CANCEL_SCOPE", "slots": {}, "booking": existing})
+    return render_template("CANCEL_SCOPE", short_lang)
+
+
+def _continue_cancel_scope(session_id: str, short_lang: str, existing: dict, extracted: dict, user_text: str) -> str:
+    booking = existing["booking"]
+    choice = _scope_answer(user_text)
+    if choice == "this":
+        return _abort_flow(session_id, short_lang, booking)
+    if choice == "existing":
+        _release_held(session_id, booking)                 # the unfinished booking is dropped; its slot goes back
+        _delete_session_state(session_id)
+        return _begin_change(session_id, short_lang, "cancel", extracted)
+    if choice == "resume":
+        _set_session_state(session_id, booking)
+        return _render_current_state(session_id, short_lang)
+    return render_template("CANCEL_SCOPE", short_lang)
+
+
+# ---------------------------------------------------------------------------
+# Symptoms: a short tip, then the right kind of doctor
+# ---------------------------------------------------------------------------
+
+SYMPTOM_TTL = 3600
+
+
+def _symptom_key(session_id: str) -> str:
+    return f"symptom_session:{session_id}"
+
+
+def _remember_symptom(session_id: str, info: dict) -> None:
+    redis_client.setex(_symptom_key(session_id), SYMPTOM_TTL, json.dumps(
+        {"specialty": info["specialty"], "symptom": info.get("symptom", ""), "serious": bool(info.get("serious"))}))
+
+
+def _recall_symptom(session_id: str) -> dict | None:
+    data = redis_client.get(_symptom_key(session_id))
+    return json.loads(data) if data else None
+
+
+def _city_key(city: str | None) -> str | None:
+    """"Mysuru" / "Mysore" -> "mysore": the spelling Team C stores."""
+    wanted = (city or "").strip().lower()
+    if not wanted:
+        return None
+    for stored, spellings in CITY_SPELLINGS.items():
+        if wanted == stored or wanted in spellings:
+            return stored
+    return wanted
+
+
+def _now_ist() -> datetime:
+    return datetime.now(IST)
+
+
+def _suggestion_time(iso: str | None, short_lang: str) -> str:
+    if not iso:
+        return NO_FREE_SOON.get(short_lang, NO_FREE_SOON["en"])
+    return f"{NEXT_FREE.get(short_lang, NEXT_FREE['en'])} {_when({'appointment_datetime': iso})}"
+
+
+def _suggestion_option(number: int, doctor: dict, short_lang: str) -> str:
+    place = CITY_DISPLAY.get(doctor["city"], doctor["city"].title())
+    return f"{number}) {doctor['name']}, {doctor['hospital_name']}, {place} ({_suggestion_time(doctor.get('next_slot'), short_lang)})"
+
+
+def _suggest_doctors(session_id: str, short_lang: str, info: dict, city: str | None, urgent: bool = False) -> str:
+    """Up to three doctors of the right specialty, saved as the candidates of an ordinary booking."""
+    specialty = info["specialty"]
+    prefix = render_template("SYMPTOM_URGENT", short_lang) + " " if urgent else ""
+    try:
+        picks = symptom_guide.suggest(specialty, _city_key(city), find_doctors, get_free_slots, _now_ist())
+    except Exception as e:
+        print(f"[Orchestrator] Could not suggest doctors: {e}")
+        return prefix + render_template("BOOKING_FAILED", short_lang)
+    if not picks:
+        return prefix + render_template("SYMPTOM_NO_DOCTOR", short_lang, specialty=specialty)
+
+    candidates = [{**_doctor_summary(d), "next_slot": d.get("next_slot")} for d in picks]
+    _set_session_state(session_id, {
+        "state": "ASK_DOCTOR",
+        "slots": {"doctor_name": specialty, "appointment_date": None, "appointment_time": None},
+        "candidates": candidates,
+        "from_symptom": True,
+    })
+    try:
+        record_agent_action("patient", "suggest_doctors", f"{specialty}: {len(candidates)} doctor(s)" + (", urgent" if urgent else ""))
+    except Exception as e:
+        print(f"[Orchestrator] Could not record the suggestion: {e}")
+    options = "; ".join(_suggestion_option(i + 1, c, short_lang) for i, c in enumerate(candidates))
+    template = "DOCTOR_SUGGEST_OTHER_CITY" if picks[0].get("any_city") else "DOCTOR_SUGGEST"
+    return prefix + render_template(template, short_lang, specialty=specialty, options=options)
+
+
+def _symptom_tip(user_text: str, short_lang: str) -> str:
+    """The usual short self-care reply, checked: no medicine, dose, test or diagnosis ever reaches the patient."""
+    reply = generate_reply(user_text, short_lang)
+    if live_assist.violations(reply):
+        print("[Orchestrator] The self-care reply named a medicine or a diagnosis: using the safe wording instead")
+        return render_template("SYMPTOM_TIP_SAFE", short_lang)
+    return reply
+
+
+def _symptom_turn(session_id: str, short_lang: str, user_text: str, city: str | None, wants_to_book: bool) -> str | None:
+    """A symptom, or a request for a doctor. Returns the reply, or None when this is something else."""
+    if patient_agent.detect_medicine_intent(user_text):
+        return None                                   # "I took my tablet for fever" is a medicine question
+
+    request = symptom_guide.doctor_request(user_text)
+    found = symptom_guide.find_symptom(user_text)
+    # A complaint nothing could place (no specialty of ours fits, or the model was unsure) starts with a General
+    # Physician: remembered, so "which doctor should I see" has an answer, but the reply stays the ordinary one.
+    fallback = None if found else symptom_guide.complaint_fallback(user_text)
+
+    if request:
+        info = found or fallback or _recall_symptom(session_id)
+        if info is None:
+            # "it did not improve" / "which doctor should I see" with no symptom known: ask what it is.
+            # ("I want a doctor" alone is an ordinary booking request.)
+            return render_template("SYMPTOM_ASK_PROBLEM", short_lang) if request in ("which", "not_improved") else None
+        if found or fallback:
+            _remember_symptom(session_id, info)
+        return _suggest_doctors(session_id, short_lang, info, city, urgent=bool(info.get("serious")))
+
+    if found and found.get("serious"):
+        _remember_symptom(session_id, found)
+        return _suggest_doctors(session_id, short_lang, found, city, urgent=True)
+
+    if not found:
+        if fallback and not wants_to_book:
+            _remember_symptom(session_id, fallback)
+        return None
+    if wants_to_book:
+        return None
+    _remember_symptom(session_id, found)
+    return _symptom_tip(user_text, short_lang)
+
+
 def _abort_flow(session_id: str, short_lang: str, existing: dict) -> str:
     """"Never mind" in the middle of a booking or a reschedule."""
     held = existing.get("slot")
@@ -735,12 +955,15 @@ def _abort_flow(session_id: str, short_lang: str, existing: dict) -> str:
     return render_template("RESCHED_KEPT" if existing.get("flow") == "reschedule" else "CANCELLED", short_lang)
 
 
-def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
+def handle_turn(session_id: str, short_lang: str, user_text: str, city: str | None = None) -> str:
     """
     Route one conversation turn through the appointment state machine
     or normal hospital-receptionist Q&A.
 
     Appointment state is persisted in Redis using session_id.
+
+    `city` is where the patient is (the page's detected or chosen city); it only narrows which doctors are
+    suggested for a symptom.
     """
 
     # Get the current appointment state from Redis.
@@ -769,6 +992,15 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
             kind = "ask"
         if kind:
             return _start_change(session_id, short_lang, kind, extracted)
+
+    # ---------------------------------------------------------
+    # A symptom, or "it did not improve" / "which doctor should I see"
+    # ---------------------------------------------------------
+
+    if existing is None:
+        reply = _symptom_turn(session_id, short_lang, user_text, city, bool(extracted["wants_to_book"]))
+        if reply is not None:
+            return reply
 
     # ---------------------------------------------------------
     # Normal hospital Q&A
@@ -833,6 +1065,10 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
 
     print(f"[Orchestrator] Existing state: {state}")
     print(f"[Orchestrator] Existing slots: {slots}")
+
+    # "Cancel my appointment" while booking: stop this booking, or the appointment they already have?
+    if state in BOOKING_STATES and existing.get("flow") != "reschedule" and cancels_an_appointment(user_text):
+        return _ask_cancel_scope(session_id, short_lang, existing)
 
     if state in ("ASK_DOCTOR", "ASK_DATE", "ASK_TIME") and wants_to_stop(user_text):
         return _abort_flow(session_id, short_lang, existing)
@@ -940,7 +1176,7 @@ def handle_turn(session_id: str, short_lang: str, user_text: str) -> str:
 
     if still_choosing:
         _set_session_state(session_id, existing)
-        return _ask_which_doctor(short_lang, candidates)
+        return _ask_which_doctor(short_lang, candidates, bool(existing.get("from_symptom")))
 
     # A doctor named now (or changed) is looked up right away.
     stop = _resolve_doctor(session_id, short_lang, existing, user_text)

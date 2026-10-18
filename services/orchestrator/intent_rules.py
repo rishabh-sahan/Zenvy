@@ -49,6 +49,19 @@ def detect_change_intent(text: str) -> str | None:
     return None
 
 
+_APPOINTMENT_WORD = re.compile(
+    r"\b(?:appointments?|bookings?|booked|scheduled|visit)\b|अपॉइंटमेंट|अपॉइन्टमेंट|बुकिंग|ಅಪಾಯಿಂಟ್\u200cಮೆಂಟ್|ಅಪಾಯಿಂಟ್ಮೆಂಟ್|ಬುಕಿಂಗ್", re.I)
+
+
+def cancels_an_appointment(text: str) -> bool:
+    """"cancel my appointment" / "cancel the scheduled appointment": a cancellation that names an appointment.
+
+    A bare "cancel" or "never mind" is not this: in the middle of a booking it just stops that booking.
+    """
+    lowered = " ".join((text or "").lower().split())
+    return detect_change_intent(text) == "cancel" and bool(_APPOINTMENT_WORD.search(lowered))
+
+
 def wants_to_stop(text: str) -> bool:
     """A short "never mind" / "cancel" said in the middle of a booking."""
     lowered = " ".join((text or "").lower().replace("'", "").split())

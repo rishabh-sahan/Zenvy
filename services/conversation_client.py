@@ -104,12 +104,16 @@ _DOCTORS_URL = f"{TEAM_C_BASE_URL}/api/v1/doctors"
 _SLOTS_URL = f"{TEAM_C_BASE_URL}/api/v1/slots"
 
 
-def find_doctors(query: str) -> list[dict]:
+def find_doctors(query: str, city: str | None = None) -> list[dict]:
     """
-    Doctors matching a name or department ("Arjun Rao", "Cardiology").
+    Doctors matching a name or department ("Arjun Rao", "Cardiology"), optionally only in one city
+    (Team C's spelling, e.g. "mysore").
     Each dict has doctor_id, name, specialty, hospital_name, city, slot_minutes.
     """
-    response = requests.get(_DOCTORS_URL, params={"query": query}, timeout=10)
+    params = {"query": query}
+    if city:
+        params["city"] = city
+    response = requests.get(_DOCTORS_URL, params=params, timeout=10)
     response.raise_for_status()
     return response.json()
 

@@ -607,6 +607,9 @@ async def web_tts(
     session_id: str | None = Form(None),
 
     auth_id: str | None = Form(None),
+
+    # Where the patient is (the page's detected or chosen city); only narrows doctor suggestions.
+    city: str | None = Form(None),
 ):
     """
     Conversational Text-to-Speech.
@@ -700,6 +703,7 @@ async def web_tts(
                 session_id,
                 short_lang,
                 text,
+                city=city,
             )
 
         else:
@@ -854,6 +858,9 @@ async def web_chat(
     file: UploadFile = File(...),
     session_id: str | None = Form(None),
     auth_id: str | None = Form(None),
+
+    # Where the patient is (the page's detected or chosen city); only narrows doctor suggestions.
+    city: str | None = Form(None),
 ):
     """
     Complete voice assistant pipeline.
@@ -1058,6 +1065,7 @@ async def web_chat(
                 session_id,
                 short_lang,
                 transcript,
+                city=city,
             )
 
         else:
@@ -1210,6 +1218,9 @@ async def ask_zenvy(
     language: str = Form("en"),
     session_id: str | None = Form(None),
     auth_id: str | None = Form(None),
+
+    # Where the patient is (the page's detected or chosen city); only narrows doctor suggestions.
+    city: str | None = Form(None),
 ):
     """
     Text chat endpoint.
@@ -1252,6 +1263,7 @@ async def ask_zenvy(
                 session_id,
                 short_lang,
                 text,
+                city=city,
             )
 
         else:
@@ -1342,6 +1354,7 @@ class ChannelMessageRequest(BaseModel):
     text: str
     language: str = "en"
     session_id: str | None = None
+    city: str | None = None
     # Logged-in patient id from /channels/web/login; see _get_or_create_session.
     auth_id: str | None = None
 
@@ -1428,6 +1441,7 @@ async def channel_message(
                 session_id,
                 short_lang,
                 text,
+                city=payload.city,
             )
 
         else:

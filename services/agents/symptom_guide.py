@@ -1,0 +1,320 @@
+"""The patient agent's symptom skills: which kind of doctor suits a symptom, and which doctors to suggest.
+
+What it does, and what it deliberately does not:
+
+* It reads a patient's own words ("I have a headache", "it did not improve", "which doctor should I see") in
+  English, Hindi and Kannada and picks ONE of the specialties the hospital really has. It never diagnoses, never
+  names a medicine, and never makes a doctor up: the doctors and their free times always come from Team C.
+* A reviewable table of symptom words decides the specialty. Only when a message sounds like a health complaint
+  and nothing in the table matches is the language model asked, and its answer is checked against the real list.
+* Serious symptoms (chest pain, trouble breathing, fainting, heavy bleeding, ...) are flagged so the patient is
+  first told to get urgent care. The same English rules the doctor's Live Assist uses are applied, plus short
+  Hindi and Kannada word lists.
+"""
+import json
+import re
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
+
+from services.agents import live_assist
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+SPECIALTIES = (
+    "Cardiologist", "General Physician", "Neurologist", "Orthopedist", "Dermatologist",
+    "ENT Specialist", "Ophthalmologist", "Gynecologist", "Pediatrician", "Psychiatrist",
+)
+
+MAX_SUGGESTIONS = 3          # doctors read out to the patient
+MAX_CANDIDATES = 8           # doctors whose free times are looked up
+DAYS_AHEAD = 4               # today and the next three days
+
+# ---------------------------------------------------------------------------------------------------
+# symptom words -> specialty.  (specialty, English pattern, Hindi + Kannada words)
+# On a tie the specialty that comes FIRST here wins, so "fever and a sore throat" is a General Physician.
+# ---------------------------------------------------------------------------------------------------
+_TABLE = (
+    ("Cardiologist",
+     r"\bpalpitation\w*|\bheart (?:racing|beating fast|problem|trouble|pain)\b|\bblood pressure\b|\b(?:high|low) bp\b|\bbp\b|"
+     r"\bchest (?:pain|tightness|pressure|discomfort)\b|\bpain in (?:my |the )?(?:chest|heart)\b",
+     ("दिल", "धड़कन", "ब्लड प्रेशर", "बीपी", "सीने में दर्द", "छाती में दर्द", "ಹೃದಯ", "ಎದೆ ಬಡಿತ", "ರಕ್ತದೊತ್ತಡ", "ಎದೆ ನೋವು", "ಎದೆನೋವು")),
+    ("General Physician",
+     r"\bfever\w*|\bcold\b|\bcough\w*|\brunny nose\b|\bstomach\w*|\babdominal\b|\btummy\b|\bbelly\b|\bvomit\w*|\bnausea\w*|\bdiarrh\w*|"
+     r"\bloose motions?\b|\bconstipat\w*|\bacidity\b|\bindigestion\b|\bbody ?ache\w*|\bweakness\b|\bfeel(?:ing)? weak\b|\btired\w*|"
+     r"\bfatigue\b|\bunwell\b|\bnot feeling (?:well|good)\b|\bsick\b|\bflu\b|\bchills\b|\bloss of appetite\b|\bjaundice\b",
+     ("बुखार", "सर्दी", "जुकाम", "खांसी", "खाँसी", "पेट दर्द", "पेट में दर्द", "उल्टी", "दस्त", "कमज़ोरी", "कमजोरी", "थकान", "बदन दर्द", "बीमार",
+      "ಜ್ವರ", "ನೆಗಡಿ", "ಕೆಮ್ಮು", "ಹೊಟ್ಟೆ ನೋವು", "ಹೊಟ್ಟೆನೋವು", "ವಾಂತಿ", "ಬೇಧಿ", "ಸುಸ್ತು", "ಆಯಾಸ", "ಮೈ ಕೈ ನೋವು", "ಅನಾರೋಗ್ಯ")),
+    ("Neurologist",
+     r"\bheadache\w*|\bhead ?ache\b|\bmigraine\w*|\bdizz\w*|\bvertigo\b|\bnumb\w*|\btingling\b|\bseizure\w*|\bconvulsion\w*|"
+     r"\bhead (?:is )?(?:paining|spinning)\b|\bmemory (?:loss|problem)s?\b",
+     ("सिरदर्द", "सिर दर्द", "सर दर्द", "सरदर्द", "सिर में दर्द", "माइग्रेन", "चक्कर", "सुन्न", "झनझनाहट", "दौरा", "मिर्गी",
+      "ತಲೆನೋವು", "ತಲೆ ನೋವು", "ತಲೆ ಸುತ್ತು", "ಮೈಗ್ರೇನ್", "ಜೋಮು", "ಸೆಳವು", "ಫಿಟ್ಸ್")),
+    ("Orthopedist",
+     r"\bjoints?\b|\bknees?\b|\bback ?pain\b|\bbackache\b|\blower back\b|\bneck pain\b|\bshoulder\w*|\bfracture\w*|"
+     r"\bbroken (?:bone|leg|arm|hand|wrist|finger|ankle|rib|foot|collarbone)s?\b|\bsprain\w*|\bswollen (?:ankle|wrist|knee|foot)\b|"
+     r"\bbones?\b|\bmuscle (?:pain|ache|cramp)s?\b|\bhip pain\b|\bsciatica\b|\barthritis\b|\bsprained\b",
+     ("जोड़ों", "जोड़", "घुटने", "घुटना", "कमर दर्द", "कमर में दर्द", "पीठ दर्द", "पीठ में दर्द", "हड्डी", "फ्रैक्चर", "मोच", "कंधे",
+      "ಕೀಲು", "ಮೊಣಕಾಲು", "ಬೆನ್ನು ನೋವು", "ಬೆನ್ನುನೋವು", "ಮೂಳೆ", "ಮುರಿ", "ಭುಜ", "ಉಳುಕು")),
+    ("Dermatologist",
+     r"\brash\w*|\bitch\w*|\bacne\b|\bpimple\w*|\bhair (?:fall|loss)\b|\bskin\b|\beczema\b|\bhives\b|\bdandruff\b|\bboils?\b|"
+     r"\bwarts?\b|\bfungal\b|\bblisters?\b|\bpsoriasis\b|\bsunburn\b",
+     ("त्वचा", "खुजली", "दाने", "बाल झड़", "बाल गिर", "मुंहासे", "मुहांसे", "एलर्जी", "फोड़े", "ಚರ್ಮ", "ತುರಿಕೆ", "ಕೂದಲು ಉದುರ", "ಮೊಡವೆ", "ಅಲರ್ಜಿ", "ಗುಳ್ಳೆ")),
+    ("ENT Specialist",
+     r"\bear ?ache\b|\bear pain\b|\bpain in (?:my |the )?ear\b|\bsore throat\b|\bthroat (?:pain|infection|irritation)\b|\bsinus\w*|\btonsil\w*|"
+     r"\bblocked nose\b|\bnose (?:is )?block\w*|\bnosebleed\w*|\bhearing\b|\bsnoring\b|\bhoarse\w*|\bvoice (?:loss|change)\b|\bear discharge\b",
+     ("कान", "गला", "गले", "साइनस", "टॉन्सिल", "नाक बंद", "नाक", "ಕಿವಿ", "ಗಂಟಲು", "ಮೂಗು", "ಸೈನಸ್", "ಟಾನ್ಸಿಲ್")),
+    ("Ophthalmologist",
+     r"\beyes?\b.{0,20}\b(?:pain|painful|red|redness|itch\w*|water\w*|swollen|swelling|blurr?\w*|vision|sore|burning)\b|\bblurr?ed vision\b|"
+     r"\bvision\b|\bred eyes?\b|\bwatery eyes\b|\beye (?:pain|infection|irritation|problem)s?\b",
+     ("आँख", "आंख", "आंखों", "आँखों", "नज़र", "नजर", "धुंधला", "ಕಣ್ಣು", "ಕಣ್ಣಿನ", "ದೃಷ್ಟಿ")),
+    ("Gynecologist",
+     r"\bperiods?\b|\bmenstrual\w*|\bmenstruat\w*|\bpregnan\w*|\bvaginal\b|\bwhite discharge\b|\bpcos\b|\bmissed (?:my )?period\b|\bmenopaus\w*",
+     ("पीरियड", "मासिक", "माहवारी", "गर्भ", "प्रेग्नेंसी", "ಮುಟ್ಟು", "ಗರ್ಭ", "ಋತುಸ್ರಾವ")),
+    ("Psychiatrist",
+     r"\banxi\w*|\bdepress\w*|\bstress\w*|\bpanic\b|\bmood\b|\bcan'?t sleep\b|\binsomnia\b|\bsleep (?:problem|trouble|issue)s?\b|"
+     r"\bfeeling (?:sad|low|hopeless|down)\b|\bsuicid\w*|\bwant to die\b|\bworr(?:y|ied|ies)\b|\blonely\b|\bgrief\b",
+     ("चिंता", "तनाव", "उदास", "डिप्रेशन", "घबराहट", "नींद नहीं", "ಆತಂಕ", "ಒತ್ತಡ", "ಖಿನ್ನತೆ", "ಭಯ", "ನಿದ್ರೆ ಬರುತ್ತಿಲ್ಲ", "ನಿದ್ರೆ ಬರುವುದಿಲ್ಲ")),
+)
+_COMPILED = tuple((name, re.compile(pattern, re.I), words) for name, pattern, words in _TABLE)
+_ORDER = {name: i for i, (name, _, _) in enumerate(_TABLE)}
+
+_CHILD = re.compile(r"\b(?:child|children|kid|kids|baby|babies|infant|toddler|newborn|my son|my daughter)\b", re.I)
+_CHILD_OTHER = ("बच्चा", "बच्चे", "बच्ची", "शिशु", "बेटा", "बेटी", "ಮಗು", "ಮಕ್ಕಳ", "ಮಗನ", "ಮಗಳ")
+
+# ---------------------------------------------------------------------------------------------------
+# serious symptoms
+# ---------------------------------------------------------------------------------------------------
+_SERIOUS_OTHER = (
+    "सीने में दर्द", "छाती में दर्द", "सांस लेने में तकलीफ", "सांस फूल", "साँस लेने में तकलीफ", "सांस नहीं आ", "बेहोश", "खून बह", "बहुत खून",
+    "दौरा पड़", "मिर्गी", "आत्महत्या", "मरना चाहता", "मरना चाहती", "चेहरा टेढ़ा", "बोलने में दिक्कत",
+    "ಎದೆ ನೋವು", "ಎದೆನೋವು", "ಉಸಿರಾಟದ ತೊಂದರೆ", "ಉಸಿರಾಡಲು ಕಷ್ಟ", "ಉಸಿರು ಕಟ್ಟ", "ಮೂರ್ಛೆ", "ಪ್ರಜ್ಞೆ ತಪ್ಪ", "ಬಹಳ ರಕ್ತ", "ರಕ್ತಸ್ರಾವ",
+    "ಸೆಳವು", "ಫಿಟ್ಸ್", "ಆತ್ಮಹತ್ಯೆ", "ಸಾಯಬೇಕು", "ಮುಖ ಓರೆ",
+)
+_NEGATION_OTHER = ("नहीं", "नही", "ಇಲ್ಲ", "ಇಲ್ಲವೆ", "ಇಲ್ಲವಲ್ಲ")
+
+
+def _other_script_hit(lowered: str, words: tuple[str, ...]) -> bool:
+    """A Hindi/Kannada word is in the text and is not followed by a denial ("सीने में दर्द नहीं है")."""
+    for word in words:
+        start = lowered.find(word)
+        while start != -1:
+            after = lowered[start + len(word): start + len(word) + 25]
+            if not any(neg in after for neg in _NEGATION_OTHER):
+                return True
+            start = lowered.find(word, start + 1)
+    return False
+
+
+def is_serious(text: str) -> bool:
+    """Chest pain, trouble breathing, fainting, heavy bleeding, a seizure, stroke signs or thoughts of self-harm."""
+    lowered = _clean(text)
+    if live_assist.red_flag_cards(live_assist.statements(text or ""), set()):
+        return True
+    return _other_script_hit(lowered, _SERIOUS_OTHER)
+
+
+# ---------------------------------------------------------------------------------------------------
+# what the patient said
+# ---------------------------------------------------------------------------------------------------
+
+def _clean(text: str) -> str:
+    return " ".join((text or "").lower().replace("’", "'").split())
+
+
+# first-person words: "I have", "my", "me" and the Hindi / Kannada equivalents
+_PERSONAL = re.compile(r"\b(?:i|i'm|i've|me|my|mine|myself|having|feeling|suffering|got)\b|\b(?:his|her|our)\b", re.I)
+_PERSONAL_OTHER = ("मुझे", "मेरे", "मेरी", "मेरा", "हमें", "ನನಗೆ", "ನನ್ನ", "ನಮಗೆ", "ನಮ್ಮ")
+_QUESTION_WORDS = re.compile(r"\b(?:what|where|when|which|who|how|why|timing|timings|ward|visiting|hours|cost|fee|fees|price)\b", re.I)
+
+# anything that sounds like a health complaint (only used to decide whether the model may be asked)
+_COMPLAINT = re.compile(
+    r"\b(?:pain\w*|ache\w*|hurts?|hurting|sick|unwell|swell\w*|swollen|bleed\w*|vomit\w*|dizzy|weak|infection|itch\w*|burning|"
+    r"cramp\w*|sore|allerg\w*|injur\w*|wound|bruise\w*|lump|breath\w*|not feeling)\b", re.I)
+_COMPLAINT_OTHER = ("दर्द", "तकलीफ", "बीमार", "जलन", "सूजन", "चोट", "ನೋವು", "ತೊಂದರೆ", "ಉರಿ", "ಊತ", "ಗಾಯ", "ಅನಾರೋಗ್ಯ")
+
+
+def _is_complaint_like(lowered: str) -> bool:
+    return bool(_COMPLAINT.search(lowered)) or any(w in lowered for w in _COMPLAINT_OTHER)
+
+
+def _is_personal(lowered: str) -> bool:
+    """Is the patient talking about a problem of their own (not asking about the hospital)?"""
+    if _PERSONAL.search(lowered) or any(w in lowered for w in _PERSONAL_OTHER):
+        return True
+    words = lowered.split()
+    return len(words) <= 4 and not _QUESTION_WORDS.search(lowered)
+
+
+def match_symptom(text: str) -> dict | None:
+    """{"specialty", "symptom", "serious"} from the symptom table, or None.
+
+    "symptom" is a short plain label for the specialty's area (not a diagnosis). A symptom that is denied ("no
+    fever") does not count, and neither does a question about the hospital ("fever ward timings").
+    """
+    lowered = _clean(text)
+    if not lowered or not _is_personal(lowered):
+        return None
+
+    scores: dict[str, int] = {}
+    for name, pattern, words in _COMPILED:
+        hits = sum(1 for m in pattern.finditer(lowered) if not live_assist._negated(lowered, m.start()))
+        hits += sum(1 for w in words if w in lowered and _other_script_hit(lowered, (w,)))
+        if hits:
+            scores[name] = hits
+
+    serious = is_serious(text)
+    child = bool(_CHILD.search(lowered)) or any(w in lowered for w in _CHILD_OTHER)
+    if not scores and not (serious and not child):
+        return None
+    if child and (scores or _is_complaint_like(lowered) or serious):
+        return {"specialty": "Pediatrician", "symptom": "child's health", "serious": serious}
+    if not scores:                                                     # serious words only: e.g. "I fainted"
+        return {"specialty": "General Physician", "symptom": "general health", "serious": serious}
+    best = max(scores, key=lambda n: (scores[n], -_ORDER[n]))
+    if best != "Cardiologist" and "Cardiologist" in scores and serious:
+        best = "Cardiologist"                                         # chest pain is a heart question first
+    return {"specialty": best, "symptom": _label(best), "serious": serious}
+
+
+_LABELS = {
+    "Cardiologist": "heart or chest", "General Physician": "general health", "Neurologist": "headache or dizziness",
+    "Orthopedist": "bones or joints", "Dermatologist": "skin or hair", "ENT Specialist": "ear, nose or throat",
+    "Ophthalmologist": "eyes", "Gynecologist": "women's health", "Pediatrician": "child's health", "Psychiatrist": "stress or mood",
+}
+
+
+def _label(specialty: str) -> str:
+    return _LABELS.get(specialty, "general health")
+
+
+# The model is only the BACKUP: asked when the message sounds like a health complaint and the table found nothing.
+CLASSIFY_PROMPT = (
+    "You help a hospital receptionist route a patient to the right kind of doctor. Read the patient's message and "
+    "choose ONE specialty from this exact list: " + ", ".join(SPECIALTIES) + ".\n"
+    "If the message is not about the patient's own health problem, or you are not sure, answer NONE. "
+    "Never diagnose. Reply with ONLY a JSON object: {\"specialty\": \"<one of the list or NONE>\"}"
+)
+
+
+def classify_with_model(text: str, chat=None) -> dict | None:
+    """The specialty the model picks from OUR list, or None. Anything not on the list is thrown away."""
+    lowered = _clean(text)
+    if not lowered or not _is_personal(lowered) or not _is_complaint_like(lowered):
+        return None
+    if chat is None:
+        from services.scribe import summarize
+        chat = summarize.call_chat
+    try:
+        reply = chat([{"role": "system", "content": CLASSIFY_PROMPT}, {"role": "user", "content": text}])
+        body = re.sub(r"<think>.*?</think>", "", reply or "", flags=re.S)
+        start, end = body.find("{"), body.rfind("}")
+        chosen = str(json.loads(body[start:end + 1]).get("specialty") or "").strip()
+    except Exception as exc:  # noqa: BLE001 - the backup must never break the chat
+        print(f"[SymptomGuide] model could not classify: {exc}")
+        return None
+    match = next((s for s in SPECIALTIES if s.lower() == chosen.lower()), None)
+    if match is None:
+        return None
+    return {"specialty": match, "symptom": _label(match), "serious": is_serious(text)}
+
+
+def complaint_fallback(text: str) -> dict | None:
+    """A personal health complaint the table and the model could not place: a General Physician is the safe start."""
+    lowered = _clean(text)
+    if not lowered or not _is_personal(lowered):
+        return None
+    real = any(not live_assist._negated(lowered, m.start()) for m in _COMPLAINT.finditer(lowered)) or _other_script_hit(
+        lowered, tuple(w for w in _COMPLAINT_OTHER if w in lowered))
+    if not real:
+        return None
+    return {"specialty": "General Physician", "symptom": _label("General Physician"), "serious": is_serious(text)}
+
+
+def find_symptom(text: str, chat=None) -> dict | None:
+    """The table first; the model only when the table has nothing and the message sounds like a complaint."""
+    return match_symptom(text) or classify_with_model(text, chat)
+
+
+# ---------------------------------------------------------------------------------------------------
+# "it did not improve" / "which doctor should I see"
+# ---------------------------------------------------------------------------------------------------
+_NOT_IMPROVED = re.compile(
+    r"\b(?:did ?n[o']?t|does ?n[o']?t|has ?n[o']?t|have ?n[o']?t|not|never|no)\s+(?:\w+\s+){0,2}?(?:improv\w*|better|help\w*|work\w*|go(?:ne)?|relief|subsid\w*|reduc\w*|ease\w*)\b|"
+    r"\bno (?:improvement|relief|change|difference)\b|\bstill (?:hurts?|hurting|paining|aching|bothering|troubling|there|the same|bad|severe|persist\w*|have|has|sick|not|in pain)\b|"
+    r"\b(?:getting|got|become|became|is|it'?s|it is) (?:worse|worsening|more severe|unbearable)\b|\bworse\b|\bnot improving\b|\bpersist\w*\b", re.I)
+_NOT_IMPROVED_OTHER = (
+    "ठीक नहीं हुआ", "ठीक नहीं हो रहा", "ठीक नहीं हुई", "आराम नहीं", "फर्क नहीं", "अभी भी", "और बढ़", "बढ़ गया", "बढ़ गई",
+    "ಸರಿಹೋಗಿಲ್ಲ", "ಕಡಿಮೆಯಾಗಿಲ್ಲ", "ಗುಣವಾಗಿಲ್ಲ", "ಇನ್ನೂ ನೋವು", "ಇನ್ನೂ ಇದೆ", "ಹೆಚ್ಚಾಗಿದೆ", "ಸುಧಾರಿಸಿಲ್ಲ",
+)
+_WHICH_DOCTOR = re.compile(
+    r"\bwhich (?:kind of |type of |sort of )?(?:doctor|specialist)\b|\bwho should i (?:see|meet|consult)\b|\bwhat (?:kind|type) of doctor\b|"
+    r"\b(?:suggest|recommend|find|show|get) (?:me )?(?:a |an |the right |the best )?(?:doctor|specialist)s?\b|\bdoctor (?:for|to see for) (?:this|that|it)\b|"
+    r"\b(?:which|what) specialist\b|\bright doctor\b", re.I)
+_WANT_DOCTOR = re.compile(
+    r"\b(?:i )?(?:want|need|would like|wish) (?:to )?(?:see |meet |consult )?(?:a |an |the )?(?:doctor|specialist)\b|"
+    r"\bshould i (?:see|consult|meet) (?:a |the )?doctor\b|\bsee a doctor\b", re.I)
+_WHICH_OTHER = ("कौन सा डॉक्टर", "कौन से डॉक्टर", "कौन-सा डॉक्टर", "डॉक्टर बताइए", "डॉक्टर सुझाइए", "किस डॉक्टर",
+                "ಯಾವ ವೈದ್ಯರು", "ಯಾವ ಡಾಕ್ಟರ್", "ವೈದ್ಯರನ್ನು ಸೂಚಿಸಿ", "ಡಾಕ್ಟರ್ ಸೂಚಿಸಿ")
+_WANT_OTHER = ("डॉक्टर चाहिए", "डॉक्टर से मिलना", "डॉक्टर को दिखाना", "ವೈದ್ಯರು ಬೇಕು", "ಡಾಕ್ಟರ್ ಬೇಕು", "ವೈದ್ಯರನ್ನು ನೋಡ", "ವೈದ್ಯರನ್ನು ಭೇಟಿ")
+
+
+def doctor_request(text: str) -> str | None:
+    """"not_improved" (the tip did not help), "which" (which doctor should I see), "want" (I need a doctor) or None."""
+    lowered = _clean(text)
+    if not lowered:
+        return None
+    if _WHICH_DOCTOR.search(lowered) or any(p in lowered for p in _WHICH_OTHER):
+        return "which"
+    if _NOT_IMPROVED.search(lowered) or any(p in lowered for p in _NOT_IMPROVED_OTHER):
+        return "not_improved"
+    if _WANT_DOCTOR.search(lowered) or any(p in lowered for p in _WANT_OTHER):
+        return "want"
+    return None
+
+
+# ---------------------------------------------------------------------------------------------------
+# the doctors
+# ---------------------------------------------------------------------------------------------------
+
+def _next_free(doctor: dict, get_free_slots, now: datetime) -> str | None:
+    """The soonest free slot (ISO time) of this doctor over the next few days, or None."""
+    for offset in range(DAYS_AHEAD):
+        day = (now.astimezone(IST).date() + timedelta(days=offset)).isoformat()
+        try:
+            slots = get_free_slots(doctor["doctor_id"], day)
+        except Exception as exc:  # noqa: BLE001 - one doctor's lookup failing must not hide the others
+            print(f"[SymptomGuide] slots for {doctor.get('doctor_id')} failed: {exc}")
+            return None
+        upcoming = sorted(
+            (s["slot_start"] for s in slots if datetime.fromisoformat(s["slot_start"]) > now),
+            key=lambda iso: datetime.fromisoformat(iso))
+        if upcoming:
+            return upcoming[0]
+    return None
+
+
+def suggest(specialty: str, city: str | None, find_doctors, get_free_slots, now: datetime | None = None) -> list[dict]:
+    """Up to three doctors of this specialty, the one with the earliest free time first.
+
+    Doctors in the patient's city come first. If that city has none, every city is searched. Each result is the
+    doctor's own record plus "next_slot" (an ISO time, or None when nothing is free in the next few days), and
+    "any_city" is True when the city had none. Doctors with no free time come last.
+    """
+    now = now or datetime.now(IST)
+    in_city = [d for d in (find_doctors(specialty, city) if city else []) if _same_specialty(d, specialty)]
+    doctors, any_city = in_city, False
+    if not doctors:
+        doctors = [d for d in find_doctors(specialty, None) if _same_specialty(d, specialty)]
+        any_city = bool(city)
+    doctors = doctors[:MAX_CANDIDATES]
+    if not doctors:
+        return []
+
+    with ThreadPoolExecutor(max_workers=min(8, len(doctors))) as pool:
+        times = list(pool.map(lambda d: _next_free(d, get_free_slots, now), doctors))
+    ranked = sorted(zip(doctors, times), key=lambda pair: (pair[1] is None, pair[1] or ""))
+    return [{**doctor, "next_slot": slot, "any_city": any_city} for doctor, slot in ranked[:MAX_SUGGESTIONS]]
+
+
+def _same_specialty(doctor: dict, specialty: str) -> bool:
+    return str(doctor.get("specialty") or "").strip().lower() == specialty.lower()

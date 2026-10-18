@@ -173,6 +173,48 @@ TEMPLATES = {
         "hi": "क्षमा करें, मैं अभी आपकी दवाइयाँ नहीं देख सका। कृपया थोड़ी देर बाद फिर कोशिश करें।",
         "kn": "ಕ್ಷಮಿಸಿ, ನಿಮ್ಮ ಔಷಧಗಳನ್ನು ಈಗ ನೋಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
     },
+    # --- Symptoms and doctor suggestions, and "cancel" in the middle of a booking. Kannada/Hindi are first drafts
+    # --- and still need a native-speaker review.
+    "SYMPTOM_URGENT": {
+        "en": "This may need urgent care. Please call 112 or go to the nearest emergency department now.",
+        "hi": "इसमें तुरंत इलाज की ज़रूरत हो सकती है। कृपया अभी 112 पर कॉल करें या नज़दीकी इमरजेंसी विभाग में जाइए।",
+        "kn": "ಇದಕ್ಕೆ ತುರ್ತು ಚಿಕಿತ್ಸೆ ಬೇಕಾಗಬಹುದು. ದಯವಿಟ್ಟು ಈಗಲೇ 112 ಗೆ ಕರೆ ಮಾಡಿ ಅಥವಾ ಹತ್ತಿರದ ತುರ್ತು ವಿಭಾಗಕ್ಕೆ ಹೋಗಿ.",
+    },
+    "DOCTOR_SUGGEST": {
+        "en": "For this, I suggest seeing a {specialty}. Doctors available: {options}. Say the number or the name to book.",
+        "hi": "इसके लिए मैं {specialty} से मिलने की सलाह देता हूँ। उपलब्ध डॉक्टर: {options}। बुक करने के लिए नंबर या नाम बताइए।",
+        "kn": "ಇದಕ್ಕಾಗಿ {specialty} ಅವರನ್ನು ಭೇಟಿ ಮಾಡಲು ನಾನು ಸಲಹೆ ನೀಡುತ್ತೇನೆ. ಲಭ್ಯವಿರುವ ವೈದ್ಯರು: {options}. ಬುಕ್ ಮಾಡಲು ಸಂಖ್ಯೆ ಅಥವಾ ಹೆಸರು ಹೇಳಿ.",
+    },
+    "DOCTOR_SUGGEST_OTHER_CITY": {
+        "en": "I couldn't find a {specialty} in your city, but these doctors are available in other cities: {options}. Say the number or the name to book.",
+        "hi": "आपके शहर में मुझे {specialty} नहीं मिले, लेकिन दूसरे शहरों में ये डॉक्टर उपलब्ध हैं: {options}। बुक करने के लिए नंबर या नाम बताइए।",
+        "kn": "ನಿಮ್ಮ ನಗರದಲ್ಲಿ {specialty} ಸಿಗಲಿಲ್ಲ, ಆದರೆ ಬೇರೆ ನಗರಗಳಲ್ಲಿ ಈ ವೈದ್ಯರು ಲಭ್ಯವಿದ್ದಾರೆ: {options}. ಬುಕ್ ಮಾಡಲು ಸಂಖ್ಯೆ ಅಥವಾ ಹೆಸರು ಹೇಳಿ.",
+    },
+    "DOCTOR_SUGGEST_AGAIN": {
+        "en": "Which of these doctors would you like to book? {options}. You can say the number, or say no thanks.",
+        "hi": "आप इनमें से किस डॉक्टर को बुक करना चाहेंगे? {options}। आप नंबर बता सकते हैं, या मना कर सकते हैं।",
+        "kn": "ಇವರಲ್ಲಿ ಯಾವ ವೈದ್ಯರನ್ನು ಬುಕ್ ಮಾಡಲು ಬಯಸುತ್ತೀರಿ? {options}. ನೀವು ಸಂಖ್ಯೆ ಹೇಳಬಹುದು, ಅಥವಾ ಬೇಡ ಎನ್ನಬಹುದು.",
+    },
+    "SYMPTOM_ASK_PROBLEM": {
+        "en": "Tell me what problem you are having, and I'll suggest the right kind of doctor.",
+        "hi": "बताइए आपको क्या समस्या है, मैं सही प्रकार के डॉक्टर सुझाऊँगा।",
+        "kn": "ನಿಮಗೆ ಯಾವ ತೊಂದರೆ ಇದೆ ಎಂದು ತಿಳಿಸಿ, ನಾನು ಸರಿಯಾದ ರೀತಿಯ ವೈದ್ಯರನ್ನು ಸೂಚಿಸುತ್ತೇನೆ.",
+    },
+    "SYMPTOM_NO_DOCTOR": {
+        "en": "I'm sorry, I couldn't find a {specialty} right now. Please contact the front desk.",
+        "hi": "क्षमा करें, अभी मुझे कोई {specialty} नहीं मिला। कृपया फ्रंट डेस्क से संपर्क करें।",
+        "kn": "ಕ್ಷಮಿಸಿ, ಈಗ ನನಗೆ {specialty} ಸಿಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಫ್ರಂಟ್ ಡೆಸ್ಕ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+    },
+    "SYMPTOM_TIP_SAFE": {
+        "en": "Please rest, drink enough water and eat light food. If it gets severe or does not improve, please see a doctor.",
+        "hi": "कृपया आराम करें, पर्याप्त पानी पिएँ और हल्का खाना खाएँ। अगर यह गंभीर हो जाए या ठीक न हो, तो कृपया डॉक्टर को दिखाइए।",
+        "kn": "ದಯವಿಟ್ಟು ವಿಶ್ರಾಂತಿ ಪಡೆಯಿರಿ, ಸಾಕಷ್ಟು ನೀರು ಕುಡಿಯಿರಿ ಮತ್ತು ಹಗುರವಾದ ಆಹಾರ ಸೇವಿಸಿ. ಇದು ತೀವ್ರವಾದರೆ ಅಥವಾ ಸುಧಾರಿಸದಿದ್ದರೆ ದಯವಿಟ್ಟು ವೈದ್ಯರನ್ನು ಭೇಟಿ ಮಾಡಿ.",
+    },
+    "CANCEL_SCOPE": {
+        "en": "Do you want to stop this booking, or cancel an appointment you already have? Say 1 for this booking, or 2 for the appointment you already have.",
+        "hi": "क्या आप यह बुकिंग रोकना चाहते हैं, या अपनी पहले से बुक अपॉइंटमेंट रद्द करना चाहते हैं? इस बुकिंग के लिए 1 कहें, या पहले से बुक अपॉइंटमेंट के लिए 2 कहें।",
+        "kn": "ನೀವು ಈ ಬುಕಿಂಗ್ ಅನ್ನು ನಿಲ್ಲಿಸಬೇಕೇ, ಅಥವಾ ನಿಮ್ಮಲ್ಲಿ ಈಗಾಗಲೇ ಇರುವ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಅನ್ನು ರದ್ದುಗೊಳಿಸಬೇಕೇ? ಈ ಬುಕಿಂಗ್‌ಗೆ 1 ಹೇಳಿ, ಈಗಾಗಲೇ ಇರುವ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್‌ಗೆ 2 ಹೇಳಿ.",
+    },
     "CANCELLED": {
         "en": "No problem, I've cancelled that booking request. Let me know if you'd like to start over.",
         "hi": "कोई बात नहीं, मैंने वह बुकिंग रद्द कर दी है। यदि आप फिर से शुरू करना चाहें तो बताइए।",
@@ -185,3 +227,8 @@ def render_template(state: str, short_lang: str, **kwargs) -> str:
     """Render a state's template in the given language, filling any {placeholders}."""
     template = TEMPLATES[state].get(short_lang, TEMPLATES[state]["en"])
     return template.format(**kwargs)
+
+
+# Short pieces of wording used inside the doctor suggestions (kept here so they are translated in one place).
+NEXT_FREE = {"en": "next free", "hi": "अगला खाली समय", "kn": "ಮುಂದಿನ ಖಾಲಿ ಸಮಯ"}
+NO_FREE_SOON = {"en": "no free time in the next few days", "hi": "अगले कुछ दिनों में कोई खाली समय नहीं", "kn": "ಮುಂದಿನ ಕೆಲವು ದಿನಗಳಲ್ಲಿ ಖಾಲಿ ಸಮಯವಿಲ್ಲ"}
