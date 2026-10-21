@@ -1,0 +1,11 @@
+Doctor: Good morning. Please sit down. What brings you in today?
+Patient: Good morning doctor. I have had burning in my stomach after meals and a headache for two days.
+Doctor: Okay. Any vomiting or black stools?
+Patient: No vomiting, no black stools. It is only the burning and the headache.
+Doctor: Alright. I will start you on Pantoprazole 40 milligrams. Take one tablet every morning, thirty minutes before breakfast, for five days.
+Patient: Okay doctor. I also take a Vitamin D tablet once a week, from my family doctor.
+Doctor: Yes, you can continue that. For the headache, take Paracetamol 500 milligrams twice a day after food, for three days.
+Doctor: And one Cetirizine 10 milligram tablet at night, before sleeping, for five days.
+Patient: Doctor, Cetirizine makes me very sleepy.
+Doctor: Then don't take the Cetirizine. Take Montelukast 10 milligrams at night instead, for five days.
+Patient: Okay doctor. Thank you.

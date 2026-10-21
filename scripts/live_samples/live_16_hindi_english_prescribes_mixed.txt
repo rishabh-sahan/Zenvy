@@ -1,0 +1,12 @@
+Doctor: नमस्ते। बताइए, आज क्या problem है?
+    (Hello. Tell me, what is the problem today?)
+Patient: डॉक्टर, मुझे तीन दिन से बहुत खांसी है और रात को सो नहीं पाता।
+    (Doctor, I have had a lot of cough for three days and cannot sleep at night.)
+Doctor: ठीक है। मैं आपको Azithromycin 500 mg लिख रहा हूँ, one tablet every morning after food, three days के लिए।
+    (Okay. I am prescribing Azithromycin 500 mg, one tablet every morning after food, for three days.)
+Doctor: और खांसी के लिए Levocetirizine 5 mg रात को सोने से पहले, five days तक।
+    (And for the cough Levocetirizine 5 mg at night before sleeping, for five days.)
+Patient: ठीक है doctor, क्या मुझे कोई syrup भी लेना है?
+    (Okay doctor, do I need any syrup also?)
+Doctor: नहीं, syrup की जरूरत नहीं है। गरम पानी पीजिए।
+    (No, no syrup is needed. Drink warm water.)

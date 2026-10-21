@@ -1,0 +1,18 @@
+Doctor: ನಮಸ್ಕಾರ. ದಯವಿಟ್ಟು ಕುಳಿತುಕೊಳ್ಳಿ. ಇಂದು ಏನು ತೊಂದರೆ?
+    (Hello. Please sit down. What is the trouble today?)
+Patient: ನಮಸ್ಕಾರ ಡಾಕ್ಟರ್. ನನಗೆ ಎರಡು ದಿನಗಳಿಂದ ಊಟದ ನಂತರ ಹೊಟ್ಟೆಯಲ್ಲಿ ಉರಿ ಮತ್ತು ತಲೆನೋವು ಇದೆ.
+    (Hello doctor. For two days I have had burning in the stomach after meals and a headache.)
+Doctor: ವಾಂತಿ ಅಥವಾ ಕಪ್ಪು ಮಲ ಇದೆಯೇ?
+    (Any vomiting or black stools?)
+Patient: ಇಲ್ಲ ಡಾಕ್ಟರ್. ಉರಿ ಮತ್ತು ತಲೆನೋವು ಮಾತ್ರ.
+    (No doctor. Only the burning and the headache.)
+Doctor: ಸರಿ. ನಾನು ನಿಮಗೆ ಪ್ಯಾಂಟೊಪ್ರಜೋಲ್ ನಲವತ್ತು ಮಿಲಿಗ್ರಾಂ ಮಾತ್ರೆ ಕೊಡುತ್ತೇನೆ. ಪ್ರತಿದಿನ ಬೆಳಿಗ್ಗೆ ತಿಂಡಿಗೆ ಮೊದಲು ಒಂದು ಮಾತ್ರೆ, ಐದು ದಿನ ತೆಗೆದುಕೊಳ್ಳಿ.
+    (Okay. I will give you Pantoprazole 40 milligram tablets. One tablet every morning before breakfast, for five days.)
+Patient: ಸರಿ ಡಾಕ್ಟರ್. ನಾನು ವಾರಕ್ಕೊಮ್ಮೆ ವಿಟಮಿನ್ ಡಿ ಮಾತ್ರೆ ತೆಗೆದುಕೊಳ್ಳುತ್ತೇನೆ.
+    (Okay doctor. I take a Vitamin D tablet once a week.)
+Doctor: ಅದನ್ನು ಮುಂದುವರಿಸಿ. ತಲೆನೋವಿಗೆ ಪ್ಯಾರಾಸಿಟಮಾಲ್ ಐದು ನೂರು ಮಿಲಿಗ್ರಾಂ, ದಿನಕ್ಕೆ ಎರಡು ಬಾರಿ, ಊಟದ ನಂತರ, ಮೂರು ದಿನ ತೆಗೆದುಕೊಳ್ಳಿ.
+    (Continue that. For the headache take Paracetamol 500 milligrams, twice a day after food, for three days.)
+Doctor: ಮತ್ತು ರಾತ್ರಿ ಮಲಗುವ ಮೊದಲು ಸೆಟಿರಿಜಿನ್ ಹತ್ತು ಮಿಲಿಗ್ರಾಂ ಒಂದು ಮಾತ್ರೆ, ಐದು ದಿನ.
+    (And one Cetirizine 10 milligram tablet at night before sleeping, for five days.)
+Patient: ಸರಿ ಡಾಕ್ಟರ್, ಧನ್ಯವಾದಗಳು.
+    (Okay doctor, thank you.)

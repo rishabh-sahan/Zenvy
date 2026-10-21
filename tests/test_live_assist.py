@@ -18,6 +18,14 @@ from services.scribe import audio, live, summarize, transcribe
 from services.scribe.team_c import TeamCError
 from tests.test_scribe import quiet, tone, wav_of
 
+
+@pytest.fixture(autouse=True)
+def no_real_model_for_medicines(monkeypatch):
+    """The medicine reading also uses the language model; these tests never call the real one."""
+    def down(messages):
+        raise summarize.SummaryError("summary_failed", "no model in tests")
+    monkeypatch.setattr(summarize, "call_chat", down)
+
 # ---------------------------------------------------------------------------
 # what the doctor must never be shown
 # ---------------------------------------------------------------------------
@@ -551,9 +559,9 @@ def test_ending_forgets_the_conversation_but_not_the_cards(api, monkeypatch):
     monkeypatch.setattr(live, "run_engine", lambda *a, **k: [])
     FakeTeamC.cards = [{"suggestion_id": "s1", "seq": 1, "kind": "ask", "text": "t", "status": "shown", "source": "model"}]
     post_chunk()
-    assert client.post("/doctor/api/consultations/c1/live/end", headers=AUTH).json() == {"ended": True}
+    assert client.post("/doctor/api/consultations/c1/live/end", headers=AUTH).json() == {"ended": True, "medicines": []}
     assert live.get_session("c1") is None
-    assert client.post("/doctor/api/consultations/c1/live/end", headers=AUTH).json() == {"ended": False}
+    assert client.post("/doctor/api/consultations/c1/live/end", headers=AUTH).json() == {"ended": False, "medicines": []}
     assert client.get("/doctor/api/consultations/c1/live", headers=AUTH).json()["suggestions"] == FakeTeamC.cards
 
 

@@ -164,6 +164,7 @@ textarea[readonly] { opacity: .8; }
 .rx-row .small-in { width: 110px; }
 .rx-row label.check { display: inline-flex; margin: 0; gap: 6px; align-items: center; color: var(--text); }
 .rx-row .verify { color: var(--amber); font-size: 11px; font-weight: 600; }
+.rx-row .tick-label { color: var(--muted); font-size: 12px; }
 .rx-list { list-style: none; padding: 0; margin: 8px 0; }
 .rx-list li { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .rx-list .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
@@ -318,6 +319,8 @@ let liveConfig = null;    // {enabled, chunk_seconds, visible_cards} from the ga
 let live = { state: "idle", error: null, languages: [], turns: [], cards: [], paused: false };
 let liveCapture = null;   // the live audio capture while recording
 let livePollTimer = null;
+let rxApplying = Promise.resolve();   // medicines heard in the visit are applied one batch at a time
+let rxRenderPending = false;          // the prescription card is redrawn once the doctor leaves the field they are typing in
 
 const FAILURES = {
   no_speech: "No speech could be heard in the recording. Please record again.",
@@ -960,6 +963,7 @@ async function loadLive() {
     live.languages = state.languages || [];
     live.turns = state.turns || [];
     live.cards = state.suggestions || [];
+    applyHeardMedicines(state.medicines);
   } catch (e) { /* the panel is a convenience; the recording never depends on it */ }
 }
 
@@ -1108,7 +1112,11 @@ async function stopLiveCapture(discard) {
       await new Promise(resolve => setTimeout(resolve, 200));
     }
   }
-  try { await api("POST", "consultations/" + capture.consultationId + "/live/end", {}); } catch (e) {}
+  let ended = null;
+  try { ended = await api("POST", "consultations/" + capture.consultationId + "/live/end", {}); } catch (e) {}
+  if (ended && consultation && consultation.consultation_id === capture.consultationId) {
+    await applyHeardMedicines(ended.medicines);
+  }
   if (consultation && consultation.consultation_id === capture.consultationId) {
     await loadLive();
     live.state = "idle";
@@ -1120,6 +1128,7 @@ async function stopLiveCapture(discard) {
 async function pollLive() {
   await loadLive();
   renderLivePanel();
+  if (rxRenderPending) redrawPrescriptionCard(false);
 }
 
 async function toggleLivePause() {
@@ -1279,6 +1288,131 @@ function blankRow() {
   return rowFromItem({ food: "any" });
 }
 
+/* ---- medicines heard during the visit (Live Assist) ---- */
+
+const SLOT_CLOCK = { morning: "09:00", noon: "14:00", night: "21:00" };      // same times as the server
+const SLOT_TEXT = { morning: "Morning", noon: "Noon", night: "Night" };
+const heardMemory = {};
+
+function rowTimes(row) {
+  return String(row.times_text || "").split(",").map(t => t.trim()).filter(Boolean);
+}
+
+function toggleSlot(row, slot, on) {
+  const times = new Set(rowTimes(row));
+  if (on) times.add(SLOT_CLOCK[slot]); else times.delete(SLOT_CLOCK[slot]);
+  row.times_text = Array.from(times).sort().join(", ");
+  row.touched = true;
+  rxDirty = true;
+  redrawPrescriptionCard(true);
+}
+
+function notSaidHint(row) {
+  if (!row.from_transcript || row.as_needed) return null;
+  const missing = [];
+  if (!rowTimes(row).length) missing.push("when to take it");
+  if (!String(row.duration_days).trim()) missing.push("days");
+  return missing.length ? el("span", { class: "verify" }, "Not said: " + missing.join(", ")) : null;
+}
+
+function heardKey(name) {
+  const text = String(name || "").toLowerCase();
+  return text.replace(/\b(?:tablets?|tabs?|capsules?|caps?|syrups?|injections?|ointments?|creams?|drops?)\b/g, " ").replace(/[^a-z]/g, "")
+    || text.replace(/[^a-z0-9]/g, "");
+}
+
+function heardState(id) {
+  if (!heardMemory[id]) {
+    let saved = null;
+    try { saved = JSON.parse(sessionStorage.getItem("zenvy_heard:" + id) || "null"); } catch (e) { saved = null; }
+    heardMemory[id] = saved && typeof saved === "object" ? saved : { epoch: "", rev: 0 };
+  }
+  return heardMemory[id];
+}
+
+function rememberHeard(id) {
+  try { sessionStorage.setItem("zenvy_heard:" + id, JSON.stringify(heardMemory[id])); } catch (e) {}
+}
+
+function rowFromHeard(med) {
+  const row = rowFromItem({
+    drug_name: med.drug_name, strength: med.strength, form: med.form, dose_text: med.dose_text,
+    frequency_text: med.frequency_text, dose_times: med.dose_times, food: med.food, duration_days: med.duration_days,
+    as_needed: med.as_needed, instructions: med.instructions, from_transcript: true
+  });
+  row.live = true;          // heard in the visit; stays true until the doctor changes the row
+  row.touched = false;
+  return row;
+}
+
+function redrawPrescriptionCard(force) {
+  const old = document.getElementById("rxSection");
+  if (!old) { rxRenderPending = false; return; }
+  const field = document.activeElement;
+  if (!force && field && old.contains(field) && field.matches("input, select, textarea")) { rxRenderPending = true; return; }
+  rxRenderPending = false;
+  old.replaceWith(prescriptionSection());
+}
+
+function applyHeardMedicines(meds) {
+  rxApplying = rxApplying.then(() => applyHeardNow(meds)).catch(() => {});
+  return rxApplying;
+}
+
+// New medicines go in as NEW rows; a row the doctor typed or changed is never touched; nothing is signed.
+async function applyHeardNow(meds) {
+  if (!consultation || !Array.isArray(meds) || !meds.length) return;
+  const id = consultation.consultation_id;
+  const memory = heardState(id);
+  if (meds[0].epoch !== memory.epoch) { memory.epoch = meds[0].epoch; memory.rev = 0; }   // a new live session
+  const fresh = meds.filter(m => m.rev > memory.rev);
+  if (!fresh.length) return;
+  memory.rev = Math.max(...fresh.map(m => m.rev));
+  rememberHeard(id);
+
+  const wasDirty = rxDirty;
+  let rows = rxRows;
+  if (rows === null) {
+    const base = rx && rx.current;
+    rows = base ? base.items.map(rowFromItem) : [];        // a signed version is the starting point of the next draft
+  }
+  const added = [];
+  let changed = false;
+  for (const med of fresh) {
+    const at = rows.findIndex(r => heardKey(r.drug_name) === med.key);
+    if (med.removed) {
+      if (at >= 0 && rows[at].live && !rows[at].touched) { rows.splice(at, 1); changed = true; }
+      continue;
+    }
+    if (at === -1) { rows.push(rowFromHeard(med)); added.push(med.drug_name); changed = true; }
+    else if (rows[at].live && !rows[at].touched) { rows[at] = rowFromHeard(med); changed = true; }
+  }
+  if (!changed) return;
+
+  rxRows = rows;
+  if (!wasDirty && rows.every(r => r.drug_name.trim())) {
+    const flags = rows.map(r => ({ live: !!r.live, touched: !!r.touched }));
+    try {
+      await api("PUT", "consultations/" + id + "/prescription", { items: rows.map(itemFromRow), source: "transcript" });
+      const state = await api("GET", "consultations/" + id + "/prescription");
+      if (consultation && consultation.consultation_id === id) {
+        rx = state;
+        if (!rxDirty && state.current) {
+          rxRows = state.current.items.map((item, i) => Object.assign(rowFromItem(item), flags[i] || {}));
+        }
+      }
+    } catch (e) {
+      rxDirty = true;           // not saved yet: the Save button is there
+    }
+  } else {
+    rxDirty = true;
+  }
+  if (consultation && consultation.consultation_id === id) {
+    redrawPrescriptionCard(false);
+    if (added.length) toast("Heard in the visit: " + added.join(", ") + " - added to the prescription. Please verify.");
+  }
+}
+
 function startEditingRx() {
   const current = rx && rx.current;
   rxRows = current ? current.items.map(rowFromItem) : [];
@@ -1312,7 +1446,7 @@ function refreshRxButtons() {
 function rxInput(row, key, props) {
   return el("input", {
     type: "text", value: row[key], ...props,
-    oninput: (event) => { row[key] = event.target.value; rxDirty = true; refreshRxButtons(); }
+    oninput: (event) => { row[key] = event.target.value; row.touched = true; rxDirty = true; refreshRxButtons(); }
   });
 }
 
@@ -1322,23 +1456,32 @@ function rxRowEditor(row, index) {
       rxInput(row, "drug_name", { class: "grow", placeholder: "Medicine name", "aria-label": "Medicine name" }),
       rxInput(row, "strength", { class: "small-in", placeholder: "500 mg", "aria-label": "Strength" }),
       rxInput(row, "dose_text", { class: "small-in", placeholder: "1 tablet", "aria-label": "Dose" }),
-      row.from_transcript ? el("span", { class: "verify" }, "from recording - please verify") : null),
+      row.from_transcript ? el("span", { class: "verify" }, row.live ? "heard in the conversation - please verify" : "from recording - please verify") : null),
     el("div", { class: "line" },
       rxInput(row, "frequency_text", { class: "small-in", placeholder: "1-0-1", "aria-label": "How often" }),
       rxInput(row, "times_text", { class: "grow", placeholder: "Times, e.g. 08:00, 21:00", "aria-label": "Dose times", disabled: row.as_needed }),
       el("select", {
         "aria-label": "Food",
-        onchange: (event) => { row.food = event.target.value; rxDirty = true; refreshRxButtons(); }
+        onchange: (event) => { row.food = event.target.value; row.touched = true; rxDirty = true; refreshRxButtons(); }
       }, Object.entries(FOOD_TEXT).map(([value, label]) => el("option", { value, selected: row.food === value }, label))),
       el("input", {
         type: "number", min: "1", max: "90", class: "small-in", placeholder: "Days", "aria-label": "Number of days", value: row.duration_days,
-        oninput: (event) => { row.duration_days = event.target.value; rxDirty = true; refreshRxButtons(); }
+        oninput: (event) => { row.duration_days = event.target.value; row.touched = true; rxDirty = true; refreshRxButtons(); }
       })),
+    el("div", { class: "line ticks" },
+      el("span", { class: "tick-label" }, "When to take:"),
+      ...Object.keys(SLOT_CLOCK).map(slot => el("label", { class: "check" },
+        el("input", {
+          type: "checkbox", checked: rowTimes(row).includes(SLOT_CLOCK[slot]), disabled: row.as_needed,
+          "aria-label": SLOT_TEXT[slot],
+          onchange: (event) => toggleSlot(row, slot, event.target.checked)
+        }), SLOT_TEXT[slot])),
+      notSaidHint(row)),
     el("div", { class: "line" },
       el("label", { class: "check" },
         el("input", {
           type: "checkbox", checked: row.as_needed,
-          onchange: (event) => { row.as_needed = event.target.checked; rxDirty = true; renderWorkspace(); }
+          onchange: (event) => { row.as_needed = event.target.checked; row.touched = true; rxDirty = true; renderWorkspace(); }
         }), "Only when needed"),
       rxInput(row, "instructions", { class: "grow", placeholder: "Instructions (optional)", "aria-label": "Instructions" }),
       el("button", {
@@ -1398,6 +1541,12 @@ async function carryForwardRx() {
 }
 
 function prescriptionSection() {
+  const node = buildPrescriptionSection();
+  node.id = "rxSection";
+  return node;
+}
+
+function buildPrescriptionSection() {
   const state = rx || { current: null, signed: null, can_carry_forward: false };
   const current = state.current;
   const signed = state.signed;
@@ -1423,7 +1572,8 @@ function prescriptionSection() {
     if (!editingNow) { rxRows = current.items.map(rowFromItem); rxDirty = false; }
     const fromAi = current && current.source === "transcript" && !rxDirty;
     kids.push(el("div", { class: "banner warn" },
-      (fromAi ? "Drafted from the recording - please check every line. " : "Draft - not final. ") +
+      (fromAi ? (rxRows.some(r => r.live) ? "Filled in from what was said in the visit - please check every line. "
+                                          : "Drafted from the recording - please check every line. ") : "Draft - not final. ") +
       "Nothing is sent to the patient until you sign." +
       (signed ? " Version " + signed.version + " stays in force until you sign this one." : "")));
     kids.push(...rxRows.map(rxRowEditor));

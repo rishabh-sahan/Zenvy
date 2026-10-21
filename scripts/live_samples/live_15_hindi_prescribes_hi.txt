@@ -1,0 +1,18 @@
+Doctor: नमस्ते। कृपया बैठिए। आज क्या तकलीफ है?
+    (Hello. Please sit. What is the trouble today?)
+Patient: नमस्ते डॉक्टर। मुझे दो दिन से खाने के बाद पेट में जलन और सिरदर्द है।
+    (Hello doctor. For two days I have had burning in the stomach after eating and a headache.)
+Doctor: उल्टी या काला मल तो नहीं आ रहा?
+    (No vomiting or black stools?)
+Patient: नहीं डॉक्टर। बस जलन और सिरदर्द है।
+    (No doctor. Only the burning and the headache.)
+Doctor: ठीक है। मैं आपको पैंटोप्राज़ोल चालीस मिलीग्राम लिख रहा हूँ। रोज़ सुबह नाश्ते से पहले एक गोली, पाँच दिन तक लीजिए।
+    (Okay. I am prescribing Pantoprazole 40 milligrams. One tablet every morning before breakfast, for five days.)
+Patient: जी डॉक्टर। मैं हफ़्ते में एक बार विटामिन डी की गोली भी लेता हूँ।
+    (Yes doctor. I also take a Vitamin D tablet once a week.)
+Doctor: उसे जारी रखिए। सिरदर्द के लिए पैरासिटामोल पाँच सौ मिलीग्राम, दिन में दो बार, खाने के बाद, तीन दिन तक।
+    (Continue that. For the headache, Paracetamol 500 milligrams, twice a day after food, for three days.)
+Doctor: और रात को सोने से पहले सेटिरिज़िन दस मिलीग्राम की एक गोली, पाँच दिन।
+    (And one Cetirizine 10 milligram tablet at night before sleeping, for five days.)
+Patient: ठीक है डॉक्टर, धन्यवाद।
+    (Okay doctor, thank you.)

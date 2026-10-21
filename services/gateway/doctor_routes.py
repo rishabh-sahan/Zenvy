@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from services.agents import doctor_agent
-from services.scribe import audio, live, medication, pipeline, transcribe
+from services.scribe import audio, live, live_medicines, medication, pipeline, transcribe
 from services.scribe.team_c import TEAM_C_BASE_URL, TeamC, TeamCError
 
 router = APIRouter()
@@ -289,7 +289,8 @@ async def live_state(consultation_id: str, request: Request):
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     session = live.get_session(consultation_id)
     state = live.snapshot(session) if session else {
-        "state": "idle", "error": None, "languages": [], "chunks": 0, "seconds": 0.0, "turns": [], "turn_count": 0}
+        "state": "idle", "error": None, "languages": [], "chunks": 0, "seconds": 0.0, "turns": [], "turn_count": 0,
+        "medicines": []}
     return {"enabled": True, "visible_cards": live.MAX_CARDS_VISIBLE, **state, "suggestions": cards}
 
 
@@ -309,14 +310,23 @@ async def live_pause(consultation_id: str, payload: PauseIn, request: Request):
 
 @router.post("/doctor/api/consultations/{consultation_id}/live/end")
 async def live_end(consultation_id: str, request: Request):
-    """Recording stopped: forget the in-memory conversation. The cards stay for the doctor to review."""
+    """Recording stopped: forget the in-memory conversation. The cards stay for the doctor to review.
+
+    The last words are read for medicines one final time first, and the medicines are returned here because the
+    conversation is forgotten right after (the page has already copied the earlier ones into the prescription draft).
+    """
     _live_disabled()
     token = _bearer(request)
     try:
         await run_in_threadpool(TeamC(token).list_live_suggestions, consultation_id)
     except TeamCError as exc:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-    return {"ended": live.close_session(consultation_id)}
+    session = live.get_session(consultation_id)
+    medicines: list[dict] = []
+    if session is not None:
+        await run_in_threadpool(live_medicines.update, session)
+        medicines = live_medicines.public(session)
+    return {"ended": live.close_session(consultation_id), "medicines": medicines}
 
 
 @router.post("/doctor/api/consultations/{consultation_id}/prescription/draft")

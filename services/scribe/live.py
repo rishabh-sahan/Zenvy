@@ -11,10 +11,11 @@ reports it and carries on with the next piece.
 import os
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 
 from services.agents import live_assist
-from services.scribe import audio, summarize, transcribe
+from services.scribe import audio, live_medicines, summarize, transcribe
 
 CHUNK_SECONDS = 6                    # how much audio the browser sends at once
 ENGINE_MIN_INTERVAL_SECONDS = 12     # at most one suggestion run per this many seconds
@@ -44,6 +45,10 @@ class LiveSession:
     fired_rules: set[str] = field(default_factory=set)
     token: str | None = None            # the doctor's token, kept in memory only, to store cards
     language_words: dict = field(default_factory=dict)   # words heard per language ("kn", "hi", "en"...): counts only, never text
+    medicines: dict = field(default_factory=dict)        # what the doctor prescribed so far, by key (see live_medicines)
+    med_epoch: str = field(default_factory=lambda: uuid.uuid4().hex[:8])   # tells the page this is a new session (revisions restart)
+    med_rev: int = 0                                     # bumped each time that list changes, so the page can ask for news only
+    med_checked: int = 0                                 # how much of the conversation the last medicine reading covered
     trailing_silence: float = 0.0
     words_since_run: int = 0
     last_run: float = 0.0
@@ -56,6 +61,7 @@ class LiveSession:
     created: float = field(default_factory=time.monotonic)
     last_seen: float = field(default_factory=time.monotonic)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    med_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)    # one medicine reading at a time
 
 
 _sessions: dict[str, LiveSession] = {}
@@ -269,6 +275,7 @@ def run_engine(session: LiveSession, store_cards, chat=None) -> list[dict]:
                 session.shown_texts.extend(c["text"] for c in cards)
         with session.lock:
             session.error = model_error and "suggestions_unavailable"
+        live_medicines.update(session, chat=chat)         # never raises; a failed reading never pauses Live Assist
     except Exception as exc:  # noqa: BLE001 - a live helper must never take anything else down
         print(f"[LiveAssist] {session.consultation_id}: engine error {exc!r}")
         with session.lock:
@@ -303,4 +310,5 @@ def snapshot(session: LiveSession) -> dict:
             "seconds": round(session.seconds, 1),
             "turns": [dict(t) for t in session.turns[-TRANSCRIPT_TAIL_TURNS:]],
             "turn_count": len(session.turns),
+            "medicines": live_medicines.public_unlocked(session),
         }
